@@ -394,7 +394,7 @@ pub fn set<T>(reg: u16, value: T, reg_context: &mut [T; CONTEXT_SIZE]) -> Result
 
 /// Get two 16-bit registers as u32
 ///
-/// Returns big-endian 32-bit value
+/// Returns 32-bit value (big-endian)
 pub fn get_u32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error> {
     let w1 = match get(reg, reg_context) {
         Ok(v) => v,
@@ -409,7 +409,7 @@ pub fn get_u32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error
 
 /// Set two 16-bit registers from u32
 ///
-/// Uses big-endian 32-bit value to set two registers
+/// Uses 32-bit value to set two registers (big-endian)
 pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
     let mut data: Vec<u16> = Vec::new();
     data.push((value >> 16) as u16);
@@ -419,7 +419,7 @@ pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> R
 
 /// Set multiple 16-bit registers from Vec<u32>
 ///
-/// Uses big-endian 32-bit values to set the registers
+/// Uses Vec of 32-bit values to set the registers (big-endian)
 pub fn set_u32_bulk(
     reg: u16,
     values: &Vec<u32>,
