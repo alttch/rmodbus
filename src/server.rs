@@ -35,7 +35,7 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 
 /// Process Modbus frame
 ///
-/// Example:
+/// Simple example of Modbus/UDP blocking server:
 ///
 /// ```
 ///
@@ -62,10 +62,13 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///}
 /// ```
 ///
+/// There are also [examples of TCP and
+/// RTU](https://github.com/alttch/rmodbus/tree/master/examples/example-server/src)
+///
 /// The function returns None in cases:
 ///
 /// * **incorrect frame header**: the frame header is absolutely incorrect and there's no way to
-///     form a valid Modbus error reply.
+///     form a valid Modbus error reply
 ///
 /// * **not my frame**: the specified unit id doesn't match unit id in Modbus frame
 ///
