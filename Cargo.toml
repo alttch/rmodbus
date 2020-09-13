@@ -6,6 +6,7 @@ edition = "2018"
 license = "Apache License 2.0"
 repository = "https://github.com/alttch/rmodbus"
 homepage = "https://github.com/alttch/rmodbus"
+description = "Native Rust Modbus framework"
 
 [dependencies]
 lazy_static = "1.4.0"
