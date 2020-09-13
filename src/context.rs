@@ -113,7 +113,7 @@ pub fn dump_locked(context: &MutexGuard<ModbusContext>) -> Vec<u8> {
     return data;
 }
 
-/// Restore full Modbus context to external binary file
+/// Restore full Modbus context from Vec<u8>
 pub fn restore(data: &Vec<u8>) -> Result<(), Error> {
     let mut ctx = CONTEXT.lock().unwrap();
     return restore_locked(data, &mut ctx);
