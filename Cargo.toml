@@ -3,6 +3,9 @@ name = "rmodbus"
 version = "0.1.0"
 authors = ["Sergei S. <div@altertech.com>"]
 edition = "2018"
+license = "Apache License 2.0"
+repository = "https://github.com/alttch/rmodbus"
+homepage = "https://github.com/alttch/rmodbus"
 
 [dependencies]
 lazy_static = "1.4.0"
