@@ -30,6 +30,10 @@ lazy_static! {
     pub static ref CONTEXT: Mutex<ModbusContext> = Mutex::new(ModbusContext::new());
 }
 
+//
+// helpers
+//
+
 pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
     let ctx = CONTEXT.lock().unwrap();
     f(&ctx);
@@ -39,6 +43,10 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
     let mut ctx = CONTEXT.lock().unwrap();
     f(&mut ctx);
 }
+
+//
+// import / export
+//
 
 pub fn save(fname: &str) -> Result<(), std::io::Error> {
     let ctx = CONTEXT.lock().unwrap();
@@ -149,6 +157,10 @@ pub fn load_locked(
     return Ok(());
 }
 
+//
+// clear
+//
+
 pub fn clear_coils() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -191,6 +203,10 @@ pub fn clear() {
         }
     });
 }
+
+//
+// get / set with context
+//
 
 pub fn get_regs_as_u8(
     reg: u16,
@@ -391,142 +407,158 @@ pub fn set_f32_bulk(
     return set_u32_bulk(reg, &data, context);
 }
 
-pub fn get_coils(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
+//
+// coils functions
+//
+
+pub fn coil_get_bulk(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_bulk(reg, count, &context.coils);
 }
 
-pub fn set_coils(reg: u16, coils: &Vec<bool>) -> Result<(), Error> {
+pub fn coil_set_bulk(reg: u16, coils: &Vec<bool>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_bulk(reg, coils, &mut context.coils);
 }
 
-pub fn get_coil(reg: u16) -> Result<bool, Error> {
+pub fn coil_get(reg: u16) -> Result<bool, Error> {
     let context = CONTEXT.lock().unwrap();
     return get(reg, &context.coils);
 }
 
-pub fn set_coil(reg: u16, value: bool) -> Result<(), Error> {
+pub fn coil_set(reg: u16, value: bool) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set(reg, value, &mut context.coils);
 }
 
-pub fn get_discretes(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
+//
+// discretes functions
+//
+
+pub fn discrete_get_bulk(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_bulk(reg, count, &context.discretes);
 }
 
-pub fn set_discretes(reg: u16, discretes: &Vec<bool>) -> Result<(), Error> {
+pub fn discrete_set_bulk(reg: u16, discretes: &Vec<bool>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_bulk(reg, discretes, &mut context.discretes);
 }
 
-pub fn get_discrete(reg: u16) -> Result<bool, Error> {
+pub fn discrete_get(reg: u16) -> Result<bool, Error> {
     let context = CONTEXT.lock().unwrap();
     return get(reg, &context.discretes);
 }
 
-pub fn set_discrete(reg: u16, value: bool) -> Result<(), Error> {
+pub fn discrete_set(reg: u16, value: bool) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set(reg, value, &mut context.discretes);
 }
 
-pub fn get_holdings(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
+//
+// holdings functions
+//
+
+pub fn holding_get_bulk(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_bulk(reg, count, &context.holdings);
 }
 
-pub fn get_holding(reg: u16) -> Result<u16, Error> {
+pub fn holding_get(reg: u16) -> Result<u16, Error> {
     let context = CONTEXT.lock().unwrap();
     return get(reg, &context.holdings);
 }
 
-pub fn get_holding_u32(reg: u16) -> Result<u32, Error> {
+pub fn holding_get_u32(reg: u16) -> Result<u32, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_u32(reg, &context.holdings);
 }
 
-pub fn get_holding_f32(reg: u16) -> Result<f32, Error> {
+pub fn holding_get_f32(reg: u16) -> Result<f32, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_f32(reg, &context.holdings);
 }
 
-pub fn set_holdings(reg: u16, holdings: &Vec<u16>) -> Result<(), Error> {
+pub fn holding_set_bulk(reg: u16, holdings: &Vec<u16>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_bulk(reg, &holdings, &mut context.holdings);
 }
 
-pub fn set_holding(reg: u16, value: u16) -> Result<(), Error> {
+pub fn holding_set(reg: u16, value: u16) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set(reg, value, &mut context.holdings);
 }
 
-pub fn set_holdings_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
+pub fn holding_set_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_u32_bulk(reg, values, &mut context.holdings);
 }
 
-pub fn set_holding_u32(reg: u16, value: u32) -> Result<(), Error> {
+pub fn holding_set_u32(reg: u16, value: u32) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_u32(reg, value, &mut context.holdings);
 }
 
-pub fn set_holdings_f32_bulk(reg: u16, values: &Vec<f32>) -> Result<(), Error> {
+pub fn holding_set_f32_bulk(reg: u16, values: &Vec<f32>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_f32_bulk(reg, values, &mut context.holdings);
 }
 
-pub fn set_holding_f32(reg: u16, value: f32) -> Result<(), Error> {
+pub fn holding_set_f32(reg: u16, value: f32) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_f32(reg, value, &mut context.holdings);
 }
 
-pub fn get_inputs(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
+pub fn input_get_bulk(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_bulk(reg, count, &context.inputs);
 }
 
-pub fn get_input(reg: u16) -> Result<u16, Error> {
+//
+// input functions
+//
+
+pub fn input_get(reg: u16) -> Result<u16, Error> {
     let context = CONTEXT.lock().unwrap();
     return get(reg, &context.inputs);
 }
 
-pub fn get_input_u32(reg: u16) -> Result<u32, Error> {
+pub fn input_get_u32(reg: u16) -> Result<u32, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_u32(reg, &context.inputs);
 }
 
-pub fn get_input_f32(reg: u16) -> Result<f32, Error> {
+pub fn input_get_f32(reg: u16) -> Result<f32, Error> {
     let context = CONTEXT.lock().unwrap();
     return get_f32(reg, &context.inputs);
 }
 
-pub fn set_inputs(reg: u16, inputs: &Vec<u16>) -> Result<(), Error> {
+pub fn input_set_bulk(reg: u16, inputs: &Vec<u16>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_bulk(reg, inputs, &mut context.inputs);
 }
 
-pub fn set_input(reg: u16, value: u16) -> Result<(), Error> {
+pub fn input_set(reg: u16, value: u16) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set(reg, value, &mut context.inputs);
 }
 
-pub fn set_inputs_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
+pub fn input_set_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_u32_bulk(reg, values, &mut context.inputs);
 }
 
-pub fn set_input_u32(reg: u16, value: u32) -> Result<(), Error> {
+pub fn input_set_u32(reg: u16, value: u32) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_u32(reg, value, &mut context.inputs);
 }
 
-pub fn set_inputs_f32_bulk(reg: u16, values: &Vec<f32>) -> Result<(), Error> {
+pub fn input_set_f32_bulk(reg: u16, values: &Vec<f32>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_f32_bulk(reg, values, &mut context.inputs);
 }
 
-pub fn set_input_f32(reg: u16, value: f32) -> Result<(), Error> {
+pub fn input_set_f32(reg: u16, value: f32) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
     return set_f32(reg, value, &mut context.inputs);
 }
@@ -536,195 +568,195 @@ mod tests {
     use super::*;
     #[test]
     fn test_read_coils_as_bytes_oob() {
-        match get_coils(0, CONTEXT_SIZE as u16 + 1) {
+        match coil_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match get_coils(CONTEXT_SIZE as u16, 1) {
+        match coil_get_bulk(CONTEXT_SIZE as u16, 1) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_coils((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match get_coils(CONTEXT_SIZE as u16 - 1, 2) {
+        coil_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
+        match coil_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_coil((CONTEXT_SIZE - 1) as u16).unwrap();
-        match get_coil(CONTEXT_SIZE as u16) {
+        coil_get((CONTEXT_SIZE - 1) as u16).unwrap();
+        match coil_get(CONTEXT_SIZE as u16) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
-        set_coil((CONTEXT_SIZE - 1) as u16, true).unwrap();
-        match set_coil(CONTEXT_SIZE as u16, true) {
+        coil_set((CONTEXT_SIZE - 1) as u16, true).unwrap();
+        match coil_set(CONTEXT_SIZE as u16, true) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
     }
 
     #[test]
-    fn test_get_set_coils() {
-        set_coils(5, &(vec![true; 2])).unwrap();
-        assert_eq!(get_coils(5, 2).unwrap()[0..2], [true; 2]);
-        set_coils(25, &(vec![true; 18])).unwrap();
-        assert_eq!(get_coils(25, 18).unwrap()[0..18], [true; 18]);
-        set_coil(28, true).unwrap();
-        assert_eq!(get_coil(28).unwrap(), true);
-        set_coil(28, false).unwrap();
-        assert_eq!(get_coil(28).unwrap(), false);
+    fn test_coil_get_set_bulk() {
+        coil_set_bulk(5, &(vec![true; 2])).unwrap();
+        assert_eq!(coil_get_bulk(5, 2).unwrap()[0..2], [true; 2]);
+        coil_set_bulk(25, &(vec![true; 18])).unwrap();
+        assert_eq!(coil_get_bulk(25, 18).unwrap()[0..18], [true; 18]);
+        coil_set(28, true).unwrap();
+        assert_eq!(coil_get(28).unwrap(), true);
+        coil_set(28, false).unwrap();
+        assert_eq!(coil_get(28).unwrap(), false);
     }
 
     #[test]
     fn test_read_discretes_as_bytes_oob() {
-        match get_discretes(0, CONTEXT_SIZE as u16 + 1) {
+        match discrete_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match get_discretes(CONTEXT_SIZE as u16, 1) {
+        match discrete_get_bulk(CONTEXT_SIZE as u16, 1) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_discretes((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match get_discretes(CONTEXT_SIZE as u16 - 1, 2) {
+        discrete_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
+        match discrete_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_discrete((CONTEXT_SIZE - 1) as u16).unwrap();
-        match get_discrete(CONTEXT_SIZE as u16) {
+        discrete_get((CONTEXT_SIZE - 1) as u16).unwrap();
+        match discrete_get(CONTEXT_SIZE as u16) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
-        set_discrete((CONTEXT_SIZE - 1) as u16, true).unwrap();
-        match set_discrete(CONTEXT_SIZE as u16, true) {
+        discrete_set((CONTEXT_SIZE - 1) as u16, true).unwrap();
+        match discrete_set(CONTEXT_SIZE as u16, true) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
     }
 
     #[test]
-    fn test_get_set_discretes() {
+    fn test_discrete_get_set_bulk() {
         clear_discretes();
-        set_discretes(5, &(vec![true; 2])).unwrap();
-        assert_eq!(get_discretes(5, 2).unwrap()[0..2], [true; 2]);
-        set_discretes(25, &(vec![true; 18])).unwrap();
-        assert_eq!(get_discretes(25, 18).unwrap()[0..18], [true; 18]);
-        set_discrete(28, true).unwrap();
-        assert_eq!(get_discrete(28).unwrap(), true);
-        set_discrete(28, false).unwrap();
-        assert_eq!(get_discrete(28).unwrap(), false);
+        discrete_set_bulk(5, &(vec![true; 2])).unwrap();
+        assert_eq!(discrete_get_bulk(5, 2).unwrap()[0..2], [true; 2]);
+        discrete_set_bulk(25, &(vec![true; 18])).unwrap();
+        assert_eq!(discrete_get_bulk(25, 18).unwrap()[0..18], [true; 18]);
+        discrete_set(28, true).unwrap();
+        assert_eq!(discrete_get(28).unwrap(), true);
+        discrete_set(28, false).unwrap();
+        assert_eq!(discrete_get(28).unwrap(), false);
     }
 
     #[test]
     fn test_read_holdings_as_bytes_oob() {
-        match get_holdings(0, CONTEXT_SIZE as u16 + 1) {
+        match holding_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match get_holdings(CONTEXT_SIZE as u16, 1) {
+        match holding_get_bulk(CONTEXT_SIZE as u16, 1) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_holdings((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match get_holdings(CONTEXT_SIZE as u16 - 1, 2) {
+        holding_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
+        match holding_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_holding((CONTEXT_SIZE - 1) as u16).unwrap();
-        match get_holding(CONTEXT_SIZE as u16) {
+        holding_get((CONTEXT_SIZE - 1) as u16).unwrap();
+        match holding_get(CONTEXT_SIZE as u16) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
-        set_holding((CONTEXT_SIZE - 1) as u16, 0x55).unwrap();
-        match set_holding(CONTEXT_SIZE as u16, 0x55) {
+        holding_set((CONTEXT_SIZE - 1) as u16, 0x55).unwrap();
+        match holding_set(CONTEXT_SIZE as u16, 0x55) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
-        match set_holding_u32((CONTEXT_SIZE - 1) as u16, 0x55) {
+        match holding_set_u32((CONTEXT_SIZE - 1) as u16, 0x55) {
             Ok(_) => assert!(false, "oob failed MAX u32"),
             Err(_) => assert!(true),
         }
     }
 
     #[test]
-    fn test_get_set_holdings() {
+    fn test_get_holding_set_bulk() {
         clear_holdings();
-        set_holdings(5, &(vec![0x77; 2])).unwrap();
-        assert_eq!(get_holdings(5, 2).unwrap()[0..2], [0x77; 2]);
-        set_holdings(25, &(vec![0x33; 18])).unwrap();
-        assert_eq!(get_holdings(25, 18).unwrap()[0..18], [0x33; 18]);
-        set_holding(28, 99).unwrap();
-        assert_eq!(get_holding(28).unwrap(), 99);
-        set_holding(28, 95).unwrap();
-        assert_eq!(get_holding(28).unwrap(), 95);
-        set_holding_u32(1000, 1234567).unwrap();
-        assert_eq!(get_holding_u32(1000).unwrap(), 1234567);
-        set_holdings_u32_bulk(1002, &(vec![1234567, 8901234])).unwrap();
-        assert_eq!(get_holding_u32(1002).unwrap(), 1234567);
-        assert_eq!(get_holding_u32(1004).unwrap(), 8901234);
-        set_holding_f32(2000, 1234.567).unwrap();
-        assert_eq!(get_holding_f32(2000).unwrap(), 1234.567);
-        set_holdings_f32_bulk(2002, &(vec![1234.567, 890.1234])).unwrap();
-        assert_eq!(get_holding_f32(2002).unwrap(), 1234.567);
-        assert_eq!(get_holding_f32(2004).unwrap(), 890.1234);
+        holding_set_bulk(5, &(vec![0x77; 2])).unwrap();
+        assert_eq!(holding_get_bulk(5, 2).unwrap()[0..2], [0x77; 2]);
+        holding_set_bulk(25, &(vec![0x33; 18])).unwrap();
+        assert_eq!(holding_get_bulk(25, 18).unwrap()[0..18], [0x33; 18]);
+        holding_set(28, 99).unwrap();
+        assert_eq!(holding_get(28).unwrap(), 99);
+        holding_set(28, 95).unwrap();
+        assert_eq!(holding_get(28).unwrap(), 95);
+        holding_set_u32(1000, 1234567).unwrap();
+        assert_eq!(holding_get_u32(1000).unwrap(), 1234567);
+        holding_set_u32_bulk(1002, &(vec![1234567, 8901234])).unwrap();
+        assert_eq!(holding_get_u32(1002).unwrap(), 1234567);
+        assert_eq!(holding_get_u32(1004).unwrap(), 8901234);
+        holding_set_f32(2000, 1234.567).unwrap();
+        assert_eq!(holding_get_f32(2000).unwrap(), 1234.567);
+        holding_set_f32_bulk(2002, &(vec![1234.567, 890.1234])).unwrap();
+        assert_eq!(holding_get_f32(2002).unwrap(), 1234.567);
+        assert_eq!(holding_get_f32(2004).unwrap(), 890.1234);
     }
 
     #[test]
     fn test_read_inputs_as_bytes_oob() {
-        match get_inputs(0, CONTEXT_SIZE as u16 + 1) {
+        match input_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match get_inputs(CONTEXT_SIZE as u16, 1) {
+        match input_get_bulk(CONTEXT_SIZE as u16, 1) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_inputs((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match get_inputs(CONTEXT_SIZE as u16 - 1, 2) {
+        input_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
+        match input_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        get_input((CONTEXT_SIZE - 1) as u16).unwrap();
-        match get_input(CONTEXT_SIZE as u16) {
+        input_get((CONTEXT_SIZE - 1) as u16).unwrap();
+        match input_get(CONTEXT_SIZE as u16) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
-        set_input((CONTEXT_SIZE - 1) as u16, 0x55).unwrap();
-        match set_input(CONTEXT_SIZE as u16, 0x55) {
+        input_set((CONTEXT_SIZE - 1) as u16, 0x55).unwrap();
+        match input_set(CONTEXT_SIZE as u16, 0x55) {
             Ok(_) => assert!(false, "oob failed MAX"),
             Err(_) => assert!(true),
         }
-        match set_input_u32((CONTEXT_SIZE - 1) as u16, 0x55) {
+        match input_set_u32((CONTEXT_SIZE - 1) as u16, 0x55) {
             Ok(_) => assert!(false, "oob failed MAX u32"),
             Err(_) => assert!(true),
         }
     }
 
     #[test]
-    fn test_get_set_inputs() {
+    fn test_input_get_set_bulk() {
         clear_inputs();
-        set_inputs(5, &(vec![0x77; 2])).unwrap();
-        assert_eq!(get_inputs(5, 2).unwrap()[0..2], [0x77; 2]);
-        set_inputs(25, &(vec![0x33; 18])).unwrap();
-        assert_eq!(get_inputs(25, 18).unwrap()[0..18], [0x33; 18]);
-        set_input(28, 99).unwrap();
-        assert_eq!(get_input(28).unwrap(), 99);
-        set_input(28, 95).unwrap();
-        assert_eq!(get_input(28).unwrap(), 95);
-        set_input_u32(1000, 1234567).unwrap();
-        assert_eq!(get_input_u32(1000).unwrap(), 1234567);
-        set_inputs_u32_bulk(1002, &(vec![1234567, 8901234])).unwrap();
-        assert_eq!(get_input_u32(1002).unwrap(), 1234567);
-        assert_eq!(get_input_u32(1004).unwrap(), 8901234);
-        set_input_f32(2000, 1234.567).unwrap();
-        assert_eq!(get_input_f32(2000).unwrap(), 1234.567);
-        set_inputs_f32_bulk(2002, &(vec![1234.567, 890.1234])).unwrap();
-        assert_eq!(get_input_f32(2002).unwrap(), 1234.567);
-        assert_eq!(get_input_f32(2004).unwrap(), 890.1234);
+        input_set_bulk(5, &(vec![0x77; 2])).unwrap();
+        assert_eq!(input_get_bulk(5, 2).unwrap()[0..2], [0x77; 2]);
+        input_set_bulk(25, &(vec![0x33; 18])).unwrap();
+        assert_eq!(input_get_bulk(25, 18).unwrap()[0..18], [0x33; 18]);
+        input_set(28, 99).unwrap();
+        assert_eq!(input_get(28).unwrap(), 99);
+        input_set(28, 95).unwrap();
+        assert_eq!(input_get(28).unwrap(), 95);
+        input_set_u32(1000, 1234567).unwrap();
+        assert_eq!(input_get_u32(1000).unwrap(), 1234567);
+        input_set_u32_bulk(1002, &(vec![1234567, 8901234])).unwrap();
+        assert_eq!(input_get_u32(1002).unwrap(), 1234567);
+        assert_eq!(input_get_u32(1004).unwrap(), 8901234);
+        input_set_f32(2000, 1234.567).unwrap();
+        assert_eq!(input_get_f32(2000).unwrap(), 1234.567);
+        input_set_f32_bulk(2002, &(vec![1234.567, 890.1234])).unwrap();
+        assert_eq!(input_get_f32(2002).unwrap(), 1234.567);
+        assert_eq!(input_get_f32(2004).unwrap(), 890.1234);
     }
 
     #[test]
     fn test_get_bools_as_u8() {
         clear_coils();
-        set_coils(0, &(vec![true, true, true, true, true, true, false, false])).unwrap();
+        coil_set_bulk(0, &(vec![true, true, true, true, true, true, false, false])).unwrap();
         {
             with_context(&|context| {
                 let result = get_bools_as_u8(0, 6, &context.coils).unwrap();
@@ -733,7 +765,7 @@ mod tests {
                 assert_eq!(*result.get(0).unwrap(), 0b00011111);
             });
         }
-        set_coils(0, &(vec![true, true, false, true, true, true, true, true])).unwrap();
+        coil_set_bulk(0, &(vec![true, true, false, true, true, true, true, true])).unwrap();
         {
             with_context(&|context| {
                 let result = get_bools_as_u8(0, 6, &context.coils).unwrap();
@@ -742,7 +774,7 @@ mod tests {
                 assert_eq!(*result.get(0).unwrap(), 0b00011011);
             });
         }
-        set_coils(
+        coil_set_bulk(
             0,
             &(vec![
                 true, true, false, true, true, true, true, true, // byte 1
@@ -765,12 +797,12 @@ mod tests {
     fn test_get_set_regs_as_u8() {
         clear_holdings();
         let data = vec![2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9];
-        set_holdings(0, &data).unwrap();
+        holding_set_bulk(0, &data).unwrap();
         with_mut_context(&|context| {
             let result = get_regs_as_u8(0, data.len() as u16, &context.holdings).unwrap();
             set_regs_from_u8(0, &result, &mut context.holdings).unwrap();
         });
-        assert_eq!(get_holdings(0, data.len() as u16).unwrap(), data);
+        assert_eq!(holding_get_bulk(0, data.len() as u16).unwrap(), data);
     }
 
     #[test]
@@ -780,19 +812,19 @@ mod tests {
             true, true, true, false, true, true, true, true, true, false, false, false, false,
             false,
         ];
-        set_coils(0, &data).unwrap();
-        set_coil(data.len() as u16, true).unwrap();
-        set_coil(data.len() as u16 + 1, false).unwrap();
-        set_coil(data.len() as u16 + 2, true).unwrap();
+        coil_set_bulk(0, &data).unwrap();
+        coil_set(data.len() as u16, true).unwrap();
+        coil_set(data.len() as u16 + 1, false).unwrap();
+        coil_set(data.len() as u16 + 2, true).unwrap();
         with_mut_context(&|context| {
             let result = get_bools_as_u8(0, data.len() as u16, &context.coils).unwrap();
             set_bools_from_u8(0, data.len() as u16, &result, &mut context.coils).unwrap();
         });
-        assert_eq!(get_coils(0, data.len() as u16).unwrap(), data);
+        assert_eq!(coil_get_bulk(0, data.len() as u16).unwrap(), data);
         data.push(true);
         data.push(false);
         data.push(true);
-        assert_eq!(get_coils(0, data.len() as u16).unwrap(), data);
+        assert_eq!(coil_get_bulk(0, data.len() as u16).unwrap(), data);
     }
 
     #[test]
@@ -810,16 +842,22 @@ mod tests {
             myinputs.push(rng.gen());
         }
         clear();
-        set_coils(0, &mycoils).unwrap();
-        set_discretes(0, &mydiscretes).unwrap();
-        set_holdings(0, &myholdings).unwrap();
-        set_inputs(0, &myinputs).unwrap();
+        coil_set_bulk(0, &mycoils).unwrap();
+        discrete_set_bulk(0, &mydiscretes).unwrap();
+        holding_set_bulk(0, &myholdings).unwrap();
+        input_set_bulk(0, &myinputs).unwrap();
         save(&"/tmp/modbus-memory.dat").unwrap();
         clear();
         load(&"/tmp/modbus-memory.dat").unwrap();
-        assert_eq!(get_coils(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
-        assert_eq!(get_discretes(0, CONTEXT_SIZE as u16).unwrap(), mydiscretes);
-        assert_eq!(get_holdings(0, CONTEXT_SIZE as u16).unwrap(), myholdings);
-        assert_eq!(get_inputs(0, CONTEXT_SIZE as u16).unwrap(), myinputs);
+        assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
+        assert_eq!(
+            discrete_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
+            mydiscretes
+        );
+        assert_eq!(
+            holding_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
+            myholdings
+        );
+        assert_eq!(input_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), myinputs);
     }
 }
