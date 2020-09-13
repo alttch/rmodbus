@@ -2,6 +2,8 @@
 
 A framework to build fast and reliable Modbus-powered applications.
 
+Cargo crate: https://crates.io/crates/rmodbus
+
 ## What is it
 
 rmodbus is not a yet another Modbus server. rmodbus is a set of tools to
