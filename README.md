@@ -15,7 +15,7 @@ quickly build Modbus-powered applications.
 
 * rmodbus is platform independent
 
-* can be easily used in blocking, async (non-blocking) applications
+* can be easily used in blocking and async (non-blocking) applications
 
 * tuned for speed and reliability
 
