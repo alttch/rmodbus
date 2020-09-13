@@ -5,7 +5,7 @@ authors = ["Sergei S. <div@altertech.com>"]
 edition = "2018"
 license = "Apache-2.0"
 repository = "https://github.com/alttch/rmodbus"
-description = "Native Rust Modbus framework"
+description = "Native Rust Modbus server framework"
 readme = "README.md"
 
 [dependencies]
