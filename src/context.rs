@@ -211,7 +211,7 @@ pub fn clear_all() {
 pub fn get_regs_as_u8(
     reg: u16,
     count: u16,
-    context: &[u16; CONTEXT_SIZE],
+    reg_context: &[u16; CONTEXT_SIZE],
 ) -> Result<Vec<u8>, Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
@@ -219,8 +219,8 @@ pub fn get_regs_as_u8(
     }
     let mut result: Vec<u8> = Vec::new();
     for c in reg as usize..reg_to {
-        result.push((context[c] >> 8) as u8);
-        result.push(context[c] as u8);
+        result.push((reg_context[c] >> 8) as u8);
+        result.push(reg_context[c] as u8);
     }
     return Ok(result);
 }
@@ -228,7 +228,7 @@ pub fn get_regs_as_u8(
 pub fn set_regs_from_u8(
     reg: u16,
     values: &Vec<u8>,
-    context: &mut [u16; CONTEXT_SIZE],
+    reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     if reg as usize + values.len() / 2 > CONTEXT_SIZE {
         return Err(Error {});
@@ -236,7 +236,7 @@ pub fn set_regs_from_u8(
     let mut i = 0;
     let mut creg = reg as usize;
     while i < values.len() {
-        context[creg] = u16::from_be_bytes([
+        reg_context[creg] = u16::from_be_bytes([
             *values.get(i).unwrap(),
             match values.get(i + 1) {
                 Some(v) => *v,
@@ -252,7 +252,7 @@ pub fn set_regs_from_u8(
 pub fn get_bools_as_u8(
     reg: u16,
     count: u16,
-    context: &[bool; CONTEXT_SIZE],
+    reg_context: &[bool; CONTEXT_SIZE],
 ) -> Result<Vec<u8>, Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
@@ -263,7 +263,7 @@ pub fn get_bools_as_u8(
     while creg < reg_to {
         let mut cbyte = 0;
         for i in 0..8 {
-            if context[creg] {
+            if reg_context[creg] {
                 cbyte = cbyte | 1 << i
             }
             creg += 1;
@@ -280,7 +280,7 @@ pub fn set_bools_from_u8(
     reg: u16,
     count: u16,
     values: &Vec<u8>,
-    context: &mut [bool; CONTEXT_SIZE],
+    reg_context: &mut [bool; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
@@ -295,7 +295,7 @@ pub fn set_bools_from_u8(
             None => return Err(Error {}),
         };
         for _ in 0..8 {
-            context[creg] = b & 1 == 1;
+            reg_context[creg] = b & 1 == 1;
             b = b >> 1;
             creg = creg + 1;
             cnt = cnt + 1;
@@ -311,100 +311,100 @@ pub fn set_bools_from_u8(
 pub fn get_bulk<T: Copy>(
     reg: u16,
     count: u16,
-    context: &[T; CONTEXT_SIZE],
+    reg_context: &[T; CONTEXT_SIZE],
 ) -> Result<Vec<T>, Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
         return Err(Error {});
     }
     let mut result: Vec<T> = Vec::new();
-    result.extend_from_slice(&context[reg as usize..reg_to]);
+    result.extend_from_slice(&reg_context[reg as usize..reg_to]);
     return Ok(result);
 }
 
 pub fn set_bulk<T: Copy>(
     reg: u16,
     data: &Vec<T>,
-    context: &mut [T; CONTEXT_SIZE],
+    reg_context: &mut [T; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     if reg as usize + data.len() > CONTEXT_SIZE {
         return Err(Error {});
     }
     for (i, value) in data.iter().enumerate() {
-        context[reg as usize + i] = *value;
+        reg_context[reg as usize + i] = *value;
     }
     return Ok(());
 }
 
-pub fn get<T: Copy>(reg: u16, context: &[T; CONTEXT_SIZE]) -> Result<T, Error> {
+pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, Error> {
     if reg as usize >= CONTEXT_SIZE {
         return Err(Error {});
     }
-    return Ok(context[reg as usize]);
+    return Ok(reg_context[reg as usize]);
 }
 
-pub fn set<T>(reg: u16, value: T, context: &mut [T; CONTEXT_SIZE]) -> Result<(), Error> {
+pub fn set<T>(reg: u16, value: T, reg_context: &mut [T; CONTEXT_SIZE]) -> Result<(), Error> {
     if reg as usize >= CONTEXT_SIZE {
         return Err(Error {});
     }
-    context[reg as usize] = value;
+    reg_context[reg as usize] = value;
     return Ok(());
 }
 
-pub fn get_u32(reg: u16, context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error> {
-    let w1 = match get(reg, context) {
+pub fn get_u32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error> {
+    let w1 = match get(reg, reg_context) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
-    let w2 = match get(reg + 1, context) {
+    let w2 = match get(reg + 1, reg_context) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
     return Ok(((w1 as u32) << 16) + w2 as u32);
 }
 
-pub fn set_u32(reg: u16, value: u32, context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
+pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
     let mut data: Vec<u16> = Vec::new();
     data.push((value >> 16) as u16);
     data.push(value as u16);
-    return set_bulk(reg, &data, context);
+    return set_bulk(reg, &data, reg_context);
 }
 
 pub fn set_u32_bulk(
     reg: u16,
     values: &Vec<u32>,
-    context: &mut [u16; CONTEXT_SIZE],
+    reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     let mut data: Vec<u16> = Vec::new();
     for u in values {
         data.push((u >> 16) as u16);
         data.push(*u as u16);
     }
-    return set_bulk(reg, &data, context);
+    return set_bulk(reg, &data, reg_context);
 }
 
-pub fn get_f32(reg: u16, context: &[u16; CONTEXT_SIZE]) -> Result<f32, Error> {
-    let i = match get_u32(reg, context) {
+pub fn get_f32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<f32, Error> {
+    let i = match get_u32(reg, reg_context) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
     return Ok(Ieee754::from_bits(i));
 }
 
-pub fn set_f32(reg: u16, value: f32, context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
-    return set_u32(reg, value.bits(), context);
+pub fn set_f32(reg: u16, value: f32, reg_context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
+    return set_u32(reg, value.bits(), reg_context);
 }
 
 pub fn set_f32_bulk(
     reg: u16,
     values: &Vec<f32>,
-    context: &mut [u16; CONTEXT_SIZE],
+    reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     let mut data: Vec<u32> = values.iter().map(|x| x.bits()).collect();
     for u in values {
         data.push(u.bits());
     }
-    return set_u32_bulk(reg, &data, context);
+    return set_u32_bulk(reg, &data, reg_context);
 }
 
 //
