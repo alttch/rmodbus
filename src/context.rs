@@ -46,7 +46,7 @@ lazy_static! {
 // helpers
 //
 
-/// Locks context read-only and calls a sub-function
+/// Lock context read-only and call a sub-function
 ///
 /// Much faster then high-level API functions, but usually a bit slower than locking context
 /// manually.
@@ -69,7 +69,7 @@ pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
     f(&ctx);
 }
 
-/// Locks context read-write and calls a sub-function
+/// Lock context read-write and call a sub-function
 ///
 /// Much faster then high-level API functions, but usually a bit slower than locking context
 /// manually.
