@@ -89,7 +89,7 @@ additional action is required.
 
 Every time Modbus context is accessed, a context mutex must be locked. This
 slows down a performance, but guarantees that the context always has valid data
-after bulk-sets or when 32-bit data types were written. So make sure your
+after bulk-sets or after 32-bit data types were written. So make sure your
 application locks context only when required and only for a short period time.
 
 There are two groups of context functions:
