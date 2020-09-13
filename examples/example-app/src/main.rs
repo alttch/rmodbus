@@ -1,0 +1,42 @@
+use rmodbus::server::context;
+
+fn looping() {
+    loop {
+        // READ WORK MODES ETC
+        let mut ctx = context::CONTEXT.lock().unwrap();
+        let _param1 = context::get(1000, &ctx.holdings).unwrap();
+        let _param2 = context::get_f32(1100, &ctx.holdings).unwrap(); // ieee754 f32
+        let _param3 = context::get_u32(1200, &ctx.holdings).unwrap(); // u32
+        let cmd = context::get(1500, &ctx.holdings).unwrap();
+        context::set(1500, 0, &mut ctx.holdings).unwrap();
+        match cmd {
+            1 => {
+                let _ = context::save_locked("/tmp/plc1.dat", &ctx).map_err(|_| {
+                    eprintln!("unable to save context!");
+                });
+            }
+            _ => {}
+        }
+        drop(ctx);
+        // does the same but slower
+        //let _param1 = context::get_holding(1000);
+        //let _param2 = context::get_holding_f32(1100);
+        //let _param3 = context::get_holding_u32(1200);
+        // ==============================================
+        // DO SOME JOB
+        // ..........
+        // WRITE RESULTS
+        let mut ctx = context::CONTEXT.lock().unwrap();
+        context::set(0, true, &mut ctx.coils).unwrap();
+        context::set_bulk_with_context(10, &(vec![10, 20]), &mut ctx.holdings).unwrap();
+        context::set_f32(20, 935.77, &mut ctx.inputs).unwrap();
+    }
+}
+
+fn main() {
+    // read context
+    let _ = context::load(&"/tmp/plc1.dat").map_err(|_| {
+        eprintln!("warning: no saved context");
+    });
+    looping()
+}

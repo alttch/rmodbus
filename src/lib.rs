@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-#[path = "modbus-context.rs"]
-pub mod context;
+#[path = "server.rs"]
+pub mod server;
 
-include!("frame.rs");

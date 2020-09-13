@@ -40,19 +40,26 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
     f(&mut ctx);
 }
 
-pub fn save_context(fname: &str) -> Result<(), std::io::Error> {
+pub fn save(fname: &str) -> Result<(), std::io::Error> {
+    let ctx = CONTEXT.lock().unwrap();
+    return save_locked(fname, &ctx);
+}
+
+pub fn load(fname: &str) -> Result<(), std::io::Error> {
+    let mut ctx = CONTEXT.lock().unwrap();
+    return load_locked(fname, &mut ctx);
+}
+
+pub fn save_locked(fname: &str, context: &MutexGuard<ModbusContext>) -> Result<(), std::io::Error> {
     let mut file = match File::create(fname) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
     let mut data: Vec<u8> = Vec::new();
-    {
-        let context = CONTEXT.lock().unwrap();
-        data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.coils).unwrap());
-        data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.discretes).unwrap());
-        data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
-        data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
-    }
+    data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.coils).unwrap());
+    data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.discretes).unwrap());
+    data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
+    data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
     let _ = match file.write_all(&data) {
         Ok(_) => {}
         Err(v) => return Err(v),
@@ -64,14 +71,16 @@ pub fn save_context(fname: &str) -> Result<(), std::io::Error> {
     return Ok(());
 }
 
-pub fn load_context(fname: &str) -> Result<(), std::io::Error> {
+pub fn load_locked(
+    fname: &str,
+    context: &mut MutexGuard<ModbusContext>,
+) -> Result<(), std::io::Error> {
     let mut file = match File::open(fname) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
     let mut ubuffer = [0; CONTEXT_SIZE * 2];
     let mut bbuffer = [0; CONTEXT_SIZE / 8];
-    let mut context = CONTEXT.lock().unwrap();
     match file.read(&mut bbuffer) {
         Ok(_) => {}
         Err(v) => return Err(v),
@@ -172,7 +181,7 @@ pub fn clear_inputs() {
     });
 }
 
-pub fn clear_context() {
+pub fn clear() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
             context.coils[i] = false;
@@ -311,18 +320,14 @@ pub fn set_bulk_with_context<T: Copy>(
     return Ok(());
 }
 
-pub fn get_with_context<T: Copy>(reg: u16, context: &[T; CONTEXT_SIZE]) -> Result<T, Error> {
+pub fn get<T: Copy>(reg: u16, context: &[T; CONTEXT_SIZE]) -> Result<T, Error> {
     if reg as usize >= CONTEXT_SIZE {
         return Err(Error {});
     }
     return Ok(context[reg as usize]);
 }
 
-pub fn set_with_context<T>(
-    reg: u16,
-    value: T,
-    context: &mut [T; CONTEXT_SIZE],
-) -> Result<(), Error> {
+pub fn set<T>(reg: u16, value: T, context: &mut [T; CONTEXT_SIZE]) -> Result<(), Error> {
     if reg as usize >= CONTEXT_SIZE {
         return Err(Error {});
     }
@@ -331,11 +336,11 @@ pub fn set_with_context<T>(
 }
 
 pub fn get_u32(reg: u16, context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error> {
-    let w1 = match get_with_context(reg, context) {
+    let w1 = match get(reg, context) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
-    let w2 = match get_with_context(reg + 1, context) {
+    let w2 = match get(reg + 1, context) {
         Ok(v) => v,
         Err(v) => return Err(v),
     };
@@ -398,12 +403,12 @@ pub fn set_coils(reg: u16, coils: &Vec<bool>) -> Result<(), Error> {
 
 pub fn get_coil(reg: u16) -> Result<bool, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_with_context(reg, &context.coils);
+    return get(reg, &context.coils);
 }
 
 pub fn set_coil(reg: u16, value: bool) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_with_context(reg, value, &mut context.coils);
+    return set(reg, value, &mut context.coils);
 }
 
 pub fn get_discretes(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
@@ -418,12 +423,12 @@ pub fn set_discretes(reg: u16, discretes: &Vec<bool>) -> Result<(), Error> {
 
 pub fn get_discrete(reg: u16) -> Result<bool, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_with_context(reg, &context.discretes);
+    return get(reg, &context.discretes);
 }
 
 pub fn set_discrete(reg: u16, value: bool) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_with_context(reg, value, &mut context.discretes);
+    return set(reg, value, &mut context.discretes);
 }
 
 pub fn get_holdings(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
@@ -433,7 +438,7 @@ pub fn get_holdings(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
 
 pub fn get_holding(reg: u16) -> Result<u16, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_with_context(reg, &context.holdings);
+    return get(reg, &context.holdings);
 }
 
 pub fn get_holding_u32(reg: u16) -> Result<u32, Error> {
@@ -453,7 +458,7 @@ pub fn set_holdings(reg: u16, holdings: &Vec<u16>) -> Result<(), Error> {
 
 pub fn set_holding(reg: u16, value: u16) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_with_context(reg, value, &mut context.holdings);
+    return set(reg, value, &mut context.holdings);
 }
 
 pub fn set_holdings_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
@@ -483,7 +488,7 @@ pub fn get_inputs(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
 
 pub fn get_input(reg: u16) -> Result<u16, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_with_context(reg, &context.inputs);
+    return get(reg, &context.inputs);
 }
 
 pub fn get_input_u32(reg: u16) -> Result<u32, Error> {
@@ -503,7 +508,7 @@ pub fn set_inputs(reg: u16, inputs: &Vec<u16>) -> Result<(), Error> {
 
 pub fn set_input(reg: u16, value: u16) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_with_context(reg, value, &mut context.inputs);
+    return set(reg, value, &mut context.inputs);
 }
 
 pub fn set_inputs_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
@@ -804,14 +809,14 @@ mod tests {
             myholdings.push(rng.gen());
             myinputs.push(rng.gen());
         }
-        clear_context();
+        clear();
         set_coils(0, &mycoils).unwrap();
         set_discretes(0, &mydiscretes).unwrap();
         set_holdings(0, &myholdings).unwrap();
         set_inputs(0, &myinputs).unwrap();
-        save_context(&"/tmp/modbus-memory.dat").unwrap();
-        clear_context();
-        load_context(&"/tmp/modbus-memory.dat").unwrap();
+        save(&"/tmp/modbus-memory.dat").unwrap();
+        clear();
+        load(&"/tmp/modbus-memory.dat").unwrap();
         assert_eq!(get_coils(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
         assert_eq!(get_discretes(0, CONTEXT_SIZE as u16).unwrap(), mydiscretes);
         assert_eq!(get_holdings(0, CONTEXT_SIZE as u16).unwrap(), myholdings);

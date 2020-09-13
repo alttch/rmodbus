@@ -1,3 +1,6 @@
+#[path = "context.rs"]
+pub mod context;
+
 pub type ModbusFrame = [u8; 256];
 
 #[derive(PartialEq, Eq, Debug)]
@@ -22,7 +25,7 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
-pub fn process_modbus_frame(
+pub fn process_frame(
     unit_id: u8,
     frame: &ModbusFrame,
     proto: ModbusProto,
@@ -139,7 +142,7 @@ pub fn process_modbus_frame(
                 }
             }
         };
-        let result = context::set_with_context(
+        let result = context::set(
             reg,
             val,
             &mut context::CONTEXT.lock().unwrap().coils,
@@ -162,7 +165,7 @@ pub fn process_modbus_frame(
         }
         let reg = u16::from_be_bytes([frame[begin + 2], frame[begin + 3]]);
         let val = u16::from_be_bytes([frame[begin + 4], frame[begin + 5]]);
-        let result = context::set_with_context(
+        let result = context::set(
             reg,
             val,
             &mut context::CONTEXT.lock().unwrap().holdings,
