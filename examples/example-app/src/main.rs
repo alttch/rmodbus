@@ -23,10 +23,6 @@ fn looping() {
             }
         }
         drop(ctx);
-        // does the same but slower
-        //let _param1 = context::holding_get(1000);
-        //let _param2 = context::holding_get_f32(1100);
-        //let _param3 = context::holding_get_u32(1200);
         // ==============================================
         // DO SOME JOB
         // ..........
