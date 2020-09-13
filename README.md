@@ -78,7 +78,7 @@ repository](https://github.com/alttch/rmodbus).
 ## Modbus context
 
 The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
-registers and 10k+10k coils is usually more than enough. This takes about
+registers and 10k+10k coils are usually more than enough. This takes about
 43Kbytes of RAM, but if you need to reduce context size, download library
 source and change *CONTEXT_SIZE* constant in "context.rs".
 
