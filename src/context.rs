@@ -1,6 +1,4 @@
 use ieee754::Ieee754;
-use std::fs::File;
-use std::io::prelude::*;
 use std::sync::{Mutex, MutexGuard};
 
 const CONTEXT_SIZE: usize = 10000;
@@ -15,8 +13,7 @@ pub struct ModbusContext {
 
 /// Default context error
 ///
-/// Returned by absolutely all functions, except load / save. Usually caused when read / write
-/// request is out of bounds.
+/// Returned by all functions. Usually caused when read / write request is out of bounds.
 #[derive(Debug, Clone)]
 pub struct Error;
 
@@ -100,116 +97,72 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
 // import / export
 //
 
-/// Save full Modbus context to external binary file
-pub fn save(fname: &str) -> Result<(), std::io::Error> {
+/// Dump full Modbus context to Vec<u8>
+pub fn dump() -> Vec<u8> {
     let ctx = CONTEXT.lock().unwrap();
-    return save_locked(fname, &ctx);
+    return dump_locked(&ctx);
 }
 
-/// Load full Modbus context to external binary file
-pub fn load(fname: &str) -> Result<(), std::io::Error> {
-    let mut ctx = CONTEXT.lock().unwrap();
-    return load_locked(fname, &mut ctx);
-}
-
-/// Save full Modbus context when it's locked
-pub fn save_locked(fname: &str, context: &MutexGuard<ModbusContext>) -> Result<(), std::io::Error> {
-    let mut file = match File::create(fname) {
-        Ok(v) => v,
-        Err(v) => return Err(v),
-    };
+/// Dump full Modbus context when it's locked
+pub fn dump_locked(context: &MutexGuard<ModbusContext>) -> Vec<u8> {
     let mut data: Vec<u8> = Vec::new();
     data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.coils).unwrap());
     data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.discretes).unwrap());
     data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
     data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
-    let _ = match file.write_all(&data) {
-        Ok(_) => {}
-        Err(v) => return Err(v),
-    };
-    let _ = match file.sync_data() {
-        Ok(_) => {}
-        Err(v) => return Err(v),
-    };
-    return Ok(());
+    return data;
 }
 
-/// Load full Modbus context when it's locked
-pub fn load_locked(
-    fname: &str,
+/// Restore full Modbus context to external binary file
+pub fn restore(data: &Vec<u8>) -> Result<(), Error> {
+    let mut ctx = CONTEXT.lock().unwrap();
+    return restore_locked(data, &mut ctx);
+}
+
+/// Restore full Modbus context when it's locked
+pub fn restore_locked(
+    data: &Vec<u8>,
     context: &mut MutexGuard<ModbusContext>,
-) -> Result<(), std::io::Error> {
-    let mut file = match File::open(fname) {
-        Ok(v) => v,
-        Err(v) => return Err(v),
-    };
-    let mut ubuffer = [0; CONTEXT_SIZE * 2];
-    let mut bbuffer = [0; CONTEXT_SIZE / 8];
-    match file.read(&mut bbuffer) {
-        Ok(_) => {}
-        Err(v) => return Err(v),
-    };
-    let mut data = Vec::new();
-    data.extend_from_slice(&bbuffer);
-    match set_bools_from_u8(0, (bbuffer.len() as u16) << 3, &data, &mut context.coils) {
-        Ok(_) => {}
-        Err(_) => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "context error",
-            ))
-        }
+) -> Result<(), Error> {
+    let bool_size = CONTEXT_SIZE / 8;
+    let reg_size = CONTEXT_SIZE * 2;
+    if bool_size * 2 + reg_size * 2 != data.len() {
+        println!("wrong size {} {}", bool_size * 2 + reg_size * 2, data.len());
+        return Err(Error {});
     }
-    match file.read(&mut bbuffer) {
+    let start = 0;
+    let end = bool_size;
+    let coil_values: Vec<u8> = Vec::from(&data[start..end]);
+    match set_bools_from_u8(0, CONTEXT_SIZE as u16, &coil_values, &mut context.coils) {
         Ok(_) => {}
-        Err(v) => return Err(v),
+        Err(e) => return Err(e),
     };
-    data.clear();
-    data.extend_from_slice(&bbuffer);
+    let start = start + bool_size;
+    let end = end + bool_size;
+    let discrete_values: Vec<u8> = Vec::from(&data[start..end]);
     match set_bools_from_u8(
         0,
-        (bbuffer.len() as u16) << 3,
-        &data,
+        CONTEXT_SIZE as u16,
+        &discrete_values,
         &mut context.discretes,
     ) {
         Ok(_) => {}
-        Err(_) => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "context error",
-            ))
-        }
-    }
-    match file.read(&mut ubuffer) {
-        Ok(_) => {}
-        Err(v) => return Err(v),
+        Err(e) => return Err(e),
     };
-    data.clear();
-    data.extend_from_slice(&ubuffer);
-    match set_regs_from_u8(0, &data, &mut context.holdings) {
+    let start = start + bool_size;
+    let end = end + reg_size;
+    let holding_values: Vec<u8> = Vec::from(&data[start..end]);
+    match set_regs_from_u8(0, &holding_values, &mut context.holdings) {
         Ok(_) => {}
-        Err(_) => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "context error",
-            ))
-        }
-    }
-    match file.read(&mut ubuffer) {
-        Ok(_) => {}
-        Err(v) => return Err(v),
+        Err(e) => return Err(e),
     };
-    data.clear();
-    data.extend_from_slice(&ubuffer);
-    match set_regs_from_u8(0, &data, &mut context.inputs) {
+    let start = start + reg_size;
+    let end = end + reg_size;
+    let holding_values: Vec<u8> = Vec::from(&data[start..end]);
+    match set_regs_from_u8(0, &holding_values, &mut context.inputs) {
         Ok(_) => {}
-        Err(_) => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "context error",
-            ))
-        }
-    }
+        Err(e) => return Err(e),
+    };
     return Ok(());
 }
 
@@ -349,6 +302,9 @@ pub fn get_bools_as_u8(
 /// Set coils from &Vec<u8>
 ///
 /// Useful for import / export and external API calls
+///
+/// As coils are packed in u8, parameter *count* specifies how many coils are actually needed to
+/// set, extra bits are ignored
 pub fn set_bools_from_u8(
     reg: u16,
     count: u16,
@@ -663,6 +619,10 @@ pub fn input_set_f32(reg: u16, value: f32) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::Rng;
+    use std::fs::File;
+    use std::io::prelude::*;
+
     #[test]
     fn test_read_coils_as_bytes_oob() {
         match coil_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
@@ -924,9 +884,21 @@ mod tests {
         assert_eq!(coil_get_bulk(0, data.len() as u16).unwrap(), data);
     }
 
+    fn save(fname: &str) {
+        let mut file = File::create(fname).unwrap();
+        file.write_all(&dump()).unwrap();
+        file.sync_all().unwrap();
+    }
+
+    fn load(fname: &str) {
+        let mut file = File::open(fname).unwrap();
+        let mut data: Vec<u8> = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        restore(&data).unwrap();
+    }
+
     #[test]
     fn test_load_save() {
-        use rand::Rng;
         let mut rng = rand::thread_rng();
         let mut mycoils: Vec<bool> = Vec::new();
         let mut mydiscretes: Vec<bool> = Vec::new();
@@ -943,9 +915,9 @@ mod tests {
         discrete_set_bulk(0, &mydiscretes).unwrap();
         holding_set_bulk(0, &myholdings).unwrap();
         input_set_bulk(0, &myinputs).unwrap();
-        save(&"/tmp/modbus-memory.dat").unwrap();
+        save(&"/tmp/modbus-memory.dat");
         clear_all();
-        load(&"/tmp/modbus-memory.dat").unwrap();
+        load(&"/tmp/modbus-memory.dat");
         assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
         assert_eq!(
             discrete_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
