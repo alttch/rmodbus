@@ -1,9 +1,17 @@
 #[path = "context.rs"]
 pub mod context;
 
+/// Standard Modbus frame
+///
+/// As max length of Modbus frame + headers is always 256 bytes or less, the frame is a fixed [u8;
+/// 256] array.
 pub type ModbusFrame = [u8; 256];
 
-#[derive(PartialEq, Eq, Debug)]
+/// Modbus protocol selection for frame processing
+///
+/// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
+/// * for **Rtu**, frame checksums are verified / added to repies
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum ModbusProto {
     Rtu,
     TcpUdp,
@@ -25,6 +33,44 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
+/// Process Modbus frame
+///
+/// Example:
+///
+/// ```
+///
+///use std::net::UdpSocket;
+///
+///use rmodbus::server::{ModbusFrame, ModbusProto, process_frame};
+///
+///pub fn udpserver(unit: u8, listen: &str) {
+///    let socket = UdpSocket::bind(listen).unwrap();
+///    loop {
+///        // init frame buffer
+///        let mut buf: ModbusFrame = [0; 256];
+///        let (_amt, src) = socket.recv_from(&mut buf).unwrap();
+///        // Send frame for processing - modify context for write frames and get response
+///        let response: Vec<u8> = match process_frame(unit, &buf, ModbusProto::TcpUdp) {
+///            Some(v) => v,
+///            None => {
+///                // continue loop (or exit function) if there's nothing to send as the reply
+///                continue;
+///            }
+///        };
+///        socket.send_to(response.as_slice(), &src).unwrap();
+///    }
+///}
+/// ```
+///
+/// The function returns None in cases:
+///
+/// * **incorrect frame header**: the frame header is absolutely incorrect and there's no way to
+///     form a valid Modbus error reply.
+///
+/// * **not my frame**: the specified unit id doesn't match unit id in Modbus frame
+///
+/// * **broadcast request**: when broadcasts are processed, apps shouldn't reply anything back
+///
 pub fn process_frame(unit_id: u8, frame: &ModbusFrame, proto: ModbusProto) -> Option<Vec<u8>> {
     let start_frame: usize;
     let mut response: Vec<u8> = Vec::new();

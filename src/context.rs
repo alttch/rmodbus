@@ -5,6 +5,7 @@ use std::sync::{Mutex, MutexGuard};
 
 const CONTEXT_SIZE: usize = 10000;
 
+/// Contains standard Modbus register contexts
 pub struct ModbusContext {
     pub coils: [bool; CONTEXT_SIZE],
     pub discretes: [bool; CONTEXT_SIZE],
@@ -12,6 +13,10 @@ pub struct ModbusContext {
     pub inputs: [u16; CONTEXT_SIZE],
 }
 
+/// Default context error
+///
+/// Returned by absolutely all functions, except load / save. Usually caused when read / write
+/// request is out of bounds.
 #[derive(Debug, Clone)]
 pub struct Error;
 
@@ -27,6 +32,16 @@ impl ModbusContext {
 }
 
 lazy_static! {
+    /// Static modbus context storage
+    ///
+    /// To make everything fast and simple, context is fixed size static array.
+    ///
+    /// The array contents are protected by mutex to avoid situations where partially-written data
+    /// (e.g. during bulk writes or setting 32-bit variables, where more than 1 register is
+    /// affected).
+    ///
+    /// High-level API functions deal with context automatically. To call low-level function,
+    /// context must be unlocked manually.
     pub static ref CONTEXT: Mutex<ModbusContext> = Mutex::new(ModbusContext::new());
 }
 
@@ -34,11 +49,48 @@ lazy_static! {
 // helpers
 //
 
+/// Locks context read-only and calls a sub-function
+///
+/// Much faster then high-level API functions, but usually a bit slower than locking context
+/// manually.
+///
+/// Example:
+///
+///```
+///use rmodbus::server::context::with_context;
+///
+///fn print_coils() {
+///    with_context(&|context| {
+///        for i in 0..20 {
+///            println!("{}", context.coils[i]);
+///        }
+///    });
+///  }
+///```
 pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
     let ctx = CONTEXT.lock().unwrap();
     f(&ctx);
 }
 
+/// Locks context read-write and calls a sub-function
+///
+/// Much faster then high-level API functions, but usually a bit slower than locking context
+/// manually.
+///
+/// Example:
+///
+///```
+///use rmodbus::server::context::with_mut_context;
+///
+///
+///fn erase_coils(from: usize, to: usize) {
+///    with_mut_context(&|context| {
+///        for i in from..to {
+///            context.coils[i] = false;
+///        }
+///    });
+///}
+///```
 pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
     let mut ctx = CONTEXT.lock().unwrap();
     f(&mut ctx);
@@ -48,16 +100,19 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
 // import / export
 //
 
+/// Save full Modbus context to external binary file
 pub fn save(fname: &str) -> Result<(), std::io::Error> {
     let ctx = CONTEXT.lock().unwrap();
     return save_locked(fname, &ctx);
 }
 
+/// Load full Modbus context to external binary file
 pub fn load(fname: &str) -> Result<(), std::io::Error> {
     let mut ctx = CONTEXT.lock().unwrap();
     return load_locked(fname, &mut ctx);
 }
 
+/// Save full Modbus context when it's locked
 pub fn save_locked(fname: &str, context: &MutexGuard<ModbusContext>) -> Result<(), std::io::Error> {
     let mut file = match File::create(fname) {
         Ok(v) => v,
@@ -79,6 +134,7 @@ pub fn save_locked(fname: &str, context: &MutexGuard<ModbusContext>) -> Result<(
     return Ok(());
 }
 
+/// Load full Modbus context when it's locked
 pub fn load_locked(
     fname: &str,
     context: &mut MutexGuard<ModbusContext>,
@@ -161,6 +217,7 @@ pub fn load_locked(
 // clear
 //
 
+/// Clear all coils
 pub fn coil_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -169,6 +226,7 @@ pub fn coil_clear_all() {
     });
 }
 
+/// Clear all discrete inputs
 pub fn discrete_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -177,6 +235,7 @@ pub fn discrete_clear_all() {
     });
 }
 
+/// Clear all holding registers
 pub fn holding_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -185,6 +244,7 @@ pub fn holding_clear_all() {
     });
 }
 
+/// Clear all input registers
 pub fn input_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -193,6 +253,7 @@ pub fn input_clear_all() {
     });
 }
 
+/// Clear the whole Modbus context
 pub fn clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -208,6 +269,9 @@ pub fn clear_all() {
 // get / set with context
 //
 
+/// Get 16-bit registers as Vec<u8>
+///
+/// Useful for import / export and external API calls
 pub fn get_regs_as_u8(
     reg: u16,
     count: u16,
@@ -225,6 +289,9 @@ pub fn get_regs_as_u8(
     return Ok(result);
 }
 
+/// Set 16-bit registers from &Vec<u8>
+///
+/// Useful for import / export and external API calls
 pub fn set_regs_from_u8(
     reg: u16,
     values: &Vec<u8>,
@@ -249,6 +316,9 @@ pub fn set_regs_from_u8(
     return Ok(());
 }
 
+/// Get coils as Vec<u8>
+///
+/// Useful for import / export and external API calls
 pub fn get_bools_as_u8(
     reg: u16,
     count: u16,
@@ -276,6 +346,9 @@ pub fn get_bools_as_u8(
     return Ok(result);
 }
 
+/// Set coils from &Vec<u8>
+///
+/// Useful for import / export and external API calls
 pub fn set_bools_from_u8(
     reg: u16,
     count: u16,
@@ -308,6 +381,9 @@ pub fn set_bools_from_u8(
     return Ok(());
 }
 
+/// Bulk get
+///
+/// Can get the coils (Vec<bool>) or 16-bit registers (Vec<u16>)
 pub fn get_bulk<T: Copy>(
     reg: u16,
     count: u16,
@@ -322,6 +398,9 @@ pub fn get_bulk<T: Copy>(
     return Ok(result);
 }
 
+/// Bulk set
+///
+/// Can set the coils from Vec<bool> or 16-bit registers from Vec<u16>
 pub fn set_bulk<T: Copy>(
     reg: u16,
     data: &Vec<T>,
@@ -336,6 +415,9 @@ pub fn set_bulk<T: Copy>(
     return Ok(());
 }
 
+/// Get a single register
+///
+/// Get coil as bool or 16-bit reg as u16
 pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, Error> {
     if reg as usize >= CONTEXT_SIZE {
         return Err(Error {});
@@ -343,6 +425,9 @@ pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, Erro
     return Ok(reg_context[reg as usize]);
 }
 
+/// Set a single register
+///
+/// Set coil from bool or 16-bit reg from u16
 pub fn set<T>(reg: u16, value: T, reg_context: &mut [T; CONTEXT_SIZE]) -> Result<(), Error> {
     if reg as usize >= CONTEXT_SIZE {
         return Err(Error {});
@@ -351,6 +436,9 @@ pub fn set<T>(reg: u16, value: T, reg_context: &mut [T; CONTEXT_SIZE]) -> Result
     return Ok(());
 }
 
+/// Get two 16-bit registers as u32
+///
+/// Returns big-endian 32-bit value
 pub fn get_u32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error> {
     let w1 = match get(reg, reg_context) {
         Ok(v) => v,
@@ -363,6 +451,9 @@ pub fn get_u32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error
     return Ok(((w1 as u32) << 16) + w2 as u32);
 }
 
+/// Set two 16-bit registers from u32
+///
+/// Uses big-endian 32-bit value to set two registers
 pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
     let mut data: Vec<u16> = Vec::new();
     data.push((value >> 16) as u16);
@@ -370,6 +461,9 @@ pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> R
     return set_bulk(reg, &data, reg_context);
 }
 
+/// Set multiple 16-bit registers from Vec<u32>
+///
+/// Uses big-endian 32-bit values to set the registers
 pub fn set_u32_bulk(
     reg: u16,
     values: &Vec<u32>,
@@ -383,6 +477,7 @@ pub fn set_u32_bulk(
     return set_bulk(reg, &data, reg_context);
 }
 
+/// Get two 16-bit registers as IEEE754 32-bit float
 pub fn get_f32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<f32, Error> {
     let i = match get_u32(reg, reg_context) {
         Ok(v) => v,
@@ -391,10 +486,12 @@ pub fn get_f32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<f32, Error
     return Ok(Ieee754::from_bits(i));
 }
 
+/// Set IEEE 754 f32 to two 16-bit registers
 pub fn set_f32(reg: u16, value: f32, reg_context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
     return set_u32(reg, value.bits(), reg_context);
 }
 
+/// Set multiple 16-bit registers from Vec<f32> as IEEE754 32-bit floats
 pub fn set_f32_bulk(
     reg: u16,
     values: &Vec<f32>,
