@@ -46,5 +46,5 @@ fn main() {
     thread::spawn(move || {
         tcp::tcpserver(unit_id, "localhost:5502");
     });
-    looping()
+    looping();
 }
