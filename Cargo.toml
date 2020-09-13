@@ -1,12 +1,12 @@
 [package]
 name = "rmodbus"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Sergei S. <div@altertech.com>"]
 edition = "2018"
 license = "Apache-2.0"
 repository = "https://github.com/alttch/rmodbus"
-homepage = "https://github.com/alttch/rmodbus"
 description = "Native Rust Modbus framework"
+readme = "README.md"
 
 [dependencies]
 lazy_static = "1.4.0"
