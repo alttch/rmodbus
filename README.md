@@ -142,3 +142,7 @@ fn looping() {
 
 To let the above program communicate with outer world, Modbus server must be up
 and running in the separate thread, asynchronously or whatever is preferred.
+
+## Client
+
+Planned.
