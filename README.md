@@ -85,7 +85,7 @@ source and change *CONTEXT_SIZE* constant in "context.rs".
 rmodbus server context is thread-safe, easy to use and has a lot of functions.
 
 The context is created automatically, as soon as the library is imported. No
-any additional action is required.
+additional action is required.
 
 Every time Modbus context is accessed, a context mutex must be locked. This
 slows down a performance, but guarantees that the context always has valid data
