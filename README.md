@@ -23,13 +23,15 @@ quickly build Modbus-powered applications.
 
 * supports server frame processing for Modbus TCP/UDP and RTU
 
+* server context can be easily, managed, imported and exported
+
 ## So the server isn't included?
 
 Yes, there's no server included. You build the server by your own. You choose
 protocol, technology and everything else. rmodbus just process frames and works
 with Modbus context.
 
-Here's an example of simple TCP blocking server:
+Here's an example of a simple TCP blocking server:
 
 ```rust
 use std::io::{Read, Write};
@@ -82,19 +84,22 @@ source and change *CONTEXT_SIZE* constant in "context.rs".
 
 rmodbus server context is thread-safe, easy to use and has a lot of functions.
 
-Every time Modbus context is accessed, context mutex must be locked. This slows
-down a performance, but guarantees that the context always has valid data after
-bulk-set or 32-bit data types were written. So make sure your application locks
-context only when required and only for a short period time.
+The context is created automatically, as soon as the library is imported. No
+any additional action is required.
+
+Every time Modbus context is accessed, a context mutex must be locked. This
+slows down a performance, but guarantees that the context always has valid data
+after bulk-set or 32-bit data types were written. So make sure your application
+locks context only when required and only for a short period time.
 
 There are two groups of context functions:
 
-* High-level API: simple functions like *get_coil* automatically lock context
-  but do this every time when called. Use this for testing or if the speed is
-  not important.
+* High-level API: simple functions like *get_coil* automatically lock the
+  context but do this every time when called. Use this for testing or if the
+  speed is not important.
 
-* Advanced way is to use low-level API, lock context and then call proper
-  functions, like *set*, *set_f32* etc.
+* Advanced way is to use low-level API, lock the context manually and then call
+  proper functions, like *set*, *set_f32* etc.
 
 Take a look at simple PLC example:
 
