@@ -33,7 +33,7 @@ fn looping() {
         // WRITE RESULTS
         let mut ctx = context::CONTEXT.lock().unwrap();
         context::set(0, true, &mut ctx.coils).unwrap();
-        context::set_bulk_with_context(10, &(vec![10, 20]), &mut ctx.holdings).unwrap();
+        context::set_bulk(10, &(vec![10, 20]), &mut ctx.holdings).unwrap();
         context::set_f32(20, 935.77, &mut ctx.inputs).unwrap();
     }
 }
