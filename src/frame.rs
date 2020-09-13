@@ -1,9 +1,3 @@
-// TODO tests
-//
-use std::sync::Mutex;
-
-pub type ModbusContextMap<'a> = HashMap<u8, &'a Mutex<context::ModbusContext>>;
-pub type ModbusStaticContextMap = HashMap<u8, &'static Mutex<context::ModbusContext>>;
 pub type ModbusFrame = [u8; 256];
 
 #[derive(PartialEq, Eq, Debug)]
