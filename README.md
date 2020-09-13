@@ -94,7 +94,7 @@ application locks context only when required and only for a short period time.
 
 There are two groups of context functions:
 
-* High-level API: simple functions like *get_coil* automatically lock the
+* High-level API: simple functions like *coil_get* automatically lock the
   context but do this every time when called. Use this for testing or if the
   speed is not important.
 
