@@ -161,7 +161,7 @@ pub fn load_locked(
 // clear
 //
 
-pub fn clear_coils() {
+pub fn coil_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
             context.coils[i] = false;
@@ -169,7 +169,7 @@ pub fn clear_coils() {
     });
 }
 
-pub fn clear_discretes() {
+pub fn discrete_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
             context.discretes[i] = false;
@@ -177,7 +177,7 @@ pub fn clear_discretes() {
     });
 }
 
-pub fn clear_holdings() {
+pub fn holding_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
             context.holdings[i] = 0;
@@ -185,7 +185,7 @@ pub fn clear_holdings() {
     });
 }
 
-pub fn clear_inputs() {
+pub fn input_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
             context.inputs[i] = 0;
@@ -193,7 +193,7 @@ pub fn clear_inputs() {
     });
 }
 
-pub fn clear() {
+pub fn clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
             context.coils[i] = false;
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn test_discrete_get_set_bulk() {
-        clear_discretes();
+        discrete_clear_all();
         discrete_set_bulk(5, &(vec![true; 2])).unwrap();
         assert_eq!(discrete_get_bulk(5, 2).unwrap()[0..2], [true; 2]);
         discrete_set_bulk(25, &(vec![true; 18])).unwrap();
@@ -678,7 +678,7 @@ mod tests {
 
     #[test]
     fn test_get_holding_set_bulk() {
-        clear_holdings();
+        holding_clear_all();
         holding_set_bulk(5, &(vec![0x77; 2])).unwrap();
         assert_eq!(holding_get_bulk(5, 2).unwrap()[0..2], [0x77; 2]);
         holding_set_bulk(25, &(vec![0x33; 18])).unwrap();
@@ -732,7 +732,7 @@ mod tests {
 
     #[test]
     fn test_input_get_set_bulk() {
-        clear_inputs();
+        input_clear_all();
         input_set_bulk(5, &(vec![0x77; 2])).unwrap();
         assert_eq!(input_get_bulk(5, 2).unwrap()[0..2], [0x77; 2]);
         input_set_bulk(25, &(vec![0x33; 18])).unwrap();
@@ -755,7 +755,7 @@ mod tests {
 
     #[test]
     fn test_get_bools_as_u8() {
-        clear_coils();
+        coil_clear_all();
         coil_set_bulk(0, &(vec![true, true, true, true, true, true, false, false])).unwrap();
         {
             with_context(&|context| {
@@ -795,7 +795,7 @@ mod tests {
 
     #[test]
     fn test_get_set_regs_as_u8() {
-        clear_holdings();
+        holding_clear_all();
         let data = vec![2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9];
         holding_set_bulk(0, &data).unwrap();
         with_mut_context(&|context| {
@@ -807,7 +807,7 @@ mod tests {
 
     #[test]
     fn test_get_set_bools_as_u8() {
-        clear_coils();
+        coil_clear_all();
         let mut data = vec![
             true, true, true, false, true, true, true, true, true, false, false, false, false,
             false,
@@ -841,13 +841,13 @@ mod tests {
             myholdings.push(rng.gen());
             myinputs.push(rng.gen());
         }
-        clear();
+        clear_all();
         coil_set_bulk(0, &mycoils).unwrap();
         discrete_set_bulk(0, &mydiscretes).unwrap();
         holding_set_bulk(0, &myholdings).unwrap();
         input_set_bulk(0, &myinputs).unwrap();
         save(&"/tmp/modbus-memory.dat").unwrap();
-        clear();
+        clear_all();
         load(&"/tmp/modbus-memory.dat").unwrap();
         assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
         assert_eq!(

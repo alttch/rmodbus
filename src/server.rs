@@ -108,7 +108,8 @@ pub fn process_frame(unit_id: u8, frame: &ModbusFrame, proto: ModbusProto) -> Op
         match result {
             Ok(mut data) => {
                 response_set_data_len!(data.len() + 3);
-                response.extend_from_slice(&frame[start_frame..start_frame + 2]); // 2b unit and func
+                // 2b unit and func
+                response.extend_from_slice(&frame[start_frame..start_frame + 2]);
                 response.push(data.len() as u8);
                 response.append(&mut data);
                 return finalize_response!();
@@ -146,7 +147,8 @@ pub fn process_frame(unit_id: u8, frame: &ModbusFrame, proto: ModbusProto) -> Op
             return finalize_response!();
         } else {
             response_set_data_len!(6);
-            response.extend_from_slice(&frame[start_frame..start_frame + 6]); // 6b unit, func, reg, val
+            // 6b unit, func, reg, val
+            response.extend_from_slice(&frame[start_frame..start_frame + 6]);
             return finalize_response!();
         }
     } else if func == 6 {
@@ -165,7 +167,8 @@ pub fn process_frame(unit_id: u8, frame: &ModbusFrame, proto: ModbusProto) -> Op
             return finalize_response!();
         } else {
             response_set_data_len!(6);
-            response.extend_from_slice(&frame[start_frame..start_frame + 6]); // 6b unit, func, reg, val
+            // 6b unit, func, reg, val
+            response.extend_from_slice(&frame[start_frame..start_frame + 6]);
             return finalize_response!();
         }
     } else if func == 0x0f || func == 0x10 {
