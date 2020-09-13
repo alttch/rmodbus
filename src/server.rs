@@ -25,12 +25,8 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
-pub fn process_frame(
-    unit_id: u8,
-    frame: &ModbusFrame,
-    proto: ModbusProto,
-) -> Option<Vec<u8>> {
-    let begin: usize;
+pub fn process_frame(unit_id: u8, frame: &ModbusFrame, proto: ModbusProto) -> Option<Vec<u8>> {
+    let start_frame: usize;
     let mut response: Vec<u8> = Vec::new();
     if proto == ModbusProto::TcpUdp {
         //let tr_id = u16::from_be_bytes([frame[0], frame[1]]);
@@ -39,11 +35,11 @@ pub fn process_frame(
         if proto_id != 0 || length < 6 {
             return None;
         }
-        begin = 6;
+        start_frame = 6;
     } else {
-        begin = 0;
+        start_frame = 0;
     }
-    let unit = frame[begin];
+    let unit = frame[start_frame];
     let broadcast = unit == 0 || unit == 255; // some clients send broadcast to 0xff
     if !broadcast && unit != unit_id {
         return None;
@@ -51,7 +47,7 @@ pub fn process_frame(
     if !broadcast && proto == ModbusProto::TcpUdp {
         response.extend_from_slice(&frame[0..4]); // copy 4 bytes: tr id and proto
     }
-    let func = frame[begin + 1];
+    let func = frame[start_frame + 1];
     macro_rules! check_frame_crc {
         ($len:expr) => {
             proto == ModbusProto::TcpUdp
@@ -94,12 +90,12 @@ pub fn process_frame(
         if broadcast || !check_frame_crc!(6) {
             return None;
         }
-        let count = u16::from_be_bytes([frame[begin + 4], frame[begin + 5]]);
+        let count = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
         if ((func == 1 || func == 2) && count > 2000) || ((func == 3 || func == 4) && count > 125) {
             response_error!(0x03);
             return finalize_response!();
         }
-        let reg = u16::from_be_bytes([frame[begin + 2], frame[begin + 3]]);
+        let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
         let ctx = context::CONTEXT.lock().unwrap();
         let result = match func {
             1 => context::get_bools_as_u8(reg, count, &ctx.coils),
@@ -112,7 +108,7 @@ pub fn process_frame(
         match result {
             Ok(mut data) => {
                 response_set_data_len!(data.len() + 3);
-                response.extend_from_slice(&frame[begin..begin + 2]); // 2b unit and func
+                response.extend_from_slice(&frame[start_frame..start_frame + 2]); // 2b unit and func
                 response.push(data.len() as u8);
                 response.append(&mut data);
                 return finalize_response!();
@@ -128,9 +124,9 @@ pub fn process_frame(
         if !check_frame_crc!(6) {
             return None;
         }
-        let reg = u16::from_be_bytes([frame[begin + 2], frame[begin + 3]]);
+        let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
         let val: bool;
-        match u16::from_be_bytes([frame[begin + 4], frame[begin + 5]]) {
+        match u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]) {
             0xff00 => val = true,
             0x0000 => val = false,
             _ => {
@@ -142,11 +138,7 @@ pub fn process_frame(
                 }
             }
         };
-        let result = context::set(
-            reg,
-            val,
-            &mut context::CONTEXT.lock().unwrap().coils,
-        );
+        let result = context::set(reg, val, &mut context::CONTEXT.lock().unwrap().coils);
         if broadcast {
             return None;
         } else if result.is_err() {
@@ -154,7 +146,7 @@ pub fn process_frame(
             return finalize_response!();
         } else {
             response_set_data_len!(6);
-            response.extend_from_slice(&frame[begin..begin + 6]); // 6b unit, func, reg, val
+            response.extend_from_slice(&frame[start_frame..start_frame + 6]); // 6b unit, func, reg, val
             return finalize_response!();
         }
     } else if func == 6 {
@@ -163,13 +155,9 @@ pub fn process_frame(
         if !check_frame_crc!(6) {
             return None;
         }
-        let reg = u16::from_be_bytes([frame[begin + 2], frame[begin + 3]]);
-        let val = u16::from_be_bytes([frame[begin + 4], frame[begin + 5]]);
-        let result = context::set(
-            reg,
-            val,
-            &mut context::CONTEXT.lock().unwrap().holdings,
-        );
+        let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
+        let val = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
+        let result = context::set(reg, val, &mut context::CONTEXT.lock().unwrap().holdings);
         if broadcast {
             return None;
         } else if result.is_err() {
@@ -177,13 +165,13 @@ pub fn process_frame(
             return finalize_response!();
         } else {
             response_set_data_len!(6);
-            response.extend_from_slice(&frame[begin..begin + 6]); // 6b unit, func, reg, val
+            response.extend_from_slice(&frame[start_frame..start_frame + 6]); // 6b unit, func, reg, val
             return finalize_response!();
         }
     } else if func == 0x0f || func == 0x10 {
         // funcs 15 & 16
         // write multiple coils / registers
-        let bytes = frame[begin + 6];
+        let bytes = frame[start_frame + 6];
         if !check_frame_crc!(7 + bytes) {
             return None;
         }
@@ -195,10 +183,10 @@ pub fn process_frame(
                 return finalize_response!();
             }
         }
-        let reg = u16::from_be_bytes([frame[begin + 2], frame[begin + 3]]);
-        let count = u16::from_be_bytes([frame[begin + 4], frame[begin + 5]]);
+        let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
+        let count = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
         let mut data: Vec<u8> = Vec::new();
-        data.extend_from_slice(&frame[begin + 7..begin + 7 + bytes as usize]);
+        data.extend_from_slice(&frame[start_frame + 7..start_frame + 7 + bytes as usize]);
         let result = match func {
             0x0f => context::set_bools_from_u8(
                 reg,
@@ -219,7 +207,8 @@ pub fn process_frame(
             match result {
                 Ok(_) => {
                     response_set_data_len!(6);
-                    response.extend_from_slice(&frame[begin..begin + 6]); // 6b unit, f, reg, cnt
+                    // 6b unit, f, reg, cnt
+                    response.extend_from_slice(&frame[start_frame..start_frame + 6]);
                     return finalize_response!();
                 }
                 Err(_) => {
