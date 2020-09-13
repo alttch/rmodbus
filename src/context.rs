@@ -292,7 +292,7 @@ pub fn set_bools_from_u8(
     return Ok(());
 }
 
-pub fn get_bulk_with_context<T: Copy>(
+pub fn get_bulk<T: Copy>(
     reg: u16,
     count: u16,
     context: &[T; CONTEXT_SIZE],
@@ -306,7 +306,7 @@ pub fn get_bulk_with_context<T: Copy>(
     return Ok(result);
 }
 
-pub fn set_bulk_with_context<T: Copy>(
+pub fn set_bulk<T: Copy>(
     reg: u16,
     data: &Vec<T>,
     context: &mut [T; CONTEXT_SIZE],
@@ -351,7 +351,7 @@ pub fn set_u32(reg: u16, value: u32, context: &mut [u16; CONTEXT_SIZE]) -> Resul
     let mut data: Vec<u16> = Vec::new();
     data.push((value >> 16) as u16);
     data.push(value as u16);
-    return set_bulk_with_context(reg, &data, context);
+    return set_bulk(reg, &data, context);
 }
 
 pub fn set_u32_bulk(
@@ -364,7 +364,7 @@ pub fn set_u32_bulk(
         data.push((u >> 16) as u16);
         data.push(*u as u16);
     }
-    return set_bulk_with_context(reg, &data, context);
+    return set_bulk(reg, &data, context);
 }
 
 pub fn get_f32(reg: u16, context: &[u16; CONTEXT_SIZE]) -> Result<f32, Error> {
@@ -393,12 +393,12 @@ pub fn set_f32_bulk(
 
 pub fn get_coils(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_bulk_with_context(reg, count, &context.coils);
+    return get_bulk(reg, count, &context.coils);
 }
 
 pub fn set_coils(reg: u16, coils: &Vec<bool>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_bulk_with_context(reg, coils, &mut context.coils);
+    return set_bulk(reg, coils, &mut context.coils);
 }
 
 pub fn get_coil(reg: u16) -> Result<bool, Error> {
@@ -413,12 +413,12 @@ pub fn set_coil(reg: u16, value: bool) -> Result<(), Error> {
 
 pub fn get_discretes(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_bulk_with_context(reg, count, &context.discretes);
+    return get_bulk(reg, count, &context.discretes);
 }
 
 pub fn set_discretes(reg: u16, discretes: &Vec<bool>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_bulk_with_context(reg, discretes, &mut context.discretes);
+    return set_bulk(reg, discretes, &mut context.discretes);
 }
 
 pub fn get_discrete(reg: u16) -> Result<bool, Error> {
@@ -433,7 +433,7 @@ pub fn set_discrete(reg: u16, value: bool) -> Result<(), Error> {
 
 pub fn get_holdings(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_bulk_with_context(reg, count, &context.holdings);
+    return get_bulk(reg, count, &context.holdings);
 }
 
 pub fn get_holding(reg: u16) -> Result<u16, Error> {
@@ -453,7 +453,7 @@ pub fn get_holding_f32(reg: u16) -> Result<f32, Error> {
 
 pub fn set_holdings(reg: u16, holdings: &Vec<u16>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_bulk_with_context(reg, &holdings, &mut context.holdings);
+    return set_bulk(reg, &holdings, &mut context.holdings);
 }
 
 pub fn set_holding(reg: u16, value: u16) -> Result<(), Error> {
@@ -483,7 +483,7 @@ pub fn set_holding_f32(reg: u16, value: f32) -> Result<(), Error> {
 
 pub fn get_inputs(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
     let context = CONTEXT.lock().unwrap();
-    return get_bulk_with_context(reg, count, &context.inputs);
+    return get_bulk(reg, count, &context.inputs);
 }
 
 pub fn get_input(reg: u16) -> Result<u16, Error> {
@@ -503,7 +503,7 @@ pub fn get_input_f32(reg: u16) -> Result<f32, Error> {
 
 pub fn set_inputs(reg: u16, inputs: &Vec<u16>) -> Result<(), Error> {
     let mut context = CONTEXT.lock().unwrap();
-    return set_bulk_with_context(reg, inputs, &mut context.inputs);
+    return set_bulk(reg, inputs, &mut context.inputs);
 }
 
 pub fn set_input(reg: u16, value: u16) -> Result<(), Error> {
