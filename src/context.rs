@@ -1,7 +1,5 @@
 use ieee754::Ieee754;
-use spin::{Mutex, MutexGuard};
-
-use fixedvec::FixedVec;
+use super::super::{ErrorKind, VectorTrait, Mutex, MutexGuard};
 
 const CONTEXT_SIZE: usize = 10000;
 
@@ -11,46 +9,6 @@ pub struct ModbusContext {
     pub discretes: [bool; CONTEXT_SIZE],
     pub holdings: [u16; CONTEXT_SIZE],
     pub inputs: [u16; CONTEXT_SIZE],
-}
-
-/// Default context error
-///
-/// Returned by all functions. Usually caused when read / write request is out of bounds.
-#[derive(Debug)]
-pub enum ErrorKind {
-    ContextOOB,
-    OOB,
-}
-
-pub trait VectorTrait<T: Copy> {
-    fn add(&mut self, value: T) -> Result<(), ErrorKind>;
-    fn add_bulk(&mut self, other: &[T]) -> Result<(), ErrorKind>;
-}
-
-impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
-    fn add(&mut self, value: T) -> Result<(), ErrorKind> {
-        return match self.push(value) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ErrorKind::OOB),
-        };
-    }
-    fn add_bulk(&mut self, values: &[T]) -> Result<(), ErrorKind> {
-        return match self.push_all(values) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ErrorKind::OOB),
-        };
-    }
-}
-
-impl<T: Copy> VectorTrait<T> for Vec<T> {
-    fn add(&mut self, value: T) -> Result<(), ErrorKind> {
-        self.push(value);
-        return Ok(());
-    }
-    fn add_bulk(&mut self, values: &[T]) -> Result<(), ErrorKind> {
-        self.extend_from_slice(values);
-        return Ok(());
-    }
 }
 
 impl ModbusContext {
@@ -101,7 +59,7 @@ lazy_static! {
 ///  }
 ///```
 pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
-    let ctx = CONTEXT.lock();
+    let ctx = lock_mutex!(CONTEXT);
     f(&ctx);
 }
 
@@ -125,7 +83,7 @@ pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
 ///}
 ///```
 pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
-    let mut ctx = CONTEXT.lock();
+    let mut ctx = lock_mutex!(CONTEXT);
     f(&mut ctx);
 }
 
@@ -135,7 +93,7 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
 /*
 /// Dump full Modbus context to Vec<u8>
 pub fn dump() -> Option<Vec<u8>> {
-    let ctx = CONTEXT.lock();
+    let ctx = lock_mutex!(CONTEXT);
     return dump_locked(&ctx);
 }
 
@@ -151,7 +109,7 @@ pub fn dump_locked(context: &MutexGuard<ModbusContext>) -> Option<Vec<u8>> {
 
 /// Restore full Modbus context from Vec<u8>
 pub fn restore(data: &Vec<u8>) -> Result<(), ErrorKind> {
-    let mut ctx = CONTEXT.lock();
+    let mut ctx = lock_mutex!(CONTEXT);
     return restore_locked(data, &mut ctx);
 }
 
@@ -536,22 +494,22 @@ pub fn coil_get_bulk<V: VectorTrait<bool>>(
     count: u16,
     result: &mut V,
 ) -> Result<(), ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_bulk(reg, count, &context.coils, result);
 }
 
 pub fn coil_set_bulk(reg: u16, coils: &[bool]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_bulk(reg, coils, &mut context.coils);
 }
 
 pub fn coil_get(reg: u16) -> Result<bool, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get(reg, &context.coils);
 }
 
 pub fn coil_set(reg: u16, value: bool) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set(reg, value, &mut context.coils);
 }
 //
@@ -563,22 +521,22 @@ pub fn discrete_get_bulk<V: VectorTrait<bool>>(
     count: u16,
     result: &mut V,
 ) -> Result<(), ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_bulk(reg, count, &context.discretes, result);
 }
 
 pub fn discrete_set_bulk(reg: u16, discretes: &[bool]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_bulk(reg, discretes, &mut context.discretes);
 }
 
 pub fn discrete_get(reg: u16) -> Result<bool, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get(reg, &context.discretes);
 }
 
 pub fn discrete_set(reg: u16, value: bool) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set(reg, value, &mut context.discretes);
 }
 
@@ -586,7 +544,7 @@ pub fn discrete_set(reg: u16, value: bool) -> Result<(), ErrorKind> {
 // holdings functions
 //
 pub fn holding_get(reg: u16) -> Result<u16, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get(reg, &context.holdings);
 }
 
@@ -595,47 +553,47 @@ pub fn holding_get_bulk<V: VectorTrait<u16>>(
     count: u16,
     result: &mut V,
 ) -> Result<(), ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_bulk(reg, count, &context.holdings, result);
 }
 
 pub fn holding_get_u32(reg: u16) -> Result<u32, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_u32(reg, &context.holdings);
 }
 
 pub fn holding_get_f32(reg: u16) -> Result<f32, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_f32(reg, &context.holdings);
 }
 
 pub fn holding_set(reg: u16, value: u16) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set(reg, value, &mut context.holdings);
 }
 
 pub fn holding_set_bulk(reg: u16, holdings: &[u16]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_bulk(reg, &holdings, &mut context.holdings);
 }
 
 pub fn holding_set_u32_bulk(reg: u16, values: &[u32]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_u32_bulk(reg, values, &mut context.holdings);
 }
 
 pub fn holding_set_u32(reg: u16, value: u32) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_u32(reg, value, &mut context.holdings);
 }
 
 pub fn holding_set_f32_bulk(reg: u16, values: &[f32]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_f32_bulk(reg, values, &mut context.holdings);
 }
 
 pub fn holding_set_f32(reg: u16, value: f32) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_f32(reg, value, &mut context.holdings);
 }
 
@@ -643,7 +601,7 @@ pub fn holding_set_f32(reg: u16, value: f32) -> Result<(), ErrorKind> {
 // input functions
 //
 pub fn input_get(reg: u16) -> Result<u16, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get(reg, &context.inputs);
 }
 
@@ -652,52 +610,54 @@ pub fn input_get_bulk<V: VectorTrait<u16>>(
     count: u16,
     result: &mut V,
 ) -> Result<(), ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_bulk(reg, count, &context.inputs, result);
 }
 
 pub fn input_get_u32(reg: u16) -> Result<u32, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_u32(reg, &context.inputs);
 }
 
 pub fn input_get_f32(reg: u16) -> Result<f32, ErrorKind> {
-    let context = CONTEXT.lock();
+    let context = lock_mutex!(CONTEXT);
     return get_f32(reg, &context.inputs);
 }
 
 pub fn input_set(reg: u16, value: u16) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set(reg, value, &mut context.inputs);
 }
 
 pub fn input_set_bulk(reg: u16, inputs: &[u16]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_bulk(reg, &inputs, &mut context.inputs);
 }
 
 pub fn input_set_u32_bulk(reg: u16, values: &[u32]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_u32_bulk(reg, values, &mut context.inputs);
 }
 
 pub fn input_set_u32(reg: u16, value: u32) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_u32(reg, value, &mut context.inputs);
 }
 
 pub fn input_set_f32_bulk(reg: u16, values: &[f32]) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_f32_bulk(reg, values, &mut context.inputs);
 }
 
 pub fn input_set_f32(reg: u16, value: f32) -> Result<(), ErrorKind> {
-    let mut context = CONTEXT.lock();
+    let mut context = lock_mutex!(CONTEXT);
     return set_f32(reg, value, &mut context.inputs);
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fixedvec::FixedVec;
+
     //use rand::Rng;
 
     #[test]
