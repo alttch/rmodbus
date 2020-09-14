@@ -1,4 +1,4 @@
-// TODO nostd doc, dump / restore, test all srv types, new examples
+// TODO dump / restore, nostd docs, server tests, test all srv types, new examples
 #![no_std]
 
 #[allow(unused_imports)]
