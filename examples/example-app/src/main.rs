@@ -3,6 +3,9 @@ use spin::MutexGuard;
 use std::fs::File;
 use std::io::prelude::*;
 
+#[macro_use]
+extern crate fixedvec;
+
 fn looping() {
     loop {
         // READ WORK MODES ETC
@@ -17,9 +20,9 @@ fn looping() {
             match cmd {
                 1 => {
                     println!("saving memory context");
-                    let _ = save_locked("/tmp/plc1.dat", &ctx).map_err(|_| {
-                        eprintln!("unable to save context!");
-                    });
+                    //let _ = save_locked("/tmp/plc1.dat", &ctx).map_err(|_| {
+                        //eprintln!("unable to save context!");
+                    //});
                 }
                 _ => println!("command not implemented"),
             }
@@ -36,38 +39,38 @@ fn looping() {
     }
 }
 
-fn save_locked(
-    fname: &str,
-    ctx: &MutexGuard<context::ModbusContext>,
-) -> Result<(), std::io::Error> {
-    let mut file = match File::create(fname) {
-        Ok(v) => v,
-        Err(e) => return Err(e),
-    };
-    match file.write_all(&context::dump_locked(ctx)) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    }
-    match file.sync_all() {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    }
-    return Ok(());
-}
+//fn save_locked(
+    //fname: &str,
+    //ctx: &MutexGuard<context::ModbusContext>,
+//) -> Result<(), std::io::Error> {
+    //let mut file = match File::create(fname) {
+        //Ok(v) => v,
+        //Err(e) => return Err(e),
+    //};
+    //match file.write_all(&context::dump_locked(ctx)) {
+        //Ok(_) => {}
+        //Err(e) => return Err(e),
+    //}
+    //match file.sync_all() {
+        //Ok(_) => {}
+        //Err(e) => return Err(e),
+    //}
+    //return Ok(());
+//}
 
-fn load(fname: &str) -> Result<(), std::io::Error> {
-    let mut file = match File::open(fname) {
-        Ok(v) => v,
-        Err(e) => return Err(e),
-    };
-    let mut data: Vec<u8> = Vec::new();
-    match file.read_to_end(&mut data) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    }
-    context::restore(&data).unwrap();
-    return Ok(());
-}
+//fn load(fname: &str) -> Result<(), std::io::Error> {
+    //let mut file = match File::open(fname) {
+        //Ok(v) => v,
+        //Err(e) => return Err(e),
+    //};
+    //let mut data: Vec<u8> = Vec::new();
+    //match file.read_to_end(&mut data) {
+        //Ok(_) => {}
+        //Err(e) => return Err(e),
+    //}
+    //context::restore(&data).unwrap();
+    //return Ok(());
+//}
 
 #[path = "../../example-server/src/tcp.rs"]
 mod tcp;
@@ -75,9 +78,9 @@ mod tcp;
 fn main() {
     // read context
     let unit_id = 1;
-    let _ = load(&"/tmp/plc1.dat").map_err(|_| {
-        eprintln!("warning: no saved context");
-    });
+    //let _ = load(&"/tmp/plc1.dat").map_err(|_| {
+        //eprintln!("warning: no saved context");
+    //});
     use std::thread;
     thread::spawn(move || {
         tcp::tcpserver(unit_id, "localhost:5502");

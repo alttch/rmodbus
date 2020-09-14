@@ -1,7 +1,7 @@
 #[path = "context.rs"]
 pub mod context;
 
-use fixedvec::FixedVec;
+use super::VectorTrait;
 
 /// Standard Modbus frame
 ///
@@ -39,7 +39,6 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
-/*
 /// Process Modbus frame
 ///
 /// Simple example of Modbus/UDP blocking server:
@@ -69,8 +68,6 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///}
 /// ```
 ///
-*/
-/*
 /// There are also [examples of TCP and
 /// RTU](https://github.com/alttch/rmodbus/tree/master/examples/example-server/src)
 ///
@@ -83,11 +80,11 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///
 /// * **broadcast request**: when broadcasts are processed, apps shouldn't reply anything back
 ///
-pub fn process_frame(
+pub fn process_frame<V: VectorTrait<u8>>(
     unit_id: u8,
     frame: &ModbusFrame,
     proto: ModbusProto,
-    response: &mut FixedVec<u8>,
+    response: &mut V,
 ) -> Result<(), Error> {
     let start_frame: usize;
     if proto == ModbusProto::TcpUdp {
@@ -101,7 +98,7 @@ pub fn process_frame(
     } else {
         start_frame = 0;
     }
-    response.clear();
+    response.clear_all();
     let unit = frame[start_frame];
     let broadcast = unit == 0 || unit == 255; // some clients send broadcast to 0xff
     if !broadcast && unit != unit_id {
@@ -109,7 +106,7 @@ pub fn process_frame(
     }
     if !broadcast && proto == ModbusProto::TcpUdp {
         // copy 4 bytes: tr id and proto
-        if response.push_all(&frame[0..4]).is_err() {
+        if response.add_bulk(&frame[0..4]).is_err() {
             return Err(Error);
         }
     }
@@ -126,7 +123,7 @@ pub fn process_frame(
             match proto {
                 ModbusProto::TcpUdp => {
                     if response
-                        .push_all(&[0, 3, frame[7], frame[8] + 0x80, $err])
+                        .add_bulk(&[0, 3, frame[7], frame[8] + 0x80, $err])
                         .is_err()
                     {
                         return Err(Error);
@@ -134,7 +131,7 @@ pub fn process_frame(
                 }
                 ModbusProto::Rtu => {
                     if response
-                        .push_all(&[frame[0], frame[1] + 0x80, $err])
+                        .add_bulk(&[frame[0], frame[1] + 0x80, $err])
                         .is_err()
                     {
                         return Err(Error);
@@ -146,7 +143,7 @@ pub fn process_frame(
     macro_rules! response_set_data_len {
         ($len:expr) => {
             if proto == ModbusProto::TcpUdp {
-                if response.push_all(&($len as u16).to_be_bytes()).is_err() {
+                if response.add_bulk(&($len as u16).to_be_bytes()).is_err() {
                     return Err(Error);
                 }
             }
@@ -155,8 +152,8 @@ pub fn process_frame(
     macro_rules! finalize_response {
         () => {
             if proto == ModbusProto::Rtu {
-                let crc = calc_rtu_crc(&response.as_slice(), response.len() as u8);
-                if response.push_all(&crc.to_le_bytes()).is_err() {
+                let crc = calc_rtu_crc(&response.get_slice(), response.get_len() as u8);
+                if response.add_bulk(&crc.to_le_bytes()).is_err() {
                     return Err(Error);
                 }
             }
@@ -178,22 +175,22 @@ pub fn process_frame(
             return Ok(());
         }
         let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
-        let ctx = context::CONTEXT.lock();
         let mut data_len = count >> 3;
         if count % 8 != 0 {
             data_len = data_len + 1;
         }
         response_set_data_len!(data_len + 3);
         if response
-            .push_all(&frame[start_frame..start_frame + 2]) // 2b unit and func
+            .add_bulk(&frame[start_frame..start_frame + 2]) // 2b unit and func
             .is_err()
         {
             return Err(Error);
         }
-        if response.push(data_len as u8).is_err() {
+        if response.add(data_len as u8).is_err() {
             // 1b data len
             return Err(Error);
         }
+        let ctx = lock_mutex!(context::CONTEXT);
         let result = match func {
             1 => context::get_bools_as_u8(reg, count, &ctx.coils, response),
             2 => context::get_bools_as_u8(reg, count, &ctx.discretes, response),
@@ -206,7 +203,7 @@ pub fn process_frame(
                 Ok(())
             }
             Err(_) => {
-                response.resize(response.len() - 5, 0);
+                response.cut_end(5, 0);
                 response_error!(0x02);
                 finalize_response!();
                 Ok(())
@@ -228,19 +225,19 @@ pub fn process_frame(
             return Ok(());
         }
         let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
-        let ctx = context::CONTEXT.lock();
         let data_len = count << 1;
         response_set_data_len!(data_len + 3);
         if response
-            .push_all(&frame[start_frame..start_frame + 2]) // 2b unit and func
+            .add_bulk(&frame[start_frame..start_frame + 2]) // 2b unit and func
             .is_err()
         {
             return Err(Error);
         }
-        if response.push(data_len as u8).is_err() {
+        if response.add(data_len as u8).is_err() {
             // 1b data len
             return Err(Error);
         }
+        let ctx = lock_mutex!(context::CONTEXT);
         let result = match func {
             3 => context::get_regs_as_u8(reg, count, &ctx.holdings, response),
             4 => context::get_regs_as_u8(reg, count, &ctx.inputs, response),
@@ -253,7 +250,7 @@ pub fn process_frame(
                 Ok(())
             }
             Err(_) => {
-                response.resize(response.len() - 5, 0);
+                response.cut_end(5, 0);
                 response_error!(0x02);
                 finalize_response!();
                 Ok(())
@@ -280,7 +277,7 @@ pub fn process_frame(
                 }
             }
         };
-        let result = context::set(reg, val, &mut context::CONTEXT.lock().coils);
+        let result = context::set(reg, val, &mut lock_mutex!(context::CONTEXT).coils);
         if broadcast {
             return Ok(());
         } else if result.is_err() {
@@ -291,7 +288,7 @@ pub fn process_frame(
             response_set_data_len!(6);
             // 6b unit, func, reg, val
             if response
-                .push_all(&frame[start_frame..start_frame + 6])
+                .add_bulk(&frame[start_frame..start_frame + 6])
                 .is_err()
             {
                 return Err(Error);
@@ -307,7 +304,7 @@ pub fn process_frame(
         }
         let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
         let val = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
-        let result = context::set(reg, val, &mut context::CONTEXT.lock().holdings);
+        let result = context::set(reg, val, &mut lock_mutex!(context::CONTEXT).holdings);
         if broadcast {
             return Ok(());
         } else if result.is_err() {
@@ -318,7 +315,7 @@ pub fn process_frame(
             response_set_data_len!(6);
             // 6b unit, func, reg, val
             if response
-                .push_all(&frame[start_frame..start_frame + 6])
+                .add_bulk(&frame[start_frame..start_frame + 6])
                 .is_err()
             {
                 return Err(Error);
@@ -344,19 +341,18 @@ pub fn process_frame(
         }
         let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
         let count = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
-        let mut data_mem = alloc_stack!([u8; 242]);
-        let mut data: FixedVec<u8> = FixedVec::new(&mut data_mem);
-        if data
-            .push_all(&frame[start_frame + 7..start_frame + 7 + bytes as usize])
-            .is_err()
-        {
-            return Err(Error);
-        }
         let result = match func {
-            0x0f => {
-                context::set_bools_from_u8(reg, count, &data, &mut context::CONTEXT.lock().coils)
-            }
-            0x10 => context::set_regs_from_u8(reg, &data, &mut context::CONTEXT.lock().holdings),
+            0x0f => context::set_bools_from_u8(
+                reg,
+                count,
+                &frame[start_frame + 7..start_frame + 7 + bytes as usize],
+                &mut lock_mutex!(context::CONTEXT).coils,
+            ),
+            0x10 => context::set_regs_from_u8(
+                reg,
+                &frame[start_frame + 7..start_frame + 7 + bytes as usize],
+                &mut lock_mutex!(context::CONTEXT).holdings,
+            ),
             _ => panic!(), // never reaches
         };
         if broadcast {
@@ -367,7 +363,7 @@ pub fn process_frame(
                     response_set_data_len!(6);
                     // 6b unit, f, reg, cnt
                     if response
-                        .push_all(&frame[start_frame..start_frame + 6])
+                        .add_bulk(&frame[start_frame..start_frame + 6])
                         .is_err()
                     {
                         return Err(Error);
@@ -388,4 +384,4 @@ pub fn process_frame(
         finalize_response!();
         return Ok(());
     }
-}*/
+}
