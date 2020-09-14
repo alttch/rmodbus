@@ -1,5 +1,7 @@
 use ieee754::Ieee754;
-use std::sync::{Mutex, MutexGuard};
+use spin::{Mutex, MutexGuard};
+
+use fixedvec::FixedVec;
 
 const CONTEXT_SIZE: usize = 10000;
 
@@ -65,7 +67,7 @@ lazy_static! {
 ///  }
 ///```
 pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
-    let ctx = CONTEXT.lock().unwrap();
+    let ctx = CONTEXT.lock();
     f(&ctx);
 }
 
@@ -89,33 +91,33 @@ pub fn with_context(f: &dyn Fn(&MutexGuard<ModbusContext>)) {
 ///}
 ///```
 pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
-    let mut ctx = CONTEXT.lock().unwrap();
+    let mut ctx = CONTEXT.lock();
     f(&mut ctx);
 }
 
 //
 // import / export
 //
-
+/*
 /// Dump full Modbus context to Vec<u8>
-pub fn dump() -> Vec<u8> {
-    let ctx = CONTEXT.lock().unwrap();
+pub fn dump() -> Option<FixedVec<u8>> {
+    let ctx = CONTEXT.lock();
     return dump_locked(&ctx);
 }
 
 /// Dump full Modbus context when it's locked
-pub fn dump_locked(context: &MutexGuard<ModbusContext>) -> Vec<u8> {
-    let mut data: Vec<u8> = Vec::new();
-    data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.coils).unwrap());
-    data.append(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.discretes).unwrap());
-    data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
-    data.append(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
+pub fn dump_locked(context: &MutexGuard<ModbusContext>) -> Option<FixedVec<u8>> {
+    let mut data: FixedVec<u8> = FixedVec::new(&mut alloc_stack!([u8; CONTEXT_SIZE * 9 / 2]));
+    data.push_all(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.coils).unwrap());
+    data.push_all(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.discretes).unwrap());
+    data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
+    data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
     return data;
 }
 
 /// Restore full Modbus context from Vec<u8>
 pub fn restore(data: &Vec<u8>) -> Result<(), Error> {
-    let mut ctx = CONTEXT.lock().unwrap();
+    let mut ctx = CONTEXT.lock();
     return restore_locked(data, &mut ctx);
 }
 
@@ -127,8 +129,7 @@ pub fn restore_locked(
     let bool_size = CONTEXT_SIZE / 8;
     let reg_size = CONTEXT_SIZE * 2;
     if bool_size * 2 + reg_size * 2 != data.len() {
-        println!("wrong size {} {}", bool_size * 2 + reg_size * 2, data.len());
-        return Err(Error {});
+        return Err(Error);
     }
     let start = 0;
     let end = bool_size;
@@ -164,8 +165,7 @@ pub fn restore_locked(
         Err(e) => return Err(e),
     };
     return Ok(());
-}
-
+}*/
 //
 // clear
 //
@@ -229,17 +229,21 @@ pub fn get_regs_as_u8(
     reg: u16,
     count: u16,
     reg_context: &[u16; CONTEXT_SIZE],
-) -> Result<Vec<u8>, Error> {
+    result: &mut FixedVec<u8>,
+) -> Result<(), Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
-    let mut result: Vec<u8> = Vec::new();
     for c in reg as usize..reg_to {
-        result.push((reg_context[c] >> 8) as u8);
-        result.push(reg_context[c] as u8);
+        if result.push((reg_context[c] >> 8) as u8).is_err() {
+            return Err(Error);
+        }
+        if result.push(reg_context[c] as u8).is_err() {
+            return Err(Error);
+        }
     }
-    return Ok(result);
+    return Ok(());
 }
 
 /// Set 16-bit registers from &Vec<u8>
@@ -247,11 +251,11 @@ pub fn get_regs_as_u8(
 /// Useful for import / export and external API calls
 pub fn set_regs_from_u8(
     reg: u16,
-    values: &Vec<u8>,
+    values: &FixedVec<u8>,
     reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     if reg as usize + values.len() / 2 > CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
     let mut i = 0;
     let mut creg = reg as usize;
@@ -276,12 +280,15 @@ pub fn get_bools_as_u8(
     reg: u16,
     count: u16,
     reg_context: &[bool; CONTEXT_SIZE],
-) -> Result<Vec<u8>, Error> {
+    result: &mut FixedVec<u8>,
+) -> Result<(), Error> {
+    if count > 250 {
+        return Err(Error);
+    }
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
-    let mut result: Vec<u8> = Vec::new();
     let mut creg = reg as usize;
     while creg < reg_to {
         let mut cbyte = 0;
@@ -294,9 +301,11 @@ pub fn get_bools_as_u8(
                 break;
             }
         }
-        result.push(cbyte);
+        if result.push(cbyte).is_err() {
+            return Err(Error);
+        };
     }
-    return Ok(result);
+    return Ok(());
 }
 
 /// Set coils from &Vec<u8>
@@ -308,12 +317,12 @@ pub fn get_bools_as_u8(
 pub fn set_bools_from_u8(
     reg: u16,
     count: u16,
-    values: &Vec<u8>,
+    values: &FixedVec<u8>,
     reg_context: &mut [bool; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
     let mut creg = reg as usize;
     let mut cbyte = 0;
@@ -321,7 +330,7 @@ pub fn set_bools_from_u8(
     while creg < reg_to && cnt < count {
         let mut b: u8 = match values.get(cbyte) {
             Some(v) => *v,
-            None => return Err(Error {}),
+            None => return Err(Error),
         };
         for _ in 0..8 {
             reg_context[creg] = b & 1 == 1;
@@ -339,19 +348,21 @@ pub fn set_bools_from_u8(
 
 /// Bulk get
 ///
-/// Can get the coils (Vec<bool>) or 16-bit registers (Vec<u16>)
+/// Can get the coils (FixedVec<bool>) or 16-bit registers (FixedVec<u16>)
 pub fn get_bulk<T: Copy>(
     reg: u16,
     count: u16,
     reg_context: &[T; CONTEXT_SIZE],
-) -> Result<Vec<T>, Error> {
+    result: &mut FixedVec<T>,
+) -> Result<(), Error> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
-    let mut result: Vec<T> = Vec::new();
-    result.extend_from_slice(&reg_context[reg as usize..reg_to]);
-    return Ok(result);
+    if result.push_all(&reg_context[reg as usize..reg_to]).is_err() {
+        return Err(Error);
+    }
+    return Ok(());
 }
 
 /// Bulk set
@@ -359,11 +370,11 @@ pub fn get_bulk<T: Copy>(
 /// Can set the coils from Vec<bool> or 16-bit registers from Vec<u16>
 pub fn set_bulk<T: Copy>(
     reg: u16,
-    data: &Vec<T>,
+    data: &FixedVec<T>,
     reg_context: &mut [T; CONTEXT_SIZE],
 ) -> Result<(), Error> {
     if reg as usize + data.len() > CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
     for (i, value) in data.iter().enumerate() {
         reg_context[reg as usize + i] = *value;
@@ -376,7 +387,7 @@ pub fn set_bulk<T: Copy>(
 /// Get coil as bool or 16-bit reg as u16
 pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, Error> {
     if reg as usize >= CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
     return Ok(reg_context[reg as usize]);
 }
@@ -386,7 +397,7 @@ pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, Erro
 /// Set coil from bool or 16-bit reg from u16
 pub fn set<T>(reg: u16, value: T, reg_context: &mut [T; CONTEXT_SIZE]) -> Result<(), Error> {
     if reg as usize >= CONTEXT_SIZE {
-        return Err(Error {});
+        return Err(Error);
     }
     reg_context[reg as usize] = value;
     return Ok(());
@@ -411,10 +422,12 @@ pub fn get_u32(reg: u16, reg_context: &[u16; CONTEXT_SIZE]) -> Result<u32, Error
 ///
 /// Uses 32-bit value to set two registers (big-endian)
 pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> Result<(), Error> {
-    let mut data: Vec<u16> = Vec::new();
-    data.push((value >> 16) as u16);
-    data.push(value as u16);
-    return set_bulk(reg, &data, reg_context);
+    if reg as usize + 2 > CONTEXT_SIZE {
+        return Err(Error);
+    }
+    reg_context[reg as usize] = (value >> 16) as u16;
+    reg_context[reg as usize + 1] = value as u16;
+    return Ok(());
 }
 
 /// Set multiple 16-bit registers from Vec<u32>
@@ -422,15 +435,19 @@ pub fn set_u32(reg: u16, value: u32, reg_context: &mut [u16; CONTEXT_SIZE]) -> R
 /// Uses Vec of 32-bit values to set the registers (big-endian)
 pub fn set_u32_bulk(
     reg: u16,
-    values: &Vec<u32>,
+    values: &FixedVec<u32>,
     reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), Error> {
-    let mut data: Vec<u16> = Vec::new();
-    for u in values {
-        data.push((u >> 16) as u16);
-        data.push(*u as u16);
+    if reg as usize + values.len() * 2 >= CONTEXT_SIZE {
+        return Err(Error);
     }
-    return set_bulk(reg, &data, reg_context);
+    let mut reg_c = reg;
+    for value in values {
+        reg_context[reg_c as usize] = (value >> 16) as u16;
+        reg_context[reg_c as usize + 1] = *value as u16;
+        reg_c = reg_c + 2;
+    }
+    return Ok(());
 }
 
 /// Get two 16-bit registers as IEEE754 32-bit float
@@ -450,191 +467,193 @@ pub fn set_f32(reg: u16, value: f32, reg_context: &mut [u16; CONTEXT_SIZE]) -> R
 /// Set multiple 16-bit registers from Vec<f32> as IEEE754 32-bit floats
 pub fn set_f32_bulk(
     reg: u16,
-    values: &Vec<f32>,
+    values: &FixedVec<f32>,
     reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), Error> {
-    let mut data: Vec<u32> = values.iter().map(|x| x.bits()).collect();
-    for u in values {
-        data.push(u.bits());
+    if reg as usize + values.len() * 2 >= CONTEXT_SIZE {
+        return Err(Error);
     }
-    return set_u32_bulk(reg, &data, reg_context);
+    let mut reg_c = reg;
+    for value in values {
+        let b = value.bits();
+        reg_context[reg_c as usize] = (b >> 16) as u16;
+        reg_context[reg_c as usize + 1] = b as u16;
+        reg_c = reg_c + 2;
+    }
+    return Ok(());
 }
 
 //
 // coils functions
 //
 
-pub fn coil_get_bulk(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
-    let context = CONTEXT.lock().unwrap();
-    return get_bulk(reg, count, &context.coils);
+pub fn coil_get_bulk(reg: u16, count: u16, result: &mut FixedVec<bool>) -> Result<(), Error> {
+    let context = CONTEXT.lock();
+    return get_bulk(reg, count, &context.coils, result);
 }
 
-pub fn coil_set_bulk(reg: u16, coils: &Vec<bool>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+pub fn coil_set_bulk(reg: u16, coils: &FixedVec<bool>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
     return set_bulk(reg, coils, &mut context.coils);
 }
 
 pub fn coil_get(reg: u16) -> Result<bool, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get(reg, &context.coils);
 }
 
 pub fn coil_set(reg: u16, value: bool) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set(reg, value, &mut context.coils);
 }
-
 //
 // discretes functions
 //
 
-pub fn discrete_get_bulk(reg: u16, count: u16) -> Result<Vec<bool>, Error> {
-    let context = CONTEXT.lock().unwrap();
-    return get_bulk(reg, count, &context.discretes);
+pub fn discrete_get_bulk(reg: u16, count: u16, result: &mut FixedVec<bool>) -> Result<(), Error> {
+    let context = CONTEXT.lock();
+    return get_bulk(reg, count, &context.discretes, result);
 }
 
-pub fn discrete_set_bulk(reg: u16, discretes: &Vec<bool>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+pub fn discrete_set_bulk(reg: u16, discretes: &FixedVec<bool>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
     return set_bulk(reg, discretes, &mut context.discretes);
 }
 
 pub fn discrete_get(reg: u16) -> Result<bool, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get(reg, &context.discretes);
 }
 
 pub fn discrete_set(reg: u16, value: bool) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set(reg, value, &mut context.discretes);
 }
 
 //
 // holdings functions
 //
-
-pub fn holding_get_bulk(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
-    let context = CONTEXT.lock().unwrap();
-    return get_bulk(reg, count, &context.holdings);
-}
-
 pub fn holding_get(reg: u16) -> Result<u16, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get(reg, &context.holdings);
 }
 
+pub fn holding_get_bulk(reg: u16, count: u16, result: &mut FixedVec<u16>) -> Result<(), Error> {
+    let context = CONTEXT.lock();
+    return get_bulk(reg, count, &context.holdings, result);
+}
+
 pub fn holding_get_u32(reg: u16) -> Result<u32, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get_u32(reg, &context.holdings);
 }
 
 pub fn holding_get_f32(reg: u16) -> Result<f32, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get_f32(reg, &context.holdings);
 }
 
-pub fn holding_set_bulk(reg: u16, holdings: &Vec<u16>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
-    return set_bulk(reg, &holdings, &mut context.holdings);
-}
-
 pub fn holding_set(reg: u16, value: u16) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set(reg, value, &mut context.holdings);
 }
 
-pub fn holding_set_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+pub fn holding_set_bulk(reg: u16, holdings: &FixedVec<u16>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
+    return set_bulk(reg, &holdings, &mut context.holdings);
+}
+
+pub fn holding_set_u32_bulk(reg: u16, values: &FixedVec<u32>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
     return set_u32_bulk(reg, values, &mut context.holdings);
 }
 
 pub fn holding_set_u32(reg: u16, value: u32) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set_u32(reg, value, &mut context.holdings);
 }
 
-pub fn holding_set_f32_bulk(reg: u16, values: &Vec<f32>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+pub fn holding_set_f32_bulk(reg: u16, values: &FixedVec<f32>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
     return set_f32_bulk(reg, values, &mut context.holdings);
 }
 
 pub fn holding_set_f32(reg: u16, value: f32) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set_f32(reg, value, &mut context.holdings);
-}
-
-pub fn input_get_bulk(reg: u16, count: u16) -> Result<Vec<u16>, Error> {
-    let context = CONTEXT.lock().unwrap();
-    return get_bulk(reg, count, &context.inputs);
 }
 
 //
 // input functions
 //
-
 pub fn input_get(reg: u16) -> Result<u16, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get(reg, &context.inputs);
 }
 
+pub fn input_get_bulk(reg: u16, count: u16, result: &mut FixedVec<u16>) -> Result<(), Error> {
+    let context = CONTEXT.lock();
+    return get_bulk(reg, count, &context.inputs, result);
+}
+
 pub fn input_get_u32(reg: u16) -> Result<u32, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get_u32(reg, &context.inputs);
 }
 
 pub fn input_get_f32(reg: u16) -> Result<f32, Error> {
-    let context = CONTEXT.lock().unwrap();
+    let context = CONTEXT.lock();
     return get_f32(reg, &context.inputs);
 }
 
-pub fn input_set_bulk(reg: u16, inputs: &Vec<u16>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
-    return set_bulk(reg, inputs, &mut context.inputs);
-}
-
 pub fn input_set(reg: u16, value: u16) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set(reg, value, &mut context.inputs);
 }
 
-pub fn input_set_u32_bulk(reg: u16, values: &Vec<u32>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+pub fn input_set_bulk(reg: u16, inputs: &FixedVec<u16>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
+    return set_bulk(reg, &inputs, &mut context.inputs);
+}
+
+pub fn input_set_u32_bulk(reg: u16, values: &FixedVec<u32>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
     return set_u32_bulk(reg, values, &mut context.inputs);
 }
 
 pub fn input_set_u32(reg: u16, value: u32) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set_u32(reg, value, &mut context.inputs);
 }
 
-pub fn input_set_f32_bulk(reg: u16, values: &Vec<f32>) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+pub fn input_set_f32_bulk(reg: u16, values: &FixedVec<f32>) -> Result<(), Error> {
+    let mut context = CONTEXT.lock();
     return set_f32_bulk(reg, values, &mut context.inputs);
 }
 
 pub fn input_set_f32(reg: u16, value: f32) -> Result<(), Error> {
-    let mut context = CONTEXT.lock().unwrap();
+    let mut context = CONTEXT.lock();
     return set_f32(reg, value, &mut context.inputs);
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
-    use std::fs::File;
-    use std::io::prelude::*;
+    //use rand::Rng;
 
     #[test]
     fn test_read_coils_as_bytes_oob() {
-        match coil_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
+        let mut preallocated = alloc_stack!([bool; CONTEXT_SIZE + 1]);
+        let mut result = FixedVec::new(&mut preallocated);
+        match coil_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match coil_get_bulk(CONTEXT_SIZE as u16, 1) {
+        match coil_get_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        coil_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match coil_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
+        coil_get_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result).unwrap();
+        match coil_get_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
@@ -652,10 +671,23 @@ mod tests {
 
     #[test]
     fn test_coil_get_set_bulk() {
-        coil_set_bulk(5, &(vec![true; 2])).unwrap();
-        assert_eq!(coil_get_bulk(5, 2).unwrap()[0..2], [true; 2]);
-        coil_set_bulk(25, &(vec![true; 18])).unwrap();
-        assert_eq!(coil_get_bulk(25, 18).unwrap()[0..18], [true; 18]);
+        let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
+        let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+        data.push_all(&[true; 2]).unwrap();
+        coil_set_bulk(5, &data).unwrap();
+        coil_get_bulk(5, 2, &mut result).unwrap();
+        assert_eq!(result, data);
+
+        data.clear();
+        result.clear();
+
+        data.push_all(&[true; 18]).unwrap();
+        coil_set_bulk(25, &data).unwrap();
+        coil_get_bulk(25, 18, &mut result).unwrap();
+        assert_eq!(result, data);
+
         coil_set(28, true).unwrap();
         assert_eq!(coil_get(28).unwrap(), true);
         coil_set(28, false).unwrap();
@@ -664,16 +696,18 @@ mod tests {
 
     #[test]
     fn test_read_discretes_as_bytes_oob() {
-        match discrete_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
+        let mut preallocated = alloc_stack!([bool; CONTEXT_SIZE + 1]);
+        let mut result = FixedVec::new(&mut preallocated);
+        match discrete_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match discrete_get_bulk(CONTEXT_SIZE as u16, 1) {
+        match discrete_get_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        discrete_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match discrete_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
+        discrete_get_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result).unwrap();
+        match discrete_get_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
@@ -691,11 +725,23 @@ mod tests {
 
     #[test]
     fn test_discrete_get_set_bulk() {
-        discrete_clear_all();
-        discrete_set_bulk(5, &(vec![true; 2])).unwrap();
-        assert_eq!(discrete_get_bulk(5, 2).unwrap()[0..2], [true; 2]);
-        discrete_set_bulk(25, &(vec![true; 18])).unwrap();
-        assert_eq!(discrete_get_bulk(25, 18).unwrap()[0..18], [true; 18]);
+        let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
+        let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+        data.push_all(&[true; 2]).unwrap();
+        discrete_set_bulk(5, &data).unwrap();
+        discrete_get_bulk(5, 2, &mut result).unwrap();
+        assert_eq!(result, data);
+
+        data.clear();
+        result.clear();
+
+        data.push_all(&[true; 18]).unwrap();
+        discrete_set_bulk(25, &data).unwrap();
+        discrete_get_bulk(25, 18, &mut result).unwrap();
+        assert_eq!(result, data);
+
         discrete_set(28, true).unwrap();
         assert_eq!(discrete_get(28).unwrap(), true);
         discrete_set(28, false).unwrap();
@@ -704,16 +750,18 @@ mod tests {
 
     #[test]
     fn test_read_holdings_as_bytes_oob() {
-        match holding_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
+        let mut preallocated = alloc_stack!([u16; CONTEXT_SIZE + 1]);
+        let mut result = FixedVec::new(&mut preallocated);
+        match holding_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match holding_get_bulk(CONTEXT_SIZE as u16, 1) {
+        match holding_get_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        holding_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match holding_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
+        holding_get_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result).unwrap();
+        match holding_get_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
@@ -731,43 +779,83 @@ mod tests {
             Ok(_) => assert!(false, "oob failed MAX u32"),
             Err(_) => assert!(true),
         }
+        holding_set_u32((CONTEXT_SIZE - 2) as u16, 0x9999).unwrap();
     }
 
     #[test]
     fn test_get_holding_set_bulk() {
+        let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
+        let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+
         holding_clear_all();
-        holding_set_bulk(5, &(vec![0x77; 2])).unwrap();
-        assert_eq!(holding_get_bulk(5, 2).unwrap()[0..2], [0x77; 2]);
-        holding_set_bulk(25, &(vec![0x33; 18])).unwrap();
-        assert_eq!(holding_get_bulk(25, 18).unwrap()[0..18], [0x33; 18]);
+
+        data.push_all(&[0x77; 2]).unwrap();
+        holding_set_bulk(5, &data).unwrap();
+        holding_get_bulk(5, 2, &mut result).unwrap();
+        assert_eq!(result, data);
+
+        data.clear();
+        result.clear();
+
+        data.push_all(&[0x33; 18]).unwrap();
+        holding_set_bulk(25, &data).unwrap();
+        holding_get_bulk(25, 18, &mut result).unwrap();
+        assert_eq!(result, data);
+
         holding_set(28, 99).unwrap();
         assert_eq!(holding_get(28).unwrap(), 99);
         holding_set(28, 95).unwrap();
         assert_eq!(holding_get(28).unwrap(), 95);
         holding_set_u32(1000, 1234567).unwrap();
         assert_eq!(holding_get_u32(1000).unwrap(), 1234567);
-        holding_set_u32_bulk(1002, &(vec![1234567, 8901234])).unwrap();
+    }
+
+    #[test]
+    fn test_get_holding_set_u32() {
+        let mut data_mem = alloc_stack!([u32; 2]);
+        let mut data = FixedVec::new(&mut data_mem);
+
+        data.push_all(&[1234567, 8901234]).unwrap();
+        holding_set_u32_bulk(1002, &data).unwrap();
+
         assert_eq!(holding_get_u32(1002).unwrap(), 1234567);
         assert_eq!(holding_get_u32(1004).unwrap(), 8901234);
-        holding_set_f32(2000, 1234.567).unwrap();
-        assert_eq!(holding_get_f32(2000).unwrap(), 1234.567);
-        holding_set_f32_bulk(2002, &(vec![1234.567, 890.1234])).unwrap();
+
+        holding_set_u32(900, 3412345).unwrap();
+        assert_eq!(holding_get_u32(900).unwrap(), 3412345);
+    }
+
+    #[test]
+    fn test_get_holding_set_f32() {
+        let mut data_mem = alloc_stack!([f32; 2]);
+        let mut data = FixedVec::new(&mut data_mem);
+
+        data.push_all(&[1234.567, 890.1234]).unwrap();
+
+        holding_set_f32_bulk(2002, &data).unwrap();
         assert_eq!(holding_get_f32(2002).unwrap(), 1234.567);
         assert_eq!(holding_get_f32(2004).unwrap(), 890.1234);
+
+        holding_set_f32(2000, 1234.567).unwrap();
+        assert_eq!(holding_get_f32(2000).unwrap(), 1234.567);
     }
 
     #[test]
     fn test_read_inputs_as_bytes_oob() {
-        match input_get_bulk(0, CONTEXT_SIZE as u16 + 1) {
+        let mut preallocated = alloc_stack!([u16; CONTEXT_SIZE + 1]);
+        let mut result = FixedVec::new(&mut preallocated);
+        match input_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
             Err(_) => assert!(true),
         }
-        match input_get_bulk(CONTEXT_SIZE as u16, 1) {
+        match input_get_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
-        input_get_bulk((CONTEXT_SIZE - 1) as u16, 1).unwrap();
-        match input_get_bulk(CONTEXT_SIZE as u16 - 1, 2) {
+        input_get_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result).unwrap();
+        match input_get_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
             Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
             Err(_) => assert!(true),
         }
@@ -785,64 +873,120 @@ mod tests {
             Ok(_) => assert!(false, "oob failed MAX u32"),
             Err(_) => assert!(true),
         }
+        input_set_u32((CONTEXT_SIZE - 2) as u16, 0x9999).unwrap();
     }
 
     #[test]
-    fn test_input_get_set_bulk() {
+    fn test_get_input_set_bulk() {
+        let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
+        let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+
         input_clear_all();
-        input_set_bulk(5, &(vec![0x77; 2])).unwrap();
-        assert_eq!(input_get_bulk(5, 2).unwrap()[0..2], [0x77; 2]);
-        input_set_bulk(25, &(vec![0x33; 18])).unwrap();
-        assert_eq!(input_get_bulk(25, 18).unwrap()[0..18], [0x33; 18]);
+
+        data.push_all(&[0x77; 2]).unwrap();
+        input_set_bulk(5, &data).unwrap();
+        input_get_bulk(5, 2, &mut result).unwrap();
+        assert_eq!(result, data);
+
+        data.clear();
+        result.clear();
+
+        data.push_all(&[0x33; 18]).unwrap();
+        input_set_bulk(25, &data).unwrap();
+        input_get_bulk(25, 18, &mut result).unwrap();
+        assert_eq!(result, data);
+
         input_set(28, 99).unwrap();
         assert_eq!(input_get(28).unwrap(), 99);
         input_set(28, 95).unwrap();
         assert_eq!(input_get(28).unwrap(), 95);
         input_set_u32(1000, 1234567).unwrap();
         assert_eq!(input_get_u32(1000).unwrap(), 1234567);
-        input_set_u32_bulk(1002, &(vec![1234567, 8901234])).unwrap();
+    }
+
+    #[test]
+    fn test_get_input_set_u32() {
+        let mut data_mem = alloc_stack!([u32; 2]);
+        let mut data = FixedVec::new(&mut data_mem);
+
+        data.push_all(&[1234567, 8901234]).unwrap();
+        input_set_u32_bulk(1002, &data).unwrap();
+
         assert_eq!(input_get_u32(1002).unwrap(), 1234567);
         assert_eq!(input_get_u32(1004).unwrap(), 8901234);
-        input_set_f32(2000, 1234.567).unwrap();
-        assert_eq!(input_get_f32(2000).unwrap(), 1234.567);
-        input_set_f32_bulk(2002, &(vec![1234.567, 890.1234])).unwrap();
+
+        input_set_u32(900, 3412345).unwrap();
+        assert_eq!(input_get_u32(900).unwrap(), 3412345);
+    }
+
+    #[test]
+    fn test_get_input_set_f32() {
+        let mut data_mem = alloc_stack!([f32; 2]);
+        let mut data = FixedVec::new(&mut data_mem);
+
+        data.push_all(&[1234.567, 890.1234]).unwrap();
+
+        input_set_f32_bulk(2002, &data).unwrap();
         assert_eq!(input_get_f32(2002).unwrap(), 1234.567);
         assert_eq!(input_get_f32(2004).unwrap(), 890.1234);
+
+        input_set_f32(2000, 1234.567).unwrap();
+        assert_eq!(input_get_f32(2000).unwrap(), 1234.567);
     }
 
     #[test]
     fn test_get_bools_as_u8() {
+        let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
         coil_clear_all();
-        coil_set_bulk(0, &(vec![true, true, true, true, true, true, false, false])).unwrap();
+        data.push_all(&[true, true, true, true, true, true, false, false])
+            .unwrap();
+        coil_set_bulk(0, &data).unwrap();
         {
             with_context(&|context| {
-                let result = get_bools_as_u8(0, 6, &context.coils).unwrap();
+                let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE / 8]);
+                let mut result = FixedVec::new(&mut result_mem);
+                get_bools_as_u8(0, 6, &context.coils, &mut result).unwrap();
                 assert_eq!(*result.get(0).unwrap(), 0b00111111);
-                let result = get_bools_as_u8(0, 5, &context.coils).unwrap();
+                result.clear();
+                get_bools_as_u8(0, 5, &context.coils, &mut result).unwrap();
                 assert_eq!(*result.get(0).unwrap(), 0b00011111);
+                result.clear();
             });
         }
-        coil_set_bulk(0, &(vec![true, true, false, true, true, true, true, true])).unwrap();
+
+        data.clear();
+        data.push_all(&[true, true, false, true, true, true, true, true])
+            .unwrap();
+        coil_set_bulk(0, &data).unwrap();
         {
             with_context(&|context| {
-                let result = get_bools_as_u8(0, 6, &context.coils).unwrap();
+                let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE / 8]);
+                let mut result = FixedVec::new(&mut result_mem);
+                get_bools_as_u8(0, 6, &context.coils, &mut result).unwrap();
                 assert_eq!(*result.get(0).unwrap(), 0b00111011);
-                let result = get_bools_as_u8(0, 5, &context.coils).unwrap();
+                result.clear();
+                get_bools_as_u8(0, 5, &context.coils, &mut result).unwrap();
                 assert_eq!(*result.get(0).unwrap(), 0b00011011);
+                result.clear();
             });
         }
-        coil_set_bulk(
-            0,
-            &(vec![
-                true, true, false, true, true, true, true, true, // byte 1
-                true, true, true, true, false, false, true, false, // byte 2
-                false, false, false, true, false, true, // byte 3
-            ]),
-        )
+
+        data.clear();
+        data.push_all(&[
+            true, true, false, true, true, true, true, true, // byte 1
+            true, true, true, true, false, false, true, false, // byte 2
+            false, false, false, true, false, true, // byte 3
+        ])
         .unwrap();
+        coil_set_bulk(0, &data).unwrap();
         {
             with_context(&|context| {
-                let result = get_bools_as_u8(0, 22, &context.coils).unwrap();
+                let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE / 8]);
+                let mut result = FixedVec::new(&mut result_mem);
+                get_bools_as_u8(0, 22, &context.coils, &mut result).unwrap();
                 assert_eq!(*result.get(0).unwrap(), 0b11111011);
                 assert_eq!(*result.get(1).unwrap(), 0b01001111);
                 assert_eq!(*result.get(2).unwrap(), 0b101000);
@@ -853,80 +997,86 @@ mod tests {
     #[test]
     fn test_get_set_regs_as_u8() {
         holding_clear_all();
-        let data = vec![2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9];
+        let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
+        data.push_all(&[2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9])
+            .unwrap();
         holding_set_bulk(0, &data).unwrap();
         with_mut_context(&|context| {
-            let result = get_regs_as_u8(0, data.len() as u16, &context.holdings).unwrap();
+            let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE]);
+            let mut result = FixedVec::new(&mut result_mem);
+            get_regs_as_u8(0, data.len() as u16, &context.holdings, &mut result).unwrap();
             set_regs_from_u8(0, &result, &mut context.holdings).unwrap();
         });
-        assert_eq!(holding_get_bulk(0, data.len() as u16).unwrap(), data);
+        let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+        holding_get_bulk(0, data.len() as u16, &mut result).unwrap();
+        assert_eq!(result, data);
     }
 
     #[test]
     fn test_get_set_bools_as_u8() {
         coil_clear_all();
-        let mut data = vec![
+        let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut data = FixedVec::new(&mut data_mem);
+        data.push_all(&[
             true, true, true, false, true, true, true, true, true, false, false, false, false,
             false,
-        ];
+        ])
+        .unwrap();
         coil_set_bulk(0, &data).unwrap();
         coil_set(data.len() as u16, true).unwrap();
         coil_set(data.len() as u16 + 1, false).unwrap();
         coil_set(data.len() as u16 + 2, true).unwrap();
         with_mut_context(&|context| {
-            let result = get_bools_as_u8(0, data.len() as u16, &context.coils).unwrap();
+            let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE]);
+            let mut result = FixedVec::new(&mut result_mem);
+            get_bools_as_u8(0, data.len() as u16, &context.coils, &mut result).unwrap();
             set_bools_from_u8(0, data.len() as u16, &result, &mut context.coils).unwrap();
         });
-        assert_eq!(coil_get_bulk(0, data.len() as u16).unwrap(), data);
-        data.push(true);
-        data.push(false);
-        data.push(true);
-        assert_eq!(coil_get_bulk(0, data.len() as u16).unwrap(), data);
+        let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+        coil_get_bulk(0, data.len() as u16, &mut result).unwrap();
+        assert_eq!(result, data);
+        result.clear();
+        data.push(true).unwrap();
+        data.push(false).unwrap();
+        data.push(true).unwrap();
+        coil_get_bulk(0, data.len() as u16, &mut result).unwrap();
+        assert_eq!(result, data);
     }
 
-    fn save(fname: &str) {
-        let mut file = File::create(fname).unwrap();
-        file.write_all(&dump()).unwrap();
-        file.sync_all().unwrap();
-    }
-
-    fn load(fname: &str) {
-        let mut file = File::open(fname).unwrap();
-        let mut data: Vec<u8> = Vec::new();
-        file.read_to_end(&mut data).unwrap();
-        restore(&data).unwrap();
-    }
-
-    #[test]
-    fn test_load_save() {
-        let mut rng = rand::thread_rng();
-        let mut mycoils: Vec<bool> = Vec::new();
-        let mut mydiscretes: Vec<bool> = Vec::new();
-        let mut myholdings: Vec<u16> = Vec::new();
-        let mut myinputs: Vec<u16> = Vec::new();
-        for _ in 0..CONTEXT_SIZE {
-            mycoils.push(rng.gen());
-            mydiscretes.push(rng.gen());
-            myholdings.push(rng.gen());
-            myinputs.push(rng.gen());
-        }
-        clear_all();
-        coil_set_bulk(0, &mycoils).unwrap();
-        discrete_set_bulk(0, &mydiscretes).unwrap();
-        holding_set_bulk(0, &myholdings).unwrap();
-        input_set_bulk(0, &myinputs).unwrap();
-        save(&"/tmp/modbus-memory.dat");
-        clear_all();
-        load(&"/tmp/modbus-memory.dat");
-        assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
-        assert_eq!(
-            discrete_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
-            mydiscretes
-        );
-        assert_eq!(
-            holding_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
-            myholdings
-        );
-        assert_eq!(input_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), myinputs);
-    }
+    /*
+    //#[test]
+    //fn test_dump_restore() {
+    //let mut rng = rand::thread_rng();
+    //let mut mycoils: Vec<bool> = Vec::new();
+    //let mut mydiscretes: Vec<bool> = Vec::new();
+    //let mut myholdings: Vec<u16> = Vec::new();
+    //let mut myinputs: Vec<u16> = Vec::new();
+    //for _ in 0..CONTEXT_SIZE {
+    //mycoils.push(rng.gen());
+    //mydiscretes.push(rng.gen());
+    //myholdings.push(rng.gen());
+    //myinputs.push(rng.gen());
+    //}
+    //clear_all();
+    //coil_set_bulk(0, &mycoils).unwrap();
+    //discrete_set_bulk(0, &mydiscretes).unwrap();
+    //holding_set_bulk(0, &myholdings).unwrap();
+    //input_set_bulk(0, &myinputs).unwrap();
+    //let data = dump();
+    //clear_all();
+    //restore(&data).unwrap();
+    //assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
+    //assert_eq!(
+    //discrete_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
+    //mydiscretes
+    //);
+    //assert_eq!(
+    //holding_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
+    //myholdings
+    //);
+    //assert_eq!(input_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), myinputs);
+    //}*/
 }

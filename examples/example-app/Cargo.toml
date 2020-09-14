@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 rmodbus = { path = "../.." }
+spin = "0.5.2"

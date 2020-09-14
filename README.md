@@ -87,9 +87,10 @@ rmodbus server context is thread-safe, easy to use and has a lot of functions.
 The context is created automatically, as soon as the library is imported. No
 additional action is required.
 
-Every time Modbus context is accessed, a context mutex must be locked. This
-slows down a performance, but guarantees that the context always has valid data
-after bulk-sets or after 32-bit data types were written. So make sure your
+Every time Modbus context is accessed, a context mutex (rmodbus uses
+[spin](https://crates.io/crates/spin) for locking) must be locked. This slows
+down a performance, but guarantees that the context always has valid data after
+bulk-sets or after 32-bit data types were written. So make sure your
 application locks context only when required and only for a short period time.
 
 There are two groups of context functions:
