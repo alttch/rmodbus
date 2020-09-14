@@ -39,11 +39,11 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
+/*
 /// Process Modbus frame
 ///
 /// Simple example of Modbus/UDP blocking server:
 ///
-/*
 /// ```
 ///
 ///use std::net::UdpSocket;
@@ -70,6 +70,7 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 /// ```
 ///
 */
+/*
 /// There are also [examples of TCP and
 /// RTU](https://github.com/alttch/rmodbus/tree/master/examples/example-server/src)
 ///
@@ -387,4 +388,4 @@ pub fn process_frame(
         finalize_response!();
         return Ok(());
     }
-}
+}*/
