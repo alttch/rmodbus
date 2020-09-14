@@ -42,6 +42,17 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
 }
 
+impl<T: Copy> VectorTrait<T> for Vec<T> {
+    fn add(&mut self, value: T) -> Result<(), ErrorKind> {
+        self.push(value);
+        return Ok(());
+    }
+    fn add_bulk(&mut self, values: &[T]) -> Result<(), ErrorKind> {
+        self.extend_from_slice(values);
+        return Ok(());
+    }
+}
+
 impl ModbusContext {
     fn new() -> Self {
         return ModbusContext {
@@ -341,7 +352,7 @@ pub fn get_bools_as_u8<V: VectorTrait<u8>>(
 pub fn set_bools_from_u8(
     reg: u16,
     count: u16,
-    values: &[&u8],
+    values: &[u8],
     reg_context: &mut [bool; CONTEXT_SIZE],
 ) -> Result<(), ErrorKind> {
     let reg_to = reg as usize + count as usize;
@@ -356,7 +367,7 @@ pub fn set_bools_from_u8(
         if cbyte >= len {
             return Err(ErrorKind::OOB);
         }
-        let mut b: u8 = *values[cbyte];
+        let mut b: u8 = values[cbyte];
         for _ in 0..8 {
             reg_context[creg] = b & 1 == 1;
             b = b >> 1;
@@ -1068,7 +1079,26 @@ mod tests {
         assert_eq!(result, data);
     }
 
-    /*
+    #[test]
+    fn test_get_set_regs_as_u8_with_stdvec() {
+        holding_clear_all();
+        let data = vec![2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9];
+        holding_set_bulk(0, &data.as_slice()).unwrap();
+        with_mut_context(&|context| {
+            let mut result = Vec::new();
+            get_regs_as_u8(0, data.len() as u16, &context.holdings, &mut result).unwrap();
+            assert_eq!(result[0], 0);
+            assert_eq!(result[1], 2);
+            for i in 0..10 {
+                set(i, 0, &mut context.holdings).unwrap();
+            }
+            set_regs_from_u8(0, &result.as_slice(), &mut context.holdings).unwrap();
+        });
+        let mut result = Vec::new();
+        holding_get_bulk(0, data.len() as u16, &mut result).unwrap();
+        assert_eq!(result, data);
+    }
+
     #[test]
     fn test_get_set_bools_as_u8() {
         coil_clear_all();
@@ -1079,7 +1109,7 @@ mod tests {
             false,
         ])
         .unwrap();
-        coil_set_bulk(0, &data).unwrap();
+        coil_set_bulk(0, &data.as_slice()).unwrap();
         coil_set(data.len() as u16, true).unwrap();
         coil_set(data.len() as u16 + 1, false).unwrap();
         coil_set(data.len() as u16 + 2, true).unwrap();
@@ -1087,7 +1117,8 @@ mod tests {
             let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE]);
             let mut result = FixedVec::new(&mut result_mem);
             get_bools_as_u8(0, data.len() as u16, &context.coils, &mut result).unwrap();
-            set_bools_from_u8(0, data.len() as u16, &result, &mut context.coils).unwrap();
+            set_bools_from_u8(0, data.len() as u16, &result.as_slice(), &mut context.coils)
+                .unwrap();
         });
         let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
         let mut result = FixedVec::new(&mut result_mem);
@@ -1101,6 +1132,7 @@ mod tests {
         assert_eq!(result, data);
     }
 
+    /*
     //#[test]
     //fn test_dump_restore() {
     //let mut rng = rand::thread_rng();

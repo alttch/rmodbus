@@ -1,5 +1,5 @@
 // TODO dump / restore, nostd docs, server tests, test all srv types, new examples
-#![no_std]
+//#![no_std]
 
 #[allow(unused_imports)]
 #[macro_use]
