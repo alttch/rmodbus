@@ -1,0 +1,30 @@
+[package]
+name = "rmodbus"
+version = "0.3.1"
+authors = ["Sergei S. <div@altertech.com>"]
+edition = "2018"
+license = "Apache-2.0"
+repository = "https://github.com/alttch/rmodbus"
+description = "Fast and platform-independent Modbus server framework"
+readme = "README.md"
+keywords = ["modbus", "server", "hardware", "nostd"]
+
+[lib]
+name ="rmodbus"
+path = "src/lib.rs"
+
+[dependencies]
+lazy_static = "1.4.0"
+ieee754 = "0.2.6"
+fixedvec = { version = "0.2.4", optional = true }
+spin = { version = "0.5.2", optional = true }
+
+[features]
+default = []
+nostd = ["fixedvec", "spin"]
+single = []
+
+[dev-dependencies]
+rand = "0.7.3"
+
+#!test-threads = 1
