@@ -173,6 +173,14 @@ wrong, the project will just fail to build.
   [spin](https://crates.io/crates/spin) Mutex instead of std::sync::mutex. Note
   that spin MutexGuard doesn't require unwrap() after locking.
 
+### Single-threaded apps
+
+Single-threaded applications can gain +60% speed boost by removing Modbus
+context mutex. This can be performed by running "make switch-nostd-single" and
+replacing mutex with a fake one. For the compatibility, the context still need
+to be "unlocked", however the fake mutex does this instantly and without any
+CPU overhead.
+
 ## Modbus client
 
 Planned.

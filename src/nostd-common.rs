@@ -2,6 +2,12 @@
 #[macro_use]
 extern crate fixedvec;
 
+macro_rules! lock_mutex {
+    ($v:path) => {
+        $v.lock()
+    };
+}
+
 use fixedvec::FixedVec;
 
 impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
