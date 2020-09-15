@@ -31,12 +31,6 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
 }
 
-macro_rules! lock_mutex {
-    ($v:path) => {
-        $v.lock()
-    };
-}
-
 include!("rmodbus.rs");
 
 #[cfg(test)]

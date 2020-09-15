@@ -2,14 +2,17 @@ VERSION=0.3.0
 
 all: test
 
-test: switch-std run-test switch-nostd run-test-again
+test: switch-std run-test-std switch-nostd run-test-nostd switch-nostd-single run-test-nostd-single
 
 pub: switch-std publish-cargo-crate
 
-run-test:
+run-test-std:
 	cargo test -- --test-threads=1
 
-run-test-again:
+run-test-nostd:
+	cargo test -- --test-threads=1
+
+run-test-nostd-single:
 	cargo test -- --test-threads=1
 
 clean:
@@ -28,6 +31,9 @@ switch-std:
 
 switch-nostd:
 	cat Package.toml nostd.toml > Cargo.toml
+
+switch-nostd-single:
+	cat Package.toml nostd-single.toml > Cargo.toml
 
 publish-cargo-crate:
 	cargo publish
