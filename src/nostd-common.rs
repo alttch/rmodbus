@@ -457,37 +457,67 @@ mod tests {
         assert_eq!(result, data);
     }
 
-    /*
-    //#[test]
-    //fn test_nostd_dump_restore() {
-    //let mut rng = rand::thread_rng();
-    //let mut mycoils: Vec<bool> = Vec::new();
-    //let mut mydiscretes: Vec<bool> = Vec::new();
-    //let mut myholdings: Vec<u16> = Vec::new();
-    //let mut myinputs: Vec<u16> = Vec::new();
-    //for _ in 0..CONTEXT_SIZE {
-    //mycoils.push(rng.gen());
-    //mydiscretes.push(rng.gen());
-    //myholdings.push(rng.gen());
-    //myinputs.push(rng.gen());
-    //}
-    //clear_all();
-    //coil_set_bulk(0, &mycoils).unwrap();
-    //discrete_set_bulk(0, &mydiscretes).unwrap();
-    //holding_set_bulk(0, &myholdings).unwrap();
-    //input_set_bulk(0, &myinputs).unwrap();
-    //let data = dump();
-    //clear_all();
-    //restore(&data).unwrap();
-    //assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
-    //assert_eq!(
-    //discrete_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
-    //mydiscretes
-    //);
-    //assert_eq!(
-    //holding_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
-    //myholdings
-    //);
-    //assert_eq!(input_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), myinputs);
-    //}*/
+    #[test]
+    fn test_std_dump_restore() {
+        let mut rng = rand::thread_rng();
+        let mut coils_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut discretes_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut inputs_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut holdings_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut mycoils = FixedVec::new(&mut coils_mem);
+        let mut mydiscretes = FixedVec::new(&mut discretes_mem);
+        let mut myinputs = FixedVec::new(&mut inputs_mem);
+        let mut myholdings = FixedVec::new(&mut holdings_mem);
+        for _ in 0..CONTEXT_SIZE {
+            mycoils.push(rng.gen()).unwrap();
+            mydiscretes.push(rng.gen()).unwrap();
+            myholdings.push(rng.gen()).unwrap();
+            myinputs.push(rng.gen()).unwrap();
+        }
+        clear_all();
+        coil_set_bulk(0, &mycoils.as_slice()).unwrap();
+        discrete_set_bulk(0, &mydiscretes.as_slice()).unwrap();
+        holding_set_bulk(0, &myholdings.as_slice()).unwrap();
+        input_set_bulk(0, &myinputs.as_slice()).unwrap();
+        let mut dump_mem = alloc_stack!([u8; CONTEXT_SIZE * 17 / 4]);
+        let mut dump = FixedVec::new(&mut dump_mem);
+        {
+            let ctx = lock_mutex!(CONTEXT);
+            for i in 0..CONTEXT_SIZE * 17 / 4 {
+                dump.push(get_context_cell(i as u16, &ctx).unwrap())
+                    .unwrap();
+            }
+        }
+        clear_all();
+        let mut ctx = lock_mutex!(CONTEXT);
+        let mut offset = 0;
+        for value in &dump {
+            set_context_cell(offset, *value, &mut ctx).unwrap();
+            offset = offset + 1;
+        }
+        let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.coils, &mut result).unwrap();
+        assert_eq!(result, mycoils);
+        result.clear();
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.discretes, &mut result).unwrap();
+        assert_eq!(result, mydiscretes);
+        result.clear();
+
+        let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+        let mut result = FixedVec::new(&mut result_mem);
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.inputs, &mut result).unwrap();
+        assert_eq!(result, myinputs);
+        result.clear();
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.holdings, &mut result).unwrap();
+        assert_eq!(result, myholdings);
+        result.clear();
+
+        let mut dump2_mem = alloc_stack!([u8; CONTEXT_SIZE * 17 / 4]);
+        let mut dump2 = FixedVec::new(&mut dump2_mem);
+        for value in context_iter(&ctx) {
+            dump2.push(value).unwrap();
+        }
+        assert_eq!(dump, dump2);
+    }
 }

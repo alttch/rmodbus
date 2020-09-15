@@ -440,11 +440,40 @@ mod tests {
         discrete_set_bulk(0, &mydiscretes).unwrap();
         holding_set_bulk(0, &myholdings).unwrap();
         input_set_bulk(0, &myinputs).unwrap();
-        //let mut result = Vec::new();
-        //let mut data = Vec::new();
-        //let ctx = CONTEXT.lock().unwrap();
-        //for _ in dump_context(&ctx, &mut result) {
-            //data.clone_from_slice(result.as_slice());
-        //}
+        let mut dump: Vec<u8> = Vec::new();
+        {
+            let ctx = lock_mutex!(CONTEXT);
+            for i in 0..CONTEXT_SIZE * 17 / 4 {
+                dump.push(get_context_cell(i as u16, &ctx).unwrap());
+            }
+        }
+        clear_all();
+        let mut ctx = lock_mutex!(CONTEXT);
+        let mut offset = 0;
+        for value in &dump {
+            set_context_cell(offset, *value, &mut ctx).unwrap();
+            offset = offset + 1;
+        }
+        let mut result = Vec::new();
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.coils, &mut result).unwrap();
+        assert_eq!(result, mycoils);
+        result.clear();
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.discretes, &mut result).unwrap();
+        assert_eq!(result, mydiscretes);
+        result.clear();
+
+        let mut result = Vec::new();
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.inputs, &mut result).unwrap();
+        assert_eq!(result, myinputs);
+        result.clear();
+        get_bulk(0, CONTEXT_SIZE as u16, &ctx.holdings, &mut result).unwrap();
+        assert_eq!(result, myholdings);
+        result.clear();
+
+        let mut dump2: Vec<u8> = Vec::new();
+        for value in context_iter(&ctx) {
+            dump2.push(value);
+        }
+        assert_eq!(dump, dump2);
     }
 }

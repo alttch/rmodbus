@@ -7,8 +7,8 @@ pub const CONTEXT_SIZE: usize = 10000;
 pub struct ModbusContext {
     pub coils: [bool; CONTEXT_SIZE],
     pub discretes: [bool; CONTEXT_SIZE],
-    pub holdings: [u16; CONTEXT_SIZE],
     pub inputs: [u16; CONTEXT_SIZE],
+    pub holdings: [u16; CONTEXT_SIZE],
 }
 
 impl ModbusContext {
@@ -16,8 +16,8 @@ impl ModbusContext {
         return ModbusContext {
             coils: [false; CONTEXT_SIZE],
             discretes: [false; CONTEXT_SIZE],
-            holdings: [0; CONTEXT_SIZE],
             inputs: [0; CONTEXT_SIZE],
+            holdings: [0; CONTEXT_SIZE],
         };
     }
 }
@@ -87,130 +87,148 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
     f(&mut ctx);
 }
 
-/*
 //
 // import / export
 //
-/// Dump full Modbus context to Vec<u8>
-//pub fn dump<V: VectorTrait<u8>>(start: u16, count: u16, result: &mut V) -> Result<(), ErrorKind> {
-//let ctx = lock_mutex!(CONTEXT);
-//return dump_locked(start, count, &ctx, result);
-//}
-//
-pub struct ContextDump<'a, V: VectorTrait<u8> + 'a> {
-    curr: u8,
-    buf: &'a mut V,
+fn get_b_u8(reg_start: u16, reg_context: &[bool; CONTEXT_SIZE]) -> u8 {
+    let mut cbyte = 0;
+    for i in 0..8 {
+        if reg_context[reg_start as usize + i] {
+            cbyte = cbyte | 1 << i
+        }
+    }
+    return cbyte;
+}
+
+fn set_b_u8(reg_start: u16, value: u8, reg_context: &mut [bool; CONTEXT_SIZE]) {
+    let mut b = value;
+    for i in 0..8 {
+        reg_context[reg_start as usize + i] = b & 1 as u8 == 1;
+        b = b >> 1;
+    }
+}
+
+fn get_w_u8(reg_start: u16, higher: bool, reg_context: &[u16; CONTEXT_SIZE]) -> u8 {
+    return match higher {
+        true => (reg_context[reg_start as usize] >> 8) as u8,
+        false => reg_context[(reg_start as usize)] as u8,
+    };
+}
+
+fn set_w_u8(reg_start: u16, higher: bool, value: u8, reg_context: &mut [u16; CONTEXT_SIZE]) {
+    match higher {
+        true => {
+            reg_context[reg_start as usize] =
+                reg_context[reg_start as usize] & 0x00ff | (value as u16) << 8
+        }
+        false => {
+            reg_context[reg_start as usize] =
+                reg_context[reg_start as usize] & 0xff00 | (value as u16)
+        }
+    };
+}
+
+/// Get context cell as u8 byte
+///
+/// 16-bit registers are returned as big-endians
+///
+/// Offset, for CONTEXT_SIZE = 10000:
+/// 0 - 1249: coils as u8
+/// 1250 - 2499: discretes as u8
+/// 2500 - 22499: inputs as u8
+/// 22500 - 42499: holdings as u8
+pub fn get_context_cell(offset: u16, ctx: &MutexGuard<ModbusContext>) -> Result<u8, ErrorKind> {
+    let bool_ctx_size: usize = CONTEXT_SIZE >> 3;
+    let u16_ctx_size: usize = CONTEXT_SIZE << 1;
+    if offset < bool_ctx_size as u16 {
+        return Ok(get_b_u8(offset * 8, &ctx.coils));
+    }
+    if offset < (bool_ctx_size as u16) << 1 {
+        return Ok(get_b_u8((offset - 1250) * 8, &ctx.discretes));
+    }
+    if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 {
+        return Ok(get_w_u8((offset - 2500) / 2, offset % 2 == 0, &ctx.inputs));
+    }
+    if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 * 2 {
+        return Ok(get_w_u8(
+            (offset - 22500) / 2,
+            offset % 2 == 0,
+            &ctx.holdings,
+        ));
+    }
+    return Err(ErrorKind::OOBContext);
+}
+
+/// Set context cell as u8 byte
+///
+/// 16-bit registers are returned as big-endians
+///
+/// Offset, for CONTEXT_SIZE = 10000:
+/// 0 - 1249: coils as u8
+/// 1250 - 2499: discretes as u8
+/// 2500 - 22499: inputs as u8
+/// 22500 - 42499: holdings as u8
+pub fn set_context_cell(
+    offset: u16,
+    value: u8,
+    ctx: &mut MutexGuard<ModbusContext>,
+) -> Result<(), ErrorKind> {
+    if offset < 1250 {
+        return Ok(set_b_u8(offset * 8, value, &mut ctx.coils));
+    }
+    if offset < 2500 {
+        return Ok(set_b_u8((offset - 1250) * 8, value, &mut ctx.discretes));
+    }
+    if offset < 22500 {
+        return Ok(set_w_u8(
+            (offset - 2500) / 2,
+            offset % 2 == 0,
+            value,
+            &mut ctx.inputs,
+        ));
+    }
+    if offset < 42500 {
+        return Ok(set_w_u8(
+            (offset - 22500) / 2,
+            offset % 2 == 0,
+            value,
+            &mut ctx.holdings,
+        ));
+    }
+    return Err(ErrorKind::OOBContext);
+}
+
+pub struct ModbusContextIterator<'a> {
+    curr: u16,
     ctx: &'a MutexGuard<'a, ModbusContext>,
 }
 
-impl<'a, V: VectorTrait<u8>> ContextDump<'a, V> {
-    fn new(ctx: &'a MutexGuard<ModbusContext>, buf: &'a mut V) -> Self {
-        return Self {
-            curr: 0,
-            ctx: ctx,
-            buf: buf,
+impl<'a> Iterator for ModbusContextIterator<'a> {
+    type Item = u8;
+    fn next(&mut self) -> Option<u8> {
+        return match get_context_cell(self.curr, self.ctx) {
+            Ok(v) => {
+                self.curr = self.curr + 1;
+                Some(v)
+            }
+            Err(_) => None,
         };
     }
 }
 
-pub fn dump_context<'a, V: VectorTrait<u8>>(
-    ctx: &'a MutexGuard<ModbusContext>,
-    buf: &'a mut V,
-) -> ContextDump<'a, V> {
-    return ContextDump::new(ctx, buf);
+/// Iterate Modbus context as u8
+///
+/// Useful for dump creation. To restore dump back, use "set_context_cell" function.
+///
+///```ignore
+///let ctx = CONTEXT.lock().unwrap();
+///for value in context_iter(&ctx) {
+///    // store value somewhere
+///}
+pub fn context_iter<'a>(ctx: &'a MutexGuard<ModbusContext>) -> ModbusContextIterator<'a> {
+    return ModbusContextIterator { curr: 0, ctx: ctx };
 }
 
-impl<'a, V: VectorTrait<u8>> Iterator for ContextDump<'a, V> {
-    type Item = &'a [u8];
-    fn next(&mut self) -> Option<&'a [u8]> {
-        self.buf.clear_all();
-        self.curr = self.curr + 1;
-        if self.curr == 1 {
-            return match get_bools_as_u8(0, CONTEXT_SIZE as u16, &self.ctx.coils, self.buf) {
-                Ok(_) => Some(self.buf.get_slice()),
-                Err(_) => None,
-            };
-        }
-        if self.curr == 2 {
-            return match get_bools_as_u8(0, CONTEXT_SIZE as u16, &self.ctx.discretes, self.buf) {
-                Ok(_) => Some(self.buf.get_slice()),
-                Err(_) => None,
-            };
-        }
-        if self.curr >= 3 && self.curr <=6 {
-            let count = CONTEXT_SIZE as u16 >> 2;
-            let start = (self.curr - 3) as u16 * count;
-            return match get_bools_as_u8(start, CONTEXT_SIZE as u16 >> 2, &self.ctx.discretes, self.buf) {
-                Ok(_) => Some(self.buf.get_slice()),
-                Err(_) => None,
-            };
-        }
-        return None;
-    }
-}
-
-/// Dump full Modbus context when it's locked
-pub fn dump_locked<V: VectorTrait<u8>>(
-    start: u16,
-    iter: u8,
-    result: &mut V,
-) -> Result<(), ErrorKind> {
-    //let mut data: Vec<u8> = Vec::new(&mut alloc_stack!([u8; CONTEXT_SIZE * 9 / 2]));
-    //data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
-    //data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
-    return Ok(());
-}
-/// Restore full Modbus context from Vec<u8>
-pub fn restore(data: &Vec<u8>) -> Result<(), ErrorKind> {
-    let mut ctx = lock_mutex!(CONTEXT);
-    return restore_locked(data, &mut ctx);
-}
-
-/// Restore full Modbus context when it's locked
-pub fn restore_locked(
-    data: &Vec<u8>,
-    context: &mut MutexGuard<ModbusContext>,
-) -> Result<(), ErrorKind> {
-    let bool_size = CONTEXT_SIZE / 8;
-    let reg_size = CONTEXT_SIZE * 2;
-    if bool_size * 2 + reg_size * 2 != data.len() {
-        return Err(ErrorKind::OOBContext);
-    }
-    let start = 0;
-    let end = bool_size;
-    let coil_values: Vec<u8> = Vec::from(&data[start..end]);
-    match set_bools_from_u8(0, CONTEXT_SIZE as u16, &coil_values, &mut context.coils) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    };
-    let start = start + bool_size;
-    let end = end + bool_size;
-    let discrete_values: Vec<u8> = Vec::from(&data[start..end]);
-    match set_bools_from_u8(
-        0,
-        CONTEXT_SIZE as u16,
-        &discrete_values,
-        &mut context.discretes,
-    ) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    };
-    let start = start + bool_size;
-    let end = end + reg_size;
-    let holding_values: Vec<u8> = Vec::from(&data[start..end]);
-    match set_regs_from_u8(0, &holding_values, &mut context.holdings) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    };
-    let start = start + reg_size;
-    let end = end + reg_size;
-    let holding_values: Vec<u8> = Vec::from(&data[start..end]);
-    match set_regs_from_u8(0, &holding_values, &mut context.inputs) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    };
-    return Ok(());
-}*/
 //
 // clear
 //
