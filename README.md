@@ -163,9 +163,7 @@ switch to no_std:
 When switched, library loads traits for different types, so if something's
 wrong, the project will just fail to build.
 
-### Differences
-
-no\_std mode requires only slight code change:
+### Types and crates in no\_std mode
 
 * To perform context bulk gets and obtain responses from Modbus frame
   processing, use [FixedVec](https://crates.io/crates/fixedvec) instead of
