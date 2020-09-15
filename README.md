@@ -175,11 +175,11 @@ wrong, the project will just fail to build.
 
 ### Single-threaded apps
 
-Single-threaded applications can gain +60% speed boost by removing Modbus
-context mutex. This can be performed by running "make switch-nostd-single" and
-replacing mutex with a fake one. For the compatibility, the context still need
-to be "unlocked", however the fake mutex does this instantly and without any
-CPU overhead.
+Single-threaded applications can gain up to +60-100% speed boost by removing
+Modbus context mutex. This can be performed by running "make
+switch-nostd-single" and replacing mutex with a fake one. For the
+compatibility, the context still need to be "unlocked", however the fake mutex
+does this instantly and without any CPU overhead.
 
 ## Modbus client
 
