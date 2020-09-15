@@ -133,10 +133,11 @@ fn set_w_u8(reg_start: u16, higher: bool, value: u8, reg_context: &mut [u16; CON
 /// 16-bit registers are returned as big-endians
 ///
 /// Offset, for CONTEXT_SIZE = 10000:
-/// 0 - 1249: coils as u8
-/// 1250 - 2499: discretes as u8
-/// 2500 - 22499: inputs as u8
-/// 22500 - 42499: holdings as u8
+///
+/// * 0 - 1249: coils as u8
+/// * 1250 - 2499: discretes as u8
+/// * 2500 - 22499: inputs as u8
+/// * 22500 - 42499: holdings as u8
 pub fn get_context_cell(offset: u16, ctx: &MutexGuard<ModbusContext>) -> Result<u8, ErrorKind> {
     let bool_ctx_size: usize = CONTEXT_SIZE >> 3;
     let u16_ctx_size: usize = CONTEXT_SIZE << 1;
@@ -164,10 +165,11 @@ pub fn get_context_cell(offset: u16, ctx: &MutexGuard<ModbusContext>) -> Result<
 /// 16-bit registers are returned as big-endians
 ///
 /// Offset, for CONTEXT_SIZE = 10000:
-/// 0 - 1249: coils as u8
-/// 1250 - 2499: discretes as u8
-/// 2500 - 22499: inputs as u8
-/// 22500 - 42499: holdings as u8
+///
+/// * 0 - 1249: coils as u8
+/// * 1250 - 2499: discretes as u8
+/// * 2500 - 22499: inputs as u8
+/// * 22500 - 42499: holdings as u8
 pub fn set_context_cell(
     offset: u16,
     value: u8,
@@ -198,6 +200,44 @@ pub fn set_context_cell(
     return Err(ErrorKind::OOBContext);
 }
 
+/// A tool to write dumped data back to context
+///
+/// Can write bytes and chunks (&[u8] slices)
+pub struct ModbusContextWriter {
+    curr: u16,
+}
+
+impl<'a> ModbusContextWriter {
+    pub fn new(start_offset: u16) -> Self {
+        return Self { curr: start_offset };
+    }
+    pub fn write(
+        &mut self,
+        value: u8,
+        ctx: &mut MutexGuard<ModbusContext>,
+    ) -> Result<(), ErrorKind> {
+        let result = set_context_cell(self.curr, value, ctx);
+        if result.is_ok() {
+            self.curr = self.curr + 1;
+        }
+        return result;
+    }
+
+    pub fn write_bulk(
+        &mut self,
+        values: &[u8],
+        ctx: &mut MutexGuard<ModbusContext>,
+    ) -> Result<(), ErrorKind> {
+        for v in values {
+            let result = self.write(*v, ctx);
+            if result.is_err() {
+                return result;
+            }
+        }
+        return Ok(());
+    }
+}
+
 pub struct ModbusContextIterator<'a> {
     curr: u16,
     ctx: &'a MutexGuard<'a, ModbusContext>,
@@ -218,7 +258,8 @@ impl<'a> Iterator for ModbusContextIterator<'a> {
 
 /// Iterate Modbus context as u8
 ///
-/// Useful for dump creation. To restore dump back, use "set_context_cell" function.
+/// Useful for dump creation. To restore dump back, use "set_context_cell"
+/// or ModbusContextWriter::new()
 ///
 ///```ignore
 ///let ctx = CONTEXT.lock().unwrap();
@@ -230,10 +271,9 @@ pub fn context_iter<'a>(ctx: &'a MutexGuard<ModbusContext>) -> ModbusContextIter
 }
 
 //
-// clear
+// clear, used for tests only, probably never required on production
 //
 
-/// Clear all coils
 pub fn coil_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -242,7 +282,6 @@ pub fn coil_clear_all() {
     });
 }
 
-/// Clear all discrete inputs
 pub fn discrete_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -251,7 +290,6 @@ pub fn discrete_clear_all() {
     });
 }
 
-/// Clear all holding registers
 pub fn holding_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -260,7 +298,6 @@ pub fn holding_clear_all() {
     });
 }
 
-/// Clear all input registers
 pub fn input_clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {
@@ -269,7 +306,6 @@ pub fn input_clear_all() {
     });
 }
 
-/// Clear the whole Modbus context
 pub fn clear_all() {
     with_mut_context(&|context| {
         for i in 0..CONTEXT_SIZE {

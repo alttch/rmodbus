@@ -475,5 +475,21 @@ mod tests {
             dump2.push(value);
         }
         assert_eq!(dump, dump2);
+
+        drop(ctx);
+        clear_all();
+
+        let mut ctx = lock_mutex!(CONTEXT);
+        let mut writer = ModbusContextWriter::new(0);
+        for data in dump.chunks(500) {
+            writer.write_bulk(&data, &mut ctx).unwrap();
+        }
+
+        let mut dump2: Vec<u8> = Vec::new();
+        for value in context_iter(&ctx) {
+            dump2.push(value);
+        }
+
+        assert_eq!(dump, dump2);
     }
 }

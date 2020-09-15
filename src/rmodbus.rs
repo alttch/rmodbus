@@ -1,4 +1,4 @@
-// TODO save example, test all srv types
+// TODO test all srv types
 
 /// Default error
 #[derive(Debug)]

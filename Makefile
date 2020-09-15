@@ -2,7 +2,7 @@ VERSION=0.3.0
 
 all: test
 
-test: switch-std run-test-std switch-nostd run-test-nostd switch-nostd-single run-test-nostd-single
+test: switch-std run-test-std switch-nostd run-test-nostd switch-nostd-single run-test-nostd-single switch-std-back
 
 pub: switch-std publish-cargo-crate
 
@@ -27,6 +27,9 @@ ver:
 	sed -i 's/^version = ".*/version = "${VERSION}"/g' Package.toml
 
 switch-std:
+	cat Package.toml std.toml > Cargo.toml
+
+switch-std-back:
 	cat Package.toml std.toml > Cargo.toml
 
 switch-nostd:

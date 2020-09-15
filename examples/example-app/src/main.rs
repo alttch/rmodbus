@@ -3,6 +3,7 @@
 use rmodbus::server::context;
 use std::fs::File;
 use std::io::prelude::*;
+use std::sync::MutexGuard;
 
 fn looping() {
     loop {
@@ -18,9 +19,9 @@ fn looping() {
             match cmd {
                 1 => {
                     println!("saving memory context");
-                    //let _ = save_locked("/tmp/plc1.dat", &ctx).map_err(|_| {
-                        //eprintln!("unable to save context!");
-                    //});
+                    let _ = save("/tmp/plc1.dat", &mut ctx).map_err(|_| {
+                        eprintln!("unable to save context!");
+                    });
                 }
                 _ => println!("command not implemented"),
             }
@@ -37,38 +38,38 @@ fn looping() {
     }
 }
 
-//fn save_locked(
-    //fname: &str,
-    //ctx: &MutexGuard<context::ModbusContext>,
-//) -> Result<(), std::io::Error> {
-    //let mut file = match File::create(fname) {
-        //Ok(v) => v,
-        //Err(e) => return Err(e),
-    //};
-    //match file.write_all(&context::dump_locked(ctx)) {
-        //Ok(_) => {}
-        //Err(e) => return Err(e),
-    //}
-    //match file.sync_all() {
-        //Ok(_) => {}
-        //Err(e) => return Err(e),
-    //}
-    //return Ok(());
-//}
+fn save(fname: &str, ctx: &MutexGuard<context::ModbusContext>) -> Result<(), std::io::Error> {
+    let mut file = match File::create(fname) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
+    };
+    for i in context::context_iter(&ctx) {
+        match file.write(&[i]) {
+            Ok(_) => {}
+            Err(e) => return Err(e),
+        }
+    }
+    match file.sync_all() {
+        Ok(_) => {}
+        Err(e) => return Err(e),
+    }
+    return Ok(());
+}
 
-//fn load(fname: &str) -> Result<(), std::io::Error> {
-    //let mut file = match File::open(fname) {
-        //Ok(v) => v,
-        //Err(e) => return Err(e),
-    //};
-    //let mut data: Vec<u8> = Vec::new();
-    //match file.read_to_end(&mut data) {
-        //Ok(_) => {}
-        //Err(e) => return Err(e),
-    //}
-    //context::restore(&data).unwrap();
-    //return Ok(());
-//}
+fn load(fname: &str, ctx: &mut MutexGuard<context::ModbusContext>) -> Result<(), std::io::Error> {
+    let mut file = match File::open(fname) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
+    };
+    let mut data: Vec<u8> = Vec::new();
+    match file.read_to_end(&mut data) {
+        Ok(_) => {}
+        Err(e) => return Err(e),
+    }
+    let mut writer = context::ModbusContextWriter::new(0);
+    writer.write_bulk(data.as_slice(), ctx).unwrap();
+    return Ok(());
+}
 
 #[path = "../../example-server/src/tcp.rs"]
 mod tcp;
@@ -76,12 +77,15 @@ mod tcp;
 fn main() {
     // read context
     let unit_id = 1;
-    //let _ = load(&"/tmp/plc1.dat").map_err(|_| {
-        //eprintln!("warning: no saved context");
-    //});
+    {
+        let mut ctx = context::CONTEXT.lock().unwrap();
+        let _ = load(&"/tmp/plc1.dat", &mut ctx).map_err(|_| {
+            eprintln!("warning: no saved context");
+        });
+    }
     use std::thread;
     thread::spawn(move || {
-        tcp::tcpserver(unit_id, "localhost:5503");
+        tcp::tcpserver(unit_id, "localhost:5502");
     });
     looping();
 }
