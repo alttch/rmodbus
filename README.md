@@ -33,7 +33,7 @@ with Modbus context.
 
 Here's an example of a simple TCP blocking server:
 
-```rust
+```ignore
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread;
@@ -101,7 +101,7 @@ There are two groups of context functions:
 
 Take a look at simple PLC example:
 
-```rust
+```ignore
 use rmodbus::server::context;
 use std::fs::File;
 use std::io::prelude::*;
