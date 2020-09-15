@@ -458,7 +458,7 @@ mod tests {
     }
 
     #[test]
-    fn test_std_dump_restore() {
+    fn test_nostd_dump_restore() {
         let mut rng = rand::thread_rng();
         let mut coils_mem = alloc_stack!([bool; CONTEXT_SIZE]);
         let mut discretes_mem = alloc_stack!([bool; CONTEXT_SIZE]);
