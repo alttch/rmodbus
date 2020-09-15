@@ -30,7 +30,12 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
         self.clear();
     }
     fn cut_end(&mut self, len_to_cut: usize, value: T) {
-        self.resize(self.len() - len_to_cut, value);
+        let len = self.len();
+        if len_to_cut >= len {
+            self.clear();
+        } else {
+            self.resize(len - len_to_cut, value);
+        }
     }
     fn get_slice(&self) -> &[T] {
         return self.as_slice();
