@@ -1,5 +1,5 @@
+use super::super::{ErrorKind, Mutex, MutexGuard, VectorTrait};
 use ieee754::Ieee754;
-use super::super::{ErrorKind, VectorTrait, Mutex, MutexGuard};
 
 pub const CONTEXT_SIZE: usize = 10000;
 
@@ -87,26 +87,79 @@ pub fn with_mut_context(f: &dyn Fn(&mut MutexGuard<ModbusContext>)) {
     f(&mut ctx);
 }
 
+/*
 //
 // import / export
 //
-/*
 /// Dump full Modbus context to Vec<u8>
-pub fn dump() -> Option<Vec<u8>> {
-    let ctx = lock_mutex!(CONTEXT);
-    return dump_locked(&ctx);
+//pub fn dump<V: VectorTrait<u8>>(start: u16, count: u16, result: &mut V) -> Result<(), ErrorKind> {
+//let ctx = lock_mutex!(CONTEXT);
+//return dump_locked(start, count, &ctx, result);
+//}
+//
+pub struct ContextDump<'a, V: VectorTrait<u8> + 'a> {
+    curr: u8,
+    buf: &'a mut V,
+    ctx: &'a MutexGuard<'a, ModbusContext>,
+}
+
+impl<'a, V: VectorTrait<u8>> ContextDump<'a, V> {
+    fn new(ctx: &'a MutexGuard<ModbusContext>, buf: &'a mut V) -> Self {
+        return Self {
+            curr: 0,
+            ctx: ctx,
+            buf: buf,
+        };
+    }
+}
+
+pub fn dump_context<'a, V: VectorTrait<u8>>(
+    ctx: &'a MutexGuard<ModbusContext>,
+    buf: &'a mut V,
+) -> ContextDump<'a, V> {
+    return ContextDump::new(ctx, buf);
+}
+
+impl<'a, V: VectorTrait<u8>> Iterator for ContextDump<'a, V> {
+    type Item = &'a [u8];
+    fn next(&mut self) -> Option<&'a [u8]> {
+        self.buf.clear_all();
+        self.curr = self.curr + 1;
+        if self.curr == 1 {
+            return match get_bools_as_u8(0, CONTEXT_SIZE as u16, &self.ctx.coils, self.buf) {
+                Ok(_) => Some(self.buf.get_slice()),
+                Err(_) => None,
+            };
+        }
+        if self.curr == 2 {
+            return match get_bools_as_u8(0, CONTEXT_SIZE as u16, &self.ctx.discretes, self.buf) {
+                Ok(_) => Some(self.buf.get_slice()),
+                Err(_) => None,
+            };
+        }
+        if self.curr >= 3 && self.curr <=6 {
+            let count = CONTEXT_SIZE as u16 >> 2;
+            let start = (self.curr - 3) as u16 * count;
+            return match get_bools_as_u8(start, CONTEXT_SIZE as u16 >> 2, &self.ctx.discretes, self.buf) {
+                Ok(_) => Some(self.buf.get_slice()),
+                Err(_) => None,
+            };
+        }
+        return None;
+    }
 }
 
 /// Dump full Modbus context when it's locked
-pub fn dump_locked(context: &MutexGuard<ModbusContext>) -> Option<Vec<u8>> {
-    let mut data: Vec<u8> = Vec::new(&mut alloc_stack!([u8; CONTEXT_SIZE * 9 / 2]));
-    data.push_all(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.coils).unwrap());
-    data.push_all(&mut get_bools_as_u8(0, CONTEXT_SIZE as u16, &context.discretes).unwrap());
-    data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
-    data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
-    return data;
+pub fn dump_locked<V: VectorTrait<u8>>(
+    start: u16,
+    iter: u8,
+    result: &mut V,
+) -> Result<(), ErrorKind> {
+    //let mut data: Vec<u8> = Vec::new(&mut alloc_stack!([u8; CONTEXT_SIZE * 9 / 2]));
+    //data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.holdings).unwrap());
+    //data.push_all(&mut get_regs_as_u8(0, CONTEXT_SIZE as u16, &context.inputs).unwrap());
+    return Ok(());
 }
-
 /// Restore full Modbus context from Vec<u8>
 pub fn restore(data: &Vec<u8>) -> Result<(), ErrorKind> {
     let mut ctx = lock_mutex!(CONTEXT);
@@ -217,6 +270,7 @@ pub fn clear_all() {
 /// Get 16-bit registers as Vec<u8>
 ///
 /// Useful for import / export and external API calls
+/// Note: Vec is always appended
 pub fn get_regs_as_u8<V: VectorTrait<u8>>(
     reg: u16,
     count: u16,
@@ -269,15 +323,13 @@ pub fn set_regs_from_u8(
 /// Get coils as Vec<u8>
 ///
 /// Useful for import / export and external API calls
+/// Note: Vec is always appended
 pub fn get_bools_as_u8<V: VectorTrait<u8>>(
     reg: u16,
     count: u16,
     reg_context: &[bool; CONTEXT_SIZE],
     result: &mut V,
 ) -> Result<(), ErrorKind> {
-    if count > 250 {
-        return Err(ErrorKind::OOBContext);
-    }
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
         return Err(ErrorKind::OOBContext);
@@ -343,6 +395,7 @@ pub fn set_bools_from_u8(
 /// Bulk get
 ///
 /// Can get the coils (Vec<bool>) or 16-bit registers (Vec<u16>)
+/// Note: Vec is always appended
 pub fn get_bulk<T: Copy, V: VectorTrait<T>>(
     reg: u16,
     count: u16,

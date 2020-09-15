@@ -422,37 +422,29 @@ mod tests {
         assert_eq!(result, data);
     }
 
-    /*
-    //#[test]
-    //fn test_std_dump_restore() {
-    //let mut rng = rand::thread_rng();
-    //let mut mycoils: Vec<bool> = Vec::new();
-    //let mut mydiscretes: Vec<bool> = Vec::new();
-    //let mut myholdings: Vec<u16> = Vec::new();
-    //let mut myinputs: Vec<u16> = Vec::new();
-    //for _ in 0..CONTEXT_SIZE {
-    //mycoils.push(rng.gen());
-    //mydiscretes.push(rng.gen());
-    //myholdings.push(rng.gen());
-    //myinputs.push(rng.gen());
-    //}
-    //clear_all();
-    //coil_set_bulk(0, &mycoils).unwrap();
-    //discrete_set_bulk(0, &mydiscretes).unwrap();
-    //holding_set_bulk(0, &myholdings).unwrap();
-    //input_set_bulk(0, &myinputs).unwrap();
-    //let data = dump();
-    //clear_all();
-    //restore(&data).unwrap();
-    //assert_eq!(coil_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), mycoils);
-    //assert_eq!(
-    //discrete_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
-    //mydiscretes
-    //);
-    //assert_eq!(
-    //holding_get_bulk(0, CONTEXT_SIZE as u16).unwrap(),
-    //myholdings
-    //);
-    //assert_eq!(input_get_bulk(0, CONTEXT_SIZE as u16).unwrap(), myinputs);
-    //}*/
+    #[test]
+    fn test_std_dump_restore() {
+        let mut rng = rand::thread_rng();
+        let mut mycoils: Vec<bool> = Vec::new();
+        let mut mydiscretes: Vec<bool> = Vec::new();
+        let mut myholdings: Vec<u16> = Vec::new();
+        let mut myinputs: Vec<u16> = Vec::new();
+        for _ in 0..CONTEXT_SIZE {
+            mycoils.push(rng.gen());
+            mydiscretes.push(rng.gen());
+            myholdings.push(rng.gen());
+            myinputs.push(rng.gen());
+        }
+        clear_all();
+        coil_set_bulk(0, &mycoils).unwrap();
+        discrete_set_bulk(0, &mydiscretes).unwrap();
+        holding_set_bulk(0, &myholdings).unwrap();
+        input_set_bulk(0, &myinputs).unwrap();
+        //let mut result = Vec::new();
+        //let mut data = Vec::new();
+        //let ctx = CONTEXT.lock().unwrap();
+        //for _ in dump_context(&ctx, &mut result) {
+            //data.clone_from_slice(result.as_slice());
+        //}
+    }
 }
