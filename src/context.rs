@@ -207,7 +207,7 @@ pub struct ModbusContextWriter {
     curr: u16,
 }
 
-impl<'a> ModbusContextWriter {
+impl ModbusContextWriter {
     pub fn new(start_offset: u16) -> Self {
         return Self { curr: start_offset };
     }
