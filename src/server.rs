@@ -1,7 +1,7 @@
 #[path = "context.rs"]
 pub mod context;
 
-use super::VectorTrait;
+use super::{VectorTrait, ErrorKind};
 
 /// Standard Modbus frame
 ///
@@ -18,10 +18,6 @@ pub enum ModbusProto {
     Rtu,
     TcpUdp,
 }
-
-/// Default server error
-#[derive(Debug, Clone)]
-pub struct Error;
 
 fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     let mut crc: u16 = 0xffff;
@@ -85,14 +81,14 @@ pub fn process_frame<V: VectorTrait<u8>>(
     frame: &ModbusFrame,
     proto: ModbusProto,
     response: &mut V,
-) -> Result<(), Error> {
+) -> Result<(), ErrorKind> {
     let start_frame: usize;
     if proto == ModbusProto::TcpUdp {
         //let tr_id = u16::from_be_bytes([frame[0], frame[1]]);
         let proto_id = u16::from_be_bytes([frame[2], frame[3]]);
         let length = u16::from_be_bytes([frame[4], frame[5]]);
         if proto_id != 0 || length < 6 {
-            return Err(Error);
+            return Err(ErrorKind::FrameBroken);
         }
         start_frame = 6;
     } else {
@@ -107,7 +103,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
     if !broadcast && proto == ModbusProto::TcpUdp {
         // copy 4 bytes: tr id and proto
         if response.add_bulk(&frame[0..4]).is_err() {
-            return Err(Error);
+            return Err(ErrorKind::OOB);
         }
     }
     let func = frame[start_frame + 1];
@@ -126,7 +122,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
                         .add_bulk(&[0, 3, frame[7], frame[8] + 0x80, $err])
                         .is_err()
                     {
-                        return Err(Error);
+                        return Err(ErrorKind::OOB);
                     }
                 }
                 ModbusProto::Rtu => {
@@ -134,7 +130,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
                         .add_bulk(&[frame[0], frame[1] + 0x80, $err])
                         .is_err()
                     {
-                        return Err(Error);
+                        return Err(ErrorKind::OOB);
                     }
                 }
             }
@@ -144,7 +140,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
         ($len:expr) => {
             if proto == ModbusProto::TcpUdp {
                 if response.add_bulk(&($len as u16).to_be_bytes()).is_err() {
-                    return Err(Error);
+                    return Err(ErrorKind::OOB);
                 }
             }
         };
@@ -154,7 +150,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
             if proto == ModbusProto::Rtu {
                 let crc = calc_rtu_crc(&response.get_slice(), response.get_len() as u8);
                 if response.add_bulk(&crc.to_le_bytes()).is_err() {
-                    return Err(Error);
+                    return Err(ErrorKind::OOB);
                 }
             }
         };
@@ -166,7 +162,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
             return Ok(());
         }
         if !check_frame_crc!(6) {
-            return Err(Error);
+            return Err(ErrorKind::FrameCRCError);
         }
         let count = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
         if count > 2000 {
@@ -184,11 +180,11 @@ pub fn process_frame<V: VectorTrait<u8>>(
             .add_bulk(&frame[start_frame..start_frame + 2]) // 2b unit and func
             .is_err()
         {
-            return Err(Error);
+            return Err(ErrorKind::OOB);
         }
         if response.add(data_len as u8).is_err() {
             // 1b data len
-            return Err(Error);
+            return Err(ErrorKind::OOB);
         }
         let ctx = lock_mutex!(context::CONTEXT);
         let result = match func {
@@ -216,7 +212,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
             return Ok(());
         }
         if !check_frame_crc!(6) {
-            return Err(Error);
+            return Err(ErrorKind::FrameCRCError);
         }
         let count = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
         if count > 125 {
@@ -231,11 +227,11 @@ pub fn process_frame<V: VectorTrait<u8>>(
             .add_bulk(&frame[start_frame..start_frame + 2]) // 2b unit and func
             .is_err()
         {
-            return Err(Error);
+            return Err(ErrorKind::OOB);
         }
         if response.add(data_len as u8).is_err() {
             // 1b data len
-            return Err(Error);
+            return Err(ErrorKind::OOB);
         }
         let ctx = lock_mutex!(context::CONTEXT);
         let result = match func {
@@ -260,7 +256,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
         // func 5
         // write single coil
         if !check_frame_crc!(6) {
-            return Err(Error);
+            return Err(ErrorKind::FrameCRCError);
         }
         let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
         let val: bool;
@@ -291,7 +287,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
                 .add_bulk(&frame[start_frame..start_frame + 6])
                 .is_err()
             {
-                return Err(Error);
+                return Err(ErrorKind::OOB);
             }
             finalize_response!();
             return Ok(());
@@ -300,7 +296,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
         // func 6
         // write single register
         if !check_frame_crc!(6) {
-            return Err(Error);
+            return Err(ErrorKind::FrameCRCError);
         }
         let reg = u16::from_be_bytes([frame[start_frame + 2], frame[start_frame + 3]]);
         let val = u16::from_be_bytes([frame[start_frame + 4], frame[start_frame + 5]]);
@@ -318,7 +314,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
                 .add_bulk(&frame[start_frame..start_frame + 6])
                 .is_err()
             {
-                return Err(Error);
+                return Err(ErrorKind::OOB);
             }
             finalize_response!();
             return Ok(());
@@ -328,7 +324,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
         // write multiple coils / registers
         let bytes = frame[start_frame + 6];
         if !check_frame_crc!(7 + bytes) {
-            return Err(Error);
+            return Err(ErrorKind::FrameCRCError);
         }
         if bytes > 242 {
             if broadcast {
@@ -366,7 +362,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
                         .add_bulk(&frame[start_frame..start_frame + 6])
                         .is_err()
                     {
-                        return Err(Error);
+                        return Err(ErrorKind::OOB);
                     }
                     finalize_response!();
                     return Ok(());

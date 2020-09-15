@@ -1,0 +1,14 @@
+[lib]
+name ="rmodbus"
+path = "src/lib-nostd.rs"
+
+[dependencies]
+lazy_static = "1.4.0"
+ieee754 = "0.2.6"
+spin = "0.5.2"
+fixedvec = "0.2.4"
+
+[dev-dependencies]
+rand = "0.7.3"
+
+#!test-threads = 1

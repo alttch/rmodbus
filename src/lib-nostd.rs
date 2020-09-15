@@ -1,3 +1,8 @@
+//#![nostd]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate fixedvec;
+
 use fixedvec::FixedVec;
 use spin::{Mutex, MutexGuard};
 
@@ -31,17 +36,19 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
 macro_rules! lock_mutex {
     ($v:path) => {
         $v.lock()
-    }
+    };
 }
+
+include!("rmodbus.rs");
 
 #[cfg(test)]
 mod tests {
     use super::server::context::*;
-    use rand::Rng;
     use fixedvec::FixedVec;
+    use rand::Rng;
 
     #[test]
-    fn test_read_coils_as_bytes_oob() {
+    fn test_nostd_read_coils_as_bytes_oob() {
         let mut preallocated = alloc_stack!([bool; CONTEXT_SIZE + 1]);
         let mut result = FixedVec::new(&mut preallocated);
         match coil_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
@@ -70,7 +77,7 @@ mod tests {
     }
 
     #[test]
-    fn test_coil_get_set_bulk() {
+    fn test_nostd_coil_get_set_bulk() {
         let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
         let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
@@ -95,7 +102,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_discretes_as_bytes_oob() {
+    fn test_nostd_read_discretes_as_bytes_oob() {
         let mut preallocated = alloc_stack!([bool; CONTEXT_SIZE + 1]);
         let mut result = FixedVec::new(&mut preallocated);
         match discrete_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
@@ -124,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn test_discrete_get_set_bulk() {
+    fn test_nostd_discrete_get_set_bulk() {
         let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
         let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
@@ -149,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_holdings_as_bytes_oob() {
+    fn test_nostd_read_holdings_as_bytes_oob() {
         let mut preallocated = alloc_stack!([u16; CONTEXT_SIZE + 1]);
         let mut result = FixedVec::new(&mut preallocated);
         match holding_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
@@ -183,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_holding_set_bulk() {
+    fn test_nostd_get_holding_set_bulk() {
         let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
         let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
@@ -213,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_holding_set_u32() {
+    fn test_nostd_get_holding_set_u32() {
         let mut data_mem = alloc_stack!([u32; 2]);
         let mut data = FixedVec::new(&mut data_mem);
 
@@ -228,7 +235,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_holding_set_f32() {
+    fn test_nostd_get_holding_set_f32() {
         let mut data_mem = alloc_stack!([f32; 2]);
         let mut data = FixedVec::new(&mut data_mem);
 
@@ -243,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_inputs_as_bytes_oob() {
+    fn test_nostd_read_inputs_as_bytes_oob() {
         let mut preallocated = alloc_stack!([u16; CONTEXT_SIZE + 1]);
         let mut result = FixedVec::new(&mut preallocated);
         match input_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
@@ -277,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_input_set_bulk() {
+    fn test_nostd_get_input_set_bulk() {
         let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
         let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
@@ -307,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_input_set_u32() {
+    fn test_nostd_get_input_set_u32() {
         let mut data_mem = alloc_stack!([u32; 2]);
         let mut data = FixedVec::new(&mut data_mem);
 
@@ -322,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_input_set_f32() {
+    fn test_nostd_get_input_set_f32() {
         let mut data_mem = alloc_stack!([f32; 2]);
         let mut data = FixedVec::new(&mut data_mem);
 
@@ -337,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_bools_as_u8() {
+    fn test_nostd_get_bools_as_u8() {
         let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
         coil_clear_all();
@@ -395,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_set_regs_as_u8() {
+    fn test_nostd_get_set_regs_as_u8() {
         holding_clear_all();
         let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
@@ -420,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_set_bools_as_u8() {
+    fn test_nostd_get_set_bools_as_u8() {
         coil_clear_all();
         let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
         let mut data = FixedVec::new(&mut data_mem);
@@ -454,7 +461,7 @@ mod tests {
 
     /*
     //#[test]
-    //fn test_dump_restore() {
+    //fn test_nostd_dump_restore() {
     //let mut rng = rand::thread_rng();
     //let mut mycoils: Vec<bool> = Vec::new();
     //let mut mydiscretes: Vec<bool> = Vec::new();

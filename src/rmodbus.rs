@@ -1,8 +1,12 @@
+// TODO dump / restore, nostd docs, server tests, test all srv types, new examples
+
 /// Default error
 #[derive(Debug)]
 pub enum ErrorKind {
-    ContextOOB,
     OOB,
+    OOBContext,
+    FrameBroken,
+    FrameCRCError
 }
 
 pub trait VectorTrait<T: Copy> {

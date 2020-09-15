@@ -1,0 +1,12 @@
+[lib]
+name ="rmodbus"
+path = "src/lib-std.rs"
+
+[dependencies]
+lazy_static = "1.4.0"
+ieee754 = "0.2.6"
+
+[dev-dependencies]
+rand = "0.7.3"
+
+#!test-threads = 1

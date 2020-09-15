@@ -121,7 +121,7 @@ pub fn restore_locked(
     let bool_size = CONTEXT_SIZE / 8;
     let reg_size = CONTEXT_SIZE * 2;
     if bool_size * 2 + reg_size * 2 != data.len() {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let start = 0;
     let end = bool_size;
@@ -225,7 +225,7 @@ pub fn get_regs_as_u8<V: VectorTrait<u8>>(
 ) -> Result<(), ErrorKind> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     for c in reg as usize..reg_to {
         if result.add((reg_context[c] >> 8) as u8).is_err() {
@@ -248,7 +248,7 @@ pub fn set_regs_from_u8(
 ) -> Result<(), ErrorKind> {
     let len = values.len();
     if reg as usize + len / 2 > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let mut i = 0;
     let mut creg = reg as usize;
@@ -276,11 +276,11 @@ pub fn get_bools_as_u8<V: VectorTrait<u8>>(
     result: &mut V,
 ) -> Result<(), ErrorKind> {
     if count > 250 {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let mut creg = reg as usize;
     while creg < reg_to {
@@ -295,7 +295,7 @@ pub fn get_bools_as_u8<V: VectorTrait<u8>>(
             }
         }
         if result.add(cbyte).is_err() {
-            return Err(ErrorKind::ContextOOB);
+            return Err(ErrorKind::OOBContext);
         };
     }
     return Ok(());
@@ -315,7 +315,7 @@ pub fn set_bools_from_u8(
 ) -> Result<(), ErrorKind> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let mut creg = reg as usize;
     let mut cbyte = 0;
@@ -351,10 +351,10 @@ pub fn get_bulk<T: Copy, V: VectorTrait<T>>(
 ) -> Result<(), ErrorKind> {
     let reg_to = reg as usize + count as usize;
     if reg_to > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     if result.add_bulk(&reg_context[reg as usize..reg_to]).is_err() {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     return Ok(());
 }
@@ -368,7 +368,7 @@ pub fn set_bulk<T: Copy>(
     reg_context: &mut [T; CONTEXT_SIZE],
 ) -> Result<(), ErrorKind> {
     if reg as usize + values.len() > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     for (i, value) in values.iter().enumerate() {
         reg_context[reg as usize + i] = *value;
@@ -381,7 +381,7 @@ pub fn set_bulk<T: Copy>(
 /// Get coil as bool or 16-bit reg as u16
 pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, ErrorKind> {
     if reg as usize >= CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     return Ok(reg_context[reg as usize]);
 }
@@ -391,7 +391,7 @@ pub fn get<T: Copy>(reg: u16, reg_context: &[T; CONTEXT_SIZE]) -> Result<T, Erro
 /// Set coil from bool or 16-bit reg from u16
 pub fn set<T>(reg: u16, value: T, reg_context: &mut [T; CONTEXT_SIZE]) -> Result<(), ErrorKind> {
     if reg as usize >= CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     reg_context[reg as usize] = value;
     return Ok(());
@@ -421,7 +421,7 @@ pub fn set_u32(
     reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), ErrorKind> {
     if reg as usize + 2 > CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     reg_context[reg as usize] = (value >> 16) as u16;
     reg_context[reg as usize + 1] = value as u16;
@@ -437,7 +437,7 @@ pub fn set_u32_bulk(
     reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), ErrorKind> {
     if reg as usize + values.len() * 2 >= CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let mut reg_c = reg;
     for value in values {
@@ -473,7 +473,7 @@ pub fn set_f32_bulk(
     reg_context: &mut [u16; CONTEXT_SIZE],
 ) -> Result<(), ErrorKind> {
     if reg as usize + values.len() * 2 >= CONTEXT_SIZE {
-        return Err(ErrorKind::ContextOOB);
+        return Err(ErrorKind::OOBContext);
     }
     let mut reg_c = reg;
     for value in values {

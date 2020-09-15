@@ -29,13 +29,15 @@ macro_rules! lock_mutex {
     };
 }
 
+include!("rmodbus.rs");
+
 #[cfg(test)]
 mod tests {
     use super::server::context::*;
     use rand::Rng;
 
     #[test]
-    fn test_read_coils_as_bytes_oob() {
+    fn test_std_read_coils_as_bytes_oob() {
         let mut result = Vec::new();
         match coil_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
@@ -63,7 +65,7 @@ mod tests {
     }
 
     #[test]
-    fn test_coil_get_set_bulk() {
+    fn test_std_coil_get_set_bulk() {
         let mut data = Vec::new();
         let mut result = Vec::new();
         data.extend_from_slice(&[true; 2]);
@@ -86,7 +88,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_discretes_as_bytes_oob() {
+    fn test_std_read_discretes_as_bytes_oob() {
         let mut result = Vec::new();
         match discrete_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
@@ -114,7 +116,7 @@ mod tests {
     }
 
     #[test]
-    fn test_discrete_get_set_bulk() {
+    fn test_std_discrete_get_set_bulk() {
         let mut data = Vec::new();
         let mut result = Vec::new();
         data.extend_from_slice(&[true; 2]);
@@ -137,7 +139,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_holdings_as_bytes_oob() {
+    fn test_std_read_holdings_as_bytes_oob() {
         let mut result = Vec::new();
         match holding_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
@@ -170,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_holding_set_bulk() {
+    fn test_std_get_holding_set_bulk() {
         let mut data = Vec::new();
         let mut result = Vec::new();
 
@@ -198,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_holding_set_u32() {
+    fn test_std_get_holding_set_u32() {
         let mut data = Vec::new();
 
         data.extend_from_slice(&[1234567, 8901234]);
@@ -212,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_holding_set_f32() {
+    fn test_std_get_holding_set_f32() {
         let mut data = Vec::new();
 
         data.extend_from_slice(&[1234.567, 890.1234]);
@@ -226,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_inputs_as_bytes_oob() {
+    fn test_std_read_inputs_as_bytes_oob() {
         let mut result = Vec::new();
         match input_get_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
             Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
@@ -259,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_input_set_bulk() {
+    fn test_std_get_input_set_bulk() {
         let mut data = Vec::new();
         let mut result = Vec::new();
 
@@ -287,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_input_set_u32() {
+    fn test_std_get_input_set_u32() {
         let mut data = Vec::new();
 
         data.extend_from_slice(&[1234567, 8901234]);
@@ -301,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_input_set_f32() {
+    fn test_std_get_input_set_f32() {
         let mut data = Vec::new();
 
         data.extend_from_slice(&[1234.567, 890.1234]);
@@ -315,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_bools_as_u8() {
+    fn test_std_get_bools_as_u8() {
         let mut data = Vec::new();
         coil_clear_all();
         data.extend_from_slice(&[true, true, true, true, true, true, false, false]);
@@ -366,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_set_regs_as_u8() {
+    fn test_std_get_set_regs_as_u8() {
         holding_clear_all();
         let mut data = Vec::new();
         data.extend_from_slice(&[2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9]);
@@ -387,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_set_bools_as_u8() {
+    fn test_std_get_set_bools_as_u8() {
         coil_clear_all();
         let mut data = Vec::new();
         data.extend_from_slice(&[
@@ -417,7 +419,7 @@ mod tests {
 
     /*
     //#[test]
-    //fn test_dump_restore() {
+    //fn test_std_dump_restore() {
     //let mut rng = rand::thread_rng();
     //let mut mycoils: Vec<bool> = Vec::new();
     //let mut mydiscretes: Vec<bool> = Vec::new();

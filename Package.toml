@@ -1,6 +1,6 @@
 [package]
 name = "rmodbus"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Sergei S. <div@altertech.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -8,13 +8,3 @@ repository = "https://github.com/alttch/rmodbus"
 description = "Native Rust Modbus server framework"
 readme = "README.md"
 
-[dependencies]
-lazy_static = "1.4.0"
-ieee754 = "0.2.6"
-spin = "0.5.2"
-fixedvec = "0.2.4"
-
-[dev-dependencies]
-rand = "0.7.3"
-
-#!test-threads = 1

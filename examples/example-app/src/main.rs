@@ -1,3 +1,5 @@
+//#![nostd]
+
 use rmodbus::server::context;
 use spin::MutexGuard;
 use std::fs::File;
@@ -83,7 +85,7 @@ fn main() {
     //});
     use std::thread;
     thread::spawn(move || {
-        tcp::tcpserver(unit_id, "localhost:5502");
+        tcp::tcpserver(unit_id, "localhost:5503");
     });
     looping();
 }
