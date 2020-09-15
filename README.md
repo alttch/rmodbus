@@ -145,7 +145,7 @@ and running in the separate thread, asynchronously or whatever is preferred.
 
 ## no_std
 
-rmodbus support working in no\_std mode. Most of the library code is written
+rmodbus supports working in no\_std mode. Most of the library code is written
 the way to support both std and no\_std.
 
 ### Switching library to no_std
