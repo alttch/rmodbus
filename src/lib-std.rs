@@ -33,7 +33,6 @@ macro_rules! lock_mutex {
     };
 }
 
-#[cfg(not(feature = "nostd"))]
 #[cfg(not(feature = "single"))]
 macro_rules! lock_mutex {
     ($v:path) => {
