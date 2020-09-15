@@ -223,6 +223,10 @@ impl ModbusContextWriter {
         return result;
     }
 
+    pub fn set_pos(&mut self, offset: u16) {
+        self.curr = offset;
+    }
+
     pub fn write_bulk(
         &mut self,
         values: &[u8],
