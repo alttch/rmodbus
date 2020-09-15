@@ -40,7 +40,6 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 /// Simple example of Modbus/UDP blocking server:
 ///
 /// ```
-///
 ///use std::net::UdpSocket;
 ///
 ///use rmodbus::server::{ModbusFrame, ModbusProto, process_frame};
@@ -52,30 +51,31 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///        let mut buf: ModbusFrame = [0; 256];
 ///        let (_amt, src) = socket.recv_from(&mut buf).unwrap();
 ///        // Send frame for processing - modify context for write frames and get response
-///        let response: Vec<u8> = match process_frame(unit, &buf, ModbusProto::TcpUdp) {
-///            Some(v) => v,
-///            None => {
-///                // continue loop (or exit function) if there's nothing to send as the reply
-///                continue;
+///        let mut response: Vec<u8> = Vec::new(); // use FixedVec for nostd
+///        if process_frame(unit, &buf, ModbusProto::TcpUdp, &mut response).is_err() {
+///            // continue loop (or exit function) if there's nothing to send as the reply
+///            continue;
 ///            }
-///        };
-///        socket.send_to(response.as_slice(), &src).unwrap();
+///        if !response.is_empty() {
+///            socket.send_to(response.as_slice(), &src).unwrap();
+///            }
+///        }
 ///    }
-///}
 /// ```
 ///
 /// There are also [examples of TCP and
 /// RTU](https://github.com/alttch/rmodbus/tree/master/examples/example-server/src)
 ///
-/// The function returns None in cases:
+/// For broadcast requests, the response vector is empty
 ///
-/// * **incorrect frame header**: the frame header is absolutely incorrect and there's no way to
-///     form a valid Modbus error reply
+/// The function returns Error in cases:
 ///
-/// * **not my frame**: the specified unit id doesn't match unit id in Modbus frame
+/// * **rmodbus::ErrorKind::FrameBroken**: the frame header is absolutely incorrect and there's no
+///   way to form a valid Modbus error reply
 ///
-/// * **broadcast request**: when broadcasts are processed, apps shouldn't reply anything back
+/// * **rmodbus::ErrorKind::FrameCRCError**: frame CRC error (Modbus RTU)
 ///
+/// * **rmodbus::ErrorKind::OOB**: for nostd only, unable to write response into FixedVec
 pub fn process_frame<V: VectorTrait<u8>>(
     unit_id: u8,
     frame: &ModbusFrame,

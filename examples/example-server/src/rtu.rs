@@ -2,7 +2,7 @@ use serial::prelude::*;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use rmodbus::server::{ModbusFrame, ModbusProto, process_frame};
+use rmodbus::server::{process_frame, ModbusFrame, ModbusProto};
 
 pub fn rtuserver(unit: u8, port: &str) {
     let mut port = serial::open(port).unwrap();
@@ -20,13 +20,12 @@ pub fn rtuserver(unit: u8, port: &str) {
         let mut buf: ModbusFrame = [0; 256];
         if port.read(&mut buf).unwrap() > 0 {
             println!("got frame");
-            let response: Vec<u8> = match process_frame(unit, &buf, ModbusProto::Rtu) {
-                Some(v) => v,
-                None => {
-                    println!("frame drop");
-                    continue;
-                }
-            };
+            let mut response = Vec::new();
+            if process_frame(unit, &buf, ModbusProto::Rtu, &mut response).is_err()
+                || response.is_empty()
+            {
+                continue;
+            }
             println!("{:x?}", response);
             port.write(response.as_slice()).unwrap();
         }

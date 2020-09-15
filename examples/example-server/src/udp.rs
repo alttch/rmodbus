@@ -8,14 +8,12 @@ pub fn udpserver(unit: u8, listen: &str) {
         let mut buf: ModbusFrame = [0; 256];
         let (_amt, src) = socket.recv_from(&mut buf).unwrap();
         println!("got packet");
-        let response: Vec<u8> = match process_frame(unit, &buf, ModbusProto::TcpUdp) {
-            Some(v) => v,
-            None => {
+        let mut response = Vec::new();
+        if process_frame(unit, &buf, ModbusProto::TcpUdp, &mut response).is_err() {
                 println!("frame drop");
                 continue;
-            }
         };
         println!("{:x?}", response);
-        socket.send_to(response.as_slice(), &src).unwrap();
+        if !response.is_empty() { socket.send_to(response.as_slice(), &src).unwrap(); }
     }
 }

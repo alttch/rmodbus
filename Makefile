@@ -1,14 +1,16 @@
 VERSION=0.3.0
 
-all: switch-std test switch-nostd test
+all: test
+
+test: switch-std run-test switch-nostd run-test-again
 
 pub: switch-std publish-cargo-crate
 
-test:
+run-test:
 	cargo test -- --test-threads=1
 
-test-nostd:
-	cargo test -- --manifest-path=nostd/Cargo.toml -- --test-threads=1
+run-test-again:
+	cargo test -- --test-threads=1
 
 clean:
 	find . -type d -name target -exec rm -rf {} \; || exit 0

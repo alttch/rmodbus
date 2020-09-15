@@ -2,8 +2,6 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread;
 
-use fixedvec::FixedVec;
-
 use rmodbus::server::{ModbusFrame, ModbusProto, process_frame};
 
 pub fn tcpserver(unit: u8, listen: &str) {
@@ -15,8 +13,7 @@ pub fn tcpserver(unit: u8, listen: &str) {
             let mut stream = stream.unwrap();
             loop {
                 let mut buf: ModbusFrame = [0; 256];
-                let mut response_mem = alloc_stack!([u8; 256]);
-                let mut response: FixedVec<u8> = FixedVec::new(&mut response_mem);
+                let mut response = Vec::new(); // for nostd use FixedVec with alloc [u8;256]
                 if stream.read(&mut buf).unwrap_or(0) == 0 {
                     return;
                 }
@@ -25,8 +22,10 @@ pub fn tcpserver(unit: u8, listen: &str) {
                         return;
                     }
                 println!("{:x?}", response.as_slice());
-                if stream.write(response.as_slice()).is_err() {
-                    return;
+                if !response.is_empty() {
+                    if stream.write(response.as_slice()).is_err() {
+                        return;
+                    }
                 }
             }
         });
