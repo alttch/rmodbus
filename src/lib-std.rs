@@ -45,6 +45,9 @@ include!("rmodbus.rs");
 #[cfg(test)]
 mod tests {
     use super::server::context::*;
+    use super::server::*;
+
+    use crc16::*;
     use rand::Rng;
 
     #[test]
@@ -497,5 +500,104 @@ mod tests {
         }
 
         assert_eq!(dump, dump2);
+    }
+
+    fn gen_tcp_frame(data: &[u8]) -> ModbusFrame {
+        let mut frame: ModbusFrame = [0; 256];
+        frame[0] = 0x77;
+        frame[1] = 0x55;
+        frame[2] = 0;
+        frame[3] = 0;
+        let len = (data.len() as u16).to_be_bytes();
+        frame[4] = len[0];
+        frame[5] = len[1];
+        for (i, v) in data.iter().enumerate() {
+            frame[i + 6] = *v;
+        }
+        return frame;
+    }
+
+    fn gen_rtu_frame(data: &[u8]) -> ModbusFrame {
+        let mut frame: ModbusFrame = [0; 256];
+        for (i, v) in data.iter().enumerate() {
+            frame[i] = *v;
+        }
+        let len = data.len();
+        let crc16 = State::<MODBUS>::calculate(data);
+        let c = crc16.to_le_bytes();
+        frame[len] = c[0];
+        frame[len + 1] = c[1];
+        return frame;
+    }
+
+    fn check_rtu_frame(result: &Vec<u8>, response: &[u8]) {
+        let mut resp = Vec::new();
+        let mut r = Vec::new();
+        for i in 6..response.len() {
+            resp.push(response[i]);
+        }
+        for i in 0..result.len() - 2 {
+            r.push(result[i]);
+        }
+        assert_eq!(resp, r);
+        resp.insert(0, 1);
+        let result_crc = u16::from_le_bytes([result[result.len() - 2], result[result.len() - 1]]);
+        assert_eq!(result_crc, State::<MODBUS>::calculate(r.as_slice()));
+    }
+
+    #[test]
+    fn test_frame_fc01_fc02_fc03_fc04() {
+        clear_all();
+        let mut result = Vec::new();
+        // read coils
+        coil_set(5, true).unwrap();
+        coil_set(7, true).unwrap();
+        coil_set(9, true).unwrap();
+        let request = [1, 1, 0, 5, 0, 5];
+        let response = [0x77, 0x55, 0, 0, 0, 4, 1, 1, 1, 0x15];
+        let frame = gen_tcp_frame(&request);
+        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        assert_eq!(result.as_slice(), response);
+        let frame = gen_rtu_frame(&request);
+        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        check_rtu_frame(&result, &response);
+        // read discretes
+        discrete_set(10, true).unwrap();
+        discrete_set(12, true).unwrap();
+        discrete_set(16, true).unwrap();
+        let frame = gen_tcp_frame(&[1, 2, 0, 5, 0, 0x10]);
+        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        assert_eq!(
+            result.as_slice(),
+            [0x77, 0x55, 0, 0, 0, 5, 1, 2, 2, 0xa0, 8]
+        );
+        // read holdings
+        holding_set(2, 9977).unwrap();
+        holding_set(4, 9543).unwrap();
+        holding_set(7, 9522).unwrap();
+        let request = [1, 3, 0, 0, 0, 0xb];
+        let frame = gen_tcp_frame(&request);
+        let response = [
+            0x77, 0x55, 0, 0, 0, 0x19, 1, 3, 0x16, 0, 0, 0, 0, 0x26, 0xf9, 0, 0, 0x25, 0x47, 0, 0,
+            0, 0, 0x25, 0x32, 0, 0, 0, 0, 0, 0,
+        ];
+        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        assert_eq!(result.as_slice(), response);
+        let frame = gen_rtu_frame(&request);
+        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        check_rtu_frame(&result, &response);
+        // read inputs
+        input_set(2000, 99).unwrap();
+        input_set(2001, 15923).unwrap();
+        input_set(2004, 54321).unwrap();
+        let frame = gen_tcp_frame(&[1, 4, 7, 0xd0, 0, 6]);
+        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        assert_eq!(
+            result.as_slice(),
+            [
+                0x77, 0x55, 0, 0, 0, 0xf, 1, 4, 0xc, 0, 0x63, 0x3e, 0x33, 0, 0, 0, 0, 0xd4, 0x31,
+                0, 0
+            ]
+        );
     }
 }
