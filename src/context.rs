@@ -265,7 +265,7 @@ impl<'a> Iterator for ModbusContextIterator<'a> {
 /// Useful for dump creation. To restore dump back, use "set_context_cell"
 /// or ModbusContextWriter::new()
 ///
-///```ignore
+///```rust,ignore
 ///let ctx = CONTEXT.lock().unwrap();
 ///for value in context_iter(&ctx) {
 ///    // store value somewhere
