@@ -1,4 +1,4 @@
-// TODO dump / restore, nostd docs, server tests, test all srv types, new examples
+// TODO dump / restore, test all srv types
 
 /// Default error
 #[derive(Debug)]

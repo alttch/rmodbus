@@ -1,10 +1,8 @@
-#![no_std]
 #[allow(unused_imports)]
 #[macro_use]
 extern crate fixedvec;
 
 use fixedvec::FixedVec;
-use spin::{Mutex, MutexGuard};
 
 impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     fn add(&mut self, value: T) -> Result<(), ErrorKind> {
