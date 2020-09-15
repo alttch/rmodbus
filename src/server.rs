@@ -39,7 +39,7 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///
 /// Simple example of Modbus/UDP blocking server:
 ///
-/// ```
+/// ```ignore
 ///use std::net::UdpSocket;
 ///
 ///use rmodbus::server::{ModbusFrame, ModbusProto, process_frame};
