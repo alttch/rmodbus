@@ -1,5 +1,3 @@
-// TODO test all srv types
-
 /// Default error
 #[derive(Debug)]
 pub enum ErrorKind {
