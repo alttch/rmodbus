@@ -145,22 +145,16 @@ and running in the separate thread, asynchronously or whatever is preferred.
 
 ## no_std
 
-rmodbus supports working in no\_std mode. Most of the library code is written
-the way to support both std and no\_std.
+rmodbus supports no\_std mode. Most of the library code is written the way to
+support both std and no\_std.
 
 ### Switching library to no_std
 
-I found no way to publish 2 libraries from the single crate with cargo. To
-switch to no_std:
+Set dependency as:
 
-* clone https://github.com/alttch/rmodbus
-
-* execute "make switch-nostd"
-
-* put the local path to rmodbus library in your Cargo.toml
-
-When switched, library loads traits for different types, so if something's
-wrong, the project will just fail to build.
+```toml
+rmodbus = { version = "*", features = ["nostd"] }
+```
 
 ### Types and crates in no\_std mode
 
@@ -172,13 +166,16 @@ wrong, the project will just fail to build.
   [spin](https://crates.io/crates/spin) Mutex instead of std::sync::mutex. Note
   that spin MutexGuard doesn't require unwrap() after locking.
 
-### Single-threaded and async apps
+## Single-threaded and async apps
 
 Single-threaded applications can gain up to +60-100% speed boost by removing
-Modbus context mutex. This can be performed by running "make
-switch-nostd-single" and replacing mutex with a fake one. For the
-compatibility, the context still need to be "unlocked", however the fake mutex
-does this instantly and without any CPU overhead.
+Modbus context mutex. This can be performed by replacing mutex with a fake one.
+For the compatibility, the context still need to be "unlocked", however the
+fake mutex does this instantly and without any CPU overhead.
+
+```toml
+rmodbus = { version = "*", features = ["single"] }
+```
 
 ## Modbus client
 

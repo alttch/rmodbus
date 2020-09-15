@@ -1,5 +1,3 @@
-use std::sync::{Mutex, MutexGuard};
-
 impl<T: Copy> VectorTrait<T> for Vec<T> {
     fn add(&mut self, value: T) -> Result<(), ErrorKind> {
         self.push(value);
@@ -28,6 +26,15 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
     }
 }
 
+#[cfg(feature = "single")]
+macro_rules! lock_mutex {
+    ($v:path) => {
+        $v.lock()
+    };
+}
+
+#[cfg(not(feature = "nostd"))]
+#[cfg(not(feature = "single"))]
 macro_rules! lock_mutex {
     ($v:path) => {
         $v.lock().unwrap()

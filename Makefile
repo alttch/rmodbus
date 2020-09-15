@@ -2,18 +2,19 @@ VERSION=0.3.0
 
 all: test
 
-test: switch-std run-test-std switch-nostd run-test-nostd switch-nostd-single run-test-nostd-single switch-std-back
+test: test-std test-std-single test-nostd test-nostd-single
 
-pub: switch-std publish-cargo-crate
+test-std:
+	cargo test -- --test-threads=1 --nocapture
 
-run-test-std:
-	cargo test -- --test-threads=1
+test-std-single:
+	cargo test --features single -- --test-threads=1 --nocapture
 
-run-test-nostd:
-	cargo test -- --test-threads=1
+test-nostd:
+	cargo test --features nostd -- --test-threads=1 --nocapture
 
-run-test-nostd-single:
-	cargo test -- --test-threads=1
+test-nostd-single:
+	cargo test --features nostd --features single -- --test-threads=1 --nocapture
 
 clean:
 	find . -type d -name target -exec rm -rf {} \; || exit 0
@@ -24,19 +25,16 @@ tag:
 	git push origin --tags
 
 ver:
-	sed -i 's/^version = ".*/version = "${VERSION}"/g' Package.toml
+	sed -i 's/^version = ".*/version = "${VERSION}"/g' Cargo.toml
 
-switch-std:
-	cat Package.toml std.toml > Cargo.toml
+doc:
+	grep -v "^//! " src/lib.rs > src/lib.rs.tmp
+	sed 's|^|//! |g' README.md > src/lib.rs
+	cat src/lib.rs.tmp >> src/lib.rs
+	rm -f src/lib.rs.tmp
+	cargo doc
 
-switch-std-back:
-	cat Package.toml std.toml > Cargo.toml
-
-switch-nostd:
-	cat Package.toml nostd.toml > Cargo.toml
-
-switch-nostd-single:
-	cat Package.toml nostd-single.toml > Cargo.toml
+pub: doc test publish-cargo-crate
 
 publish-cargo-crate:
 	cargo publish
