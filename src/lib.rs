@@ -33,7 +33,7 @@
 //! 
 //! Here's an example of a simple TCP blocking server:
 //! 
-//! ```ignore
+//! ```rust,ignore
 //! use std::io::{Read, Write};
 //! use std::net::TcpListener;
 //! use std::thread;
@@ -101,7 +101,7 @@
 //! 
 //! Take a look at simple PLC example:
 //! 
-//! ```ignore
+//! ```rust,ignore
 //! use rmodbus::server::context;
 //! use std::fs::File;
 //! use std::io::prelude::*;
