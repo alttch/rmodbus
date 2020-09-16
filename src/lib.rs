@@ -105,6 +105,7 @@
 //! use rmodbus::server::context;
 //! use std::fs::File;
 //! use std::io::prelude::*;
+//! use std::sync::MutexGuard;
 //! 
 //! fn looping() {
 //!     loop {
@@ -120,9 +121,9 @@
 //!             match cmd {
 //!                 1 => {
 //!                     println!("saving memory context");
-//!                     //let _ = save_locked("/tmp/plc1.dat", &ctx).map_err(|_| {
-//!                         //eprintln!("unable to save context!");
-//!                     //});
+//!                     let _ = save("/tmp/plc1.dat", &mut ctx).map_err(|_| {
+//!                         eprintln!("unable to save context!");
+//!                     });
 //!                 }
 //!                 _ => println!("command not implemented"),
 //!             }
@@ -137,6 +138,24 @@
 //!         context::set_bulk(10, &(vec![10, 20]), &mut ctx.holdings).unwrap();
 //!         context::set_f32(20, 935.77, &mut ctx.inputs).unwrap();
 //!     }
+//! }
+//! 
+//! fn save(fname: &str, ctx: &MutexGuard<context::ModbusContext>) -> Result<(), std::io::Error> {
+//!     let mut file = match File::create(fname) {
+//!         Ok(v) => v,
+//!         Err(e) => return Err(e),
+//!     };
+//!     for i in context::context_iter(&ctx) {
+//!         match file.write(&[i]) {
+//!             Ok(_) => {}
+//!             Err(e) => return Err(e),
+//!         }
+//!     }
+//!     match file.sync_all() {
+//!         Ok(_) => {}
+//!         Err(e) => return Err(e),
+//!     }
+//!     return Ok(());
 //! }
 //! ```
 //! 
