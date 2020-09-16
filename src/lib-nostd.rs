@@ -558,27 +558,16 @@ mod tests {
         process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
         assert_eq!(result.as_slice(), response);
         // check result OOB
-        macro_rules! check_oob {
-            ($mem:expr) => {
-                let mut result_mem = alloc_stack!([u8; $mem]);
-                let mut result = FixedVec::new(&mut result_mem);
-                match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
-                    Ok(_) => panic!("{:x?}", result),
-                    Err(e) => match e {
-                        ErrorKind::OOB => {}
-                        _ => panic!("{:?}", e),
-                    },
-                }
-            };
+        let mut result_mem = alloc_stack!([u8; 10]);
+        for i in 0..10 {
+            let mut result = FixedVec::new(&mut result_mem[..i]);
+            match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+                Ok(_) => panic!("{:x?}", result),
+                Err(e) => match e {
+                    ErrorKind::OOB => {}
+                    _ => panic!("{:?}", e),
+                },
+            }
         }
-        check_oob!(1);
-        check_oob!(2);
-        check_oob!(3);
-        check_oob!(4);
-        check_oob!(5);
-        check_oob!(6);
-        check_oob!(7);
-        check_oob!(8);
-        check_oob!(9);
     }
 }
