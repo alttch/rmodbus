@@ -2,7 +2,7 @@ VERSION=0.3.3
 
 all: test
 
-test: test-std test-std-single test-nostd test-nostd-single
+test: test-std test-std-single test-nostd test-nostd-single # test-nostd-single-smallcontext
 
 test-std:
 	cargo test -- --test-threads=1 --nocapture
@@ -15,6 +15,9 @@ test-nostd:
 
 test-nostd-single:
 	cargo test --features nostd --features single -- --test-threads=1 --nocapture
+
+test-nostd-single-smallcontext:
+	cargo test --features nostd --features single --features smallcontext -- --test-threads=1 --nocapture
 
 clean:
 	find . -type d -name target -exec rm -rf {} \; || exit 0

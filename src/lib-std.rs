@@ -210,8 +210,8 @@ mod tests {
         assert_eq!(holding_get(28).unwrap(), 99);
         holding_set(28, 95).unwrap();
         assert_eq!(holding_get(28).unwrap(), 95);
-        holding_set_u32(1000, 1234567).unwrap();
-        assert_eq!(holding_get_u32(1000).unwrap(), 1234567);
+        holding_set_u32(100, 1234567).unwrap();
+        assert_eq!(holding_get_u32(100).unwrap(), 1234567);
     }
 
     #[test]
@@ -219,13 +219,13 @@ mod tests {
         let mut data = Vec::new();
 
         data.extend_from_slice(&[1234567, 8901234]);
-        holding_set_u32_bulk(1002, &data.as_slice()).unwrap();
+        holding_set_u32_bulk(102, &data.as_slice()).unwrap();
 
-        assert_eq!(holding_get_u32(1002).unwrap(), 1234567);
-        assert_eq!(holding_get_u32(1004).unwrap(), 8901234);
+        assert_eq!(holding_get_u32(102).unwrap(), 1234567);
+        assert_eq!(holding_get_u32(104).unwrap(), 8901234);
 
-        holding_set_u32(900, 3412345).unwrap();
-        assert_eq!(holding_get_u32(900).unwrap(), 3412345);
+        holding_set_u32(90, 3412345).unwrap();
+        assert_eq!(holding_get_u32(90).unwrap(), 3412345);
     }
 
     #[test]
@@ -234,12 +234,12 @@ mod tests {
 
         data.extend_from_slice(&[1234.567, 890.1234]);
 
-        holding_set_f32_bulk(2002, &data.as_slice()).unwrap();
-        assert_eq!(holding_get_f32(2002).unwrap(), 1234.567);
-        assert_eq!(holding_get_f32(2004).unwrap(), 890.1234);
+        holding_set_f32_bulk(202, &data.as_slice()).unwrap();
+        assert_eq!(holding_get_f32(202).unwrap(), 1234.567);
+        assert_eq!(holding_get_f32(204).unwrap(), 890.1234);
 
-        holding_set_f32(2000, 1234.567).unwrap();
-        assert_eq!(holding_get_f32(2000).unwrap(), 1234.567);
+        holding_set_f32(200, 1234.567).unwrap();
+        assert_eq!(holding_get_f32(200).unwrap(), 1234.567);
     }
 
     #[test]
@@ -299,8 +299,8 @@ mod tests {
         assert_eq!(input_get(28).unwrap(), 99);
         input_set(28, 95).unwrap();
         assert_eq!(input_get(28).unwrap(), 95);
-        input_set_u32(1000, 1234567).unwrap();
-        assert_eq!(input_get_u32(1000).unwrap(), 1234567);
+        input_set_u32(30, 1234567).unwrap();
+        assert_eq!(input_get_u32(30).unwrap(), 1234567);
     }
 
     #[test]
@@ -308,13 +308,13 @@ mod tests {
         let mut data = Vec::new();
 
         data.extend_from_slice(&[1234567, 8901234]);
-        input_set_u32_bulk(1002, &data.as_slice()).unwrap();
+        input_set_u32_bulk(102, &data.as_slice()).unwrap();
 
-        assert_eq!(input_get_u32(1002).unwrap(), 1234567);
-        assert_eq!(input_get_u32(1004).unwrap(), 8901234);
+        assert_eq!(input_get_u32(102).unwrap(), 1234567);
+        assert_eq!(input_get_u32(104).unwrap(), 8901234);
 
-        input_set_u32(900, 3412345).unwrap();
-        assert_eq!(input_get_u32(900).unwrap(), 3412345);
+        input_set_u32(50, 3412345).unwrap();
+        assert_eq!(input_get_u32(50).unwrap(), 3412345);
     }
 
     #[test]
@@ -323,12 +323,12 @@ mod tests {
 
         data.extend_from_slice(&[1234.567, 890.1234]);
 
-        input_set_f32_bulk(2002, &data.as_slice()).unwrap();
-        assert_eq!(input_get_f32(2002).unwrap(), 1234.567);
-        assert_eq!(input_get_f32(2004).unwrap(), 890.1234);
+        input_set_f32_bulk(202, &data.as_slice()).unwrap();
+        assert_eq!(input_get_f32(202).unwrap(), 1234.567);
+        assert_eq!(input_get_f32(204).unwrap(), 890.1234);
 
-        input_set_f32(2000, 1234.567).unwrap();
-        assert_eq!(input_get_f32(2000).unwrap(), 1234.567);
+        input_set_f32(200, 1234.567).unwrap();
+        assert_eq!(input_get_f32(200).unwrap(), 1234.567);
     }
 
     #[test]
@@ -644,10 +644,10 @@ mod tests {
         process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
         check_rtu_response(&result, &response);
         // read inputs
-        input_set(2000, 99).unwrap();
-        input_set(2001, 15923).unwrap();
-        input_set(2004, 54321).unwrap();
-        let frame = gen_tcp_frame(&[1, 4, 7, 0xd0, 0, 6]);
+        input_set(280, 99).unwrap();
+        input_set(281, 15923).unwrap();
+        input_set(284, 54321).unwrap();
+        let frame = gen_tcp_frame(&[1, 4, 1, 0x18, 0, 6]);
         process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
         assert_eq!(
             result.as_slice(),
@@ -724,17 +724,17 @@ mod tests {
         clear_all();
         let mut result = Vec::new();
         // write multiple coils
-        let request = [1, 0xf, 3, 0xe8, 0, 5, 1, 0x25]; // 6 bits in data but 5 coils
-        let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0xf, 03, 0xe8, 0, 5];
+        let request = [1, 0xf, 1, 0x31, 0, 5, 1, 0x25]; // 6 bits in data but 5 coils
+        let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0xf, 01, 0x31, 0, 5];
         let frame = gen_tcp_frame(&request);
         process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
         assert_eq!(result.as_slice(), response);
-        assert_eq!(coil_get(1000).unwrap(), true);
-        assert_eq!(coil_get(1001).unwrap(), false);
-        assert_eq!(coil_get(1002).unwrap(), true);
-        assert_eq!(coil_get(1003).unwrap(), false);
-        assert_eq!(coil_get(1004).unwrap(), false);
-        assert_eq!(coil_get(1005).unwrap(), false);
+        assert_eq!(coil_get(305).unwrap(), true);
+        assert_eq!(coil_get(306).unwrap(), false);
+        assert_eq!(coil_get(307).unwrap(), true);
+        assert_eq!(coil_get(308).unwrap(), false);
+        assert_eq!(coil_get(309).unwrap(), false);
+        assert_eq!(coil_get(310).unwrap(), false);
         let frame = gen_rtu_frame(&request);
         process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
         check_rtu_response(&result, &response);
@@ -755,16 +755,16 @@ mod tests {
         let mut result = Vec::new();
         // write multiple holdings
         let request = [
-            1, 0x10, 3, 0xe8, 0, 4, 0x0a, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
+            1, 0x10, 1, 0x2c, 0, 4, 0x0a, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
         ];
-        let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0x10, 3, 0xe8, 0, 4];
+        let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0x10, 1, 0x2c, 0, 4];
         let frame = gen_tcp_frame(&request);
         process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
         assert_eq!(result.as_slice(), response);
-        assert_eq!(holding_get(1000).unwrap(), 0x1122);
-        assert_eq!(holding_get(1001).unwrap(), 0x1133);
-        assert_eq!(holding_get(1002).unwrap(), 0x1155);
-        assert_eq!(holding_get(1003).unwrap(), 0x1199);
+        assert_eq!(holding_get(300).unwrap(), 0x1122);
+        assert_eq!(holding_get(301).unwrap(), 0x1133);
+        assert_eq!(holding_get(302).unwrap(), 0x1155);
+        assert_eq!(holding_get(303).unwrap(), 0x1199);
         let frame = gen_rtu_frame(&request);
         process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
         check_rtu_response(&result, &response);

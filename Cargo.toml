@@ -23,6 +23,7 @@ spin = { version = "0.5.2", optional = true }
 default = []
 nostd = ["fixedvec", "spin"]
 single = []
+smallcontext = []
 
 [dev-dependencies]
 rand = "0.7.3"

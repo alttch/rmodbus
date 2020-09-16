@@ -221,8 +221,8 @@ mod tests {
         assert_eq!(holding_get(28).unwrap(), 99);
         holding_set(28, 95).unwrap();
         assert_eq!(holding_get(28).unwrap(), 95);
-        holding_set_u32(1000, 1234567).unwrap();
-        assert_eq!(holding_get_u32(1000).unwrap(), 1234567);
+        holding_set_u32(100, 1234567).unwrap();
+        assert_eq!(holding_get_u32(100).unwrap(), 1234567);
     }
 
     #[test]
@@ -231,13 +231,13 @@ mod tests {
         let mut data = FixedVec::new(&mut data_mem);
 
         data.push_all(&[1234567, 8901234]).unwrap();
-        holding_set_u32_bulk(1002, &data.as_slice()).unwrap();
+        holding_set_u32_bulk(102, &data.as_slice()).unwrap();
 
-        assert_eq!(holding_get_u32(1002).unwrap(), 1234567);
-        assert_eq!(holding_get_u32(1004).unwrap(), 8901234);
+        assert_eq!(holding_get_u32(102).unwrap(), 1234567);
+        assert_eq!(holding_get_u32(104).unwrap(), 8901234);
 
-        holding_set_u32(900, 3412345).unwrap();
-        assert_eq!(holding_get_u32(900).unwrap(), 3412345);
+        holding_set_u32(50, 3412345).unwrap();
+        assert_eq!(holding_get_u32(50).unwrap(), 3412345);
     }
 
     #[test]
@@ -247,12 +247,12 @@ mod tests {
 
         data.push_all(&[1234.567, 890.1234]).unwrap();
 
-        holding_set_f32_bulk(2002, &data.as_slice()).unwrap();
-        assert_eq!(holding_get_f32(2002).unwrap(), 1234.567);
-        assert_eq!(holding_get_f32(2004).unwrap(), 890.1234);
+        holding_set_f32_bulk(202, &data.as_slice()).unwrap();
+        assert_eq!(holding_get_f32(202).unwrap(), 1234.567);
+        assert_eq!(holding_get_f32(204).unwrap(), 890.1234);
 
-        holding_set_f32(2000, 1234.567).unwrap();
-        assert_eq!(holding_get_f32(2000).unwrap(), 1234.567);
+        holding_set_f32(200, 1234.567).unwrap();
+        assert_eq!(holding_get_f32(200).unwrap(), 1234.567);
     }
 
     #[test]
@@ -315,8 +315,8 @@ mod tests {
         assert_eq!(input_get(28).unwrap(), 99);
         input_set(28, 95).unwrap();
         assert_eq!(input_get(28).unwrap(), 95);
-        input_set_u32(1000, 1234567).unwrap();
-        assert_eq!(input_get_u32(1000).unwrap(), 1234567);
+        input_set_u32(30, 1234567).unwrap();
+        assert_eq!(input_get_u32(30).unwrap(), 1234567);
     }
 
     #[test]
@@ -325,13 +325,13 @@ mod tests {
         let mut data = FixedVec::new(&mut data_mem);
 
         data.push_all(&[1234567, 8901234]).unwrap();
-        input_set_u32_bulk(1002, &data.as_slice()).unwrap();
+        input_set_u32_bulk(102, &data.as_slice()).unwrap();
 
-        assert_eq!(input_get_u32(1002).unwrap(), 1234567);
-        assert_eq!(input_get_u32(1004).unwrap(), 8901234);
+        assert_eq!(input_get_u32(102).unwrap(), 1234567);
+        assert_eq!(input_get_u32(104).unwrap(), 8901234);
 
-        input_set_u32(900, 3412345).unwrap();
-        assert_eq!(input_get_u32(900).unwrap(), 3412345);
+        input_set_u32(90, 3412345).unwrap();
+        assert_eq!(input_get_u32(90).unwrap(), 3412345);
     }
 
     #[test]
@@ -341,12 +341,12 @@ mod tests {
 
         data.push_all(&[1234.567, 890.1234]).unwrap();
 
-        input_set_f32_bulk(2002, &data.as_slice()).unwrap();
-        assert_eq!(input_get_f32(2002).unwrap(), 1234.567);
-        assert_eq!(input_get_f32(2004).unwrap(), 890.1234);
+        input_set_f32_bulk(202, &data.as_slice()).unwrap();
+        assert_eq!(input_get_f32(202).unwrap(), 1234.567);
+        assert_eq!(input_get_f32(204).unwrap(), 890.1234);
 
-        input_set_f32(2000, 1234.567).unwrap();
-        assert_eq!(input_get_f32(2000).unwrap(), 1234.567);
+        input_set_f32(200, 1234.567).unwrap();
+        assert_eq!(input_get_f32(200).unwrap(), 1234.567);
     }
 
     #[test]

@@ -1,7 +1,11 @@
 use super::super::{ErrorKind, Mutex, MutexGuard, VectorTrait};
 use ieee754::Ieee754;
 
-pub const CONTEXT_SIZE: usize = 10000;
+#[cfg(not(feature = "smallcontext"))]
+pub const CONTEXT_SIZE: usize = 10_000; // divisible by 8 w/o reminder
+
+#[cfg(feature = "smallcontext")]
+pub const CONTEXT_SIZE: usize = 1_000;
 
 /// Contains standard Modbus register contexts
 pub struct ModbusContext {
@@ -144,15 +148,22 @@ pub fn get_context_cell(offset: u16, ctx: &MutexGuard<ModbusContext>) -> Result<
     if offset < bool_ctx_size as u16 {
         return Ok(get_b_u8(offset * 8, &ctx.coils));
     }
-    if offset < (bool_ctx_size as u16) << 1 {
-        return Ok(get_b_u8((offset - 1250) * 8, &ctx.discretes));
+    if offset < bool_ctx_size as u16 * 2 {
+        return Ok(get_b_u8(
+            (offset - bool_ctx_size as u16) * 8,
+            &ctx.discretes,
+        ));
     }
     if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 {
-        return Ok(get_w_u8((offset - 2500) / 2, offset % 2 == 0, &ctx.inputs));
+        return Ok(get_w_u8(
+            (offset - bool_ctx_size as u16 * 2) / 2,
+            offset % 2 == 0,
+            &ctx.inputs,
+        ));
     }
     if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 * 2 {
         return Ok(get_w_u8(
-            (offset - 22500) / 2,
+            (offset - (bool_ctx_size as u16 * 2 + u16_ctx_size as u16)) / 2,
             offset % 2 == 0,
             &ctx.holdings,
         ));
@@ -175,23 +186,29 @@ pub fn set_context_cell(
     value: u8,
     ctx: &mut MutexGuard<ModbusContext>,
 ) -> Result<(), ErrorKind> {
-    if offset < 1250 {
+    let bool_ctx_size: usize = CONTEXT_SIZE >> 3;
+    let u16_ctx_size: usize = CONTEXT_SIZE << 1;
+    if offset < bool_ctx_size as u16 {
         return Ok(set_b_u8(offset * 8, value, &mut ctx.coils));
     }
-    if offset < 2500 {
-        return Ok(set_b_u8((offset - 1250) * 8, value, &mut ctx.discretes));
+    if offset < bool_ctx_size as u16 * 2 {
+        return Ok(set_b_u8(
+            (offset - bool_ctx_size as u16) * 8,
+            value,
+            &mut ctx.discretes,
+        ));
     }
-    if offset < 22500 {
+    if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 {
         return Ok(set_w_u8(
-            (offset - 2500) / 2,
+            (offset - bool_ctx_size as u16 * 2) / 2,
             offset % 2 == 0,
             value,
             &mut ctx.inputs,
         ));
     }
-    if offset < 42500 {
+    if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 * 2 {
         return Ok(set_w_u8(
-            (offset - 22500) / 2,
+            (offset - (bool_ctx_size as u16 * 2 + u16_ctx_size as u16)) / 2,
             offset % 2 == 0,
             value,
             &mut ctx.holdings,
