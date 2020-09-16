@@ -545,7 +545,7 @@ mod tests {
     }
 
     #[test]
-    fn test_frame() {
+    fn test_nostd_frame() {
         clear_all();
         let mut result_mem = alloc_stack!([u8; 256]);
         let mut result = FixedVec::new(&mut result_mem);

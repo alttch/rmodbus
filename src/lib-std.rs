@@ -547,7 +547,7 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_fc01_fc02_fc03_fc04_unknown_function() {
+    fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
         clear_all();
         let mut result = Vec::new();
         // read coils
@@ -659,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_fc05_fc06() {
+    fn test_std_frame_fc05_fc06() {
         clear_all();
         let mut result = Vec::new();
         // write coil
@@ -720,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_fc15() {
+    fn test_std_frame_fc15() {
         clear_all();
         let mut result = Vec::new();
         // write multiple coils
@@ -750,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_fc16() {
+    fn test_std_frame_fc16() {
         clear_all();
         let mut result = Vec::new();
         // write multiple holdings
