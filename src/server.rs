@@ -12,7 +12,7 @@ pub type ModbusFrame = [u8; 256];
 /// Modbus protocol selection for frame processing
 ///
 /// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
-/// * for **Rtu**, frame checksums are verified / added to repies
+/// * for **Rtu**, frame checksums are verified / added to replies
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum ModbusProto {
     Rtu,
