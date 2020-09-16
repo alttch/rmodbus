@@ -2,7 +2,7 @@ VERSION=0.3.4
 
 all: test
 
-test: test-std test-std-single test-nostd test-nostd-single # test-nostd-single-smallcontext
+test: test-std test-std-single test-nostd test-nostd-single test-nostd-single-smallcontext
 
 test-std:
 	cargo test -- --test-threads=1 --nocapture
