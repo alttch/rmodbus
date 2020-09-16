@@ -47,6 +47,9 @@ include!("rmodbus.rs");
 #[cfg(test)]
 mod tests {
     use super::server::context::*;
+    use super::server::*;
+    use super::ErrorKind;
+
     use fixedvec::FixedVec;
     use rand::Rng;
 
@@ -524,5 +527,58 @@ mod tests {
             dump2.push(value).unwrap();
         }
         assert_eq!(dump, dump2);
+    }
+
+    fn gen_tcp_frame(data: &[u8]) -> ModbusFrame {
+        let mut frame: ModbusFrame = [0; 256];
+        frame[0] = 0x77;
+        frame[1] = 0x55;
+        frame[2] = 0;
+        frame[3] = 0;
+        let len = (data.len() as u16).to_be_bytes();
+        frame[4] = len[0];
+        frame[5] = len[1];
+        for (i, v) in data.iter().enumerate() {
+            frame[i + 6] = *v;
+        }
+        return frame;
+    }
+
+    #[test]
+    fn test_frame() {
+        clear_all();
+        let mut result_mem = alloc_stack!([u8; 256]);
+        let mut result = FixedVec::new(&mut result_mem);
+        coil_set(5, true).unwrap();
+        coil_set(7, true).unwrap();
+        coil_set(9, true).unwrap();
+        let request = [1, 1, 0, 5, 0, 5];
+        let response = [0x77, 0x55, 0, 0, 0, 4, 1, 1, 1, 0x15];
+        let frame = gen_tcp_frame(&request);
+        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        assert_eq!(result.as_slice(), response);
+        // check result OOB
+        macro_rules! check_oob {
+            ($mem:expr) => {
+                let mut result_mem = alloc_stack!([u8; $mem]);
+                let mut result = FixedVec::new(&mut result_mem);
+                match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+                    Ok(_) => panic!("{:x?}", result),
+                    Err(e) => match e {
+                        ErrorKind::OOB => {}
+                        _ => panic!("{:?}", e),
+                    },
+                }
+            };
+        }
+        check_oob!(1);
+        check_oob!(2);
+        check_oob!(3);
+        check_oob!(4);
+        check_oob!(5);
+        check_oob!(6);
+        check_oob!(7);
+        check_oob!(8);
+        check_oob!(9);
     }
 }

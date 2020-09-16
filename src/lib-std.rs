@@ -46,6 +46,7 @@ include!("rmodbus.rs");
 mod tests {
     use super::server::context::*;
     use super::server::*;
+    use super::ErrorKind;
 
     use crc16::*;
     use rand::Rng;
@@ -558,9 +559,56 @@ mod tests {
         let frame = gen_tcp_frame(&request);
         process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
         assert_eq!(result.as_slice(), response);
+        let mut frame = gen_rtu_frame(&request);
+        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        check_rtu_frame(&result, &response);
+        // check rtu crc error
+        frame[request.len() + 1] = ((frame[request.len() + 1] as u16) + 1) as u8;
+        match process_frame(1, &frame, ModbusProto::Rtu, &mut result) {
+            Ok(_) => panic!(),
+            Err(e) => match e {
+                ErrorKind::FrameCRCError => {}
+                _ => panic!(),
+            },
+        }
+        // check context oob
+        let request = [1, 1, 0x27, 0xe, 0, 0xf];
+        let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x81, 2];
+        let frame = gen_tcp_frame(&request);
+        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        assert_eq!(result.as_slice(), response);
         let frame = gen_rtu_frame(&request);
         process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
         check_rtu_frame(&result, &response);
+        // check invalid length
+        let request = [1, 1, 0, 5, 0, 5];
+        let mut frame = gen_tcp_frame(&request);
+        frame[5] = 2;
+        match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+            Ok(_) => panic!(),
+            Err(e) => match e {
+                ErrorKind::FrameBroken => {}
+                _ => panic!("{:?}", e),
+            },
+        }
+        let mut frame = gen_tcp_frame(&request);
+        frame[5] = 251;
+        match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+            Ok(_) => panic!(),
+            Err(e) => match e {
+                ErrorKind::FrameBroken => {}
+                _ => panic!("{:?}", e),
+            },
+        }
+        let mut frame = gen_tcp_frame(&request);
+        frame[3] = 22;
+        match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+            Ok(_) => panic!(),
+            Err(e) => match e {
+                ErrorKind::FrameBroken => {}
+                _ => panic!("{:?}", e),
+            },
+        }
         // read discretes
         discrete_set(10, true).unwrap();
         discrete_set(12, true).unwrap();
@@ -601,3 +649,5 @@ mod tests {
         );
     }
 }
+
+// TODO test fc05,06,15,16 broadcasts
