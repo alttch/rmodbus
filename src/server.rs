@@ -1,7 +1,7 @@
 #[path = "context.rs"]
 pub mod context;
 
-use super::{VectorTrait, ErrorKind};
+use super::{ErrorKind, VectorTrait};
 
 /// Standard Modbus frame
 ///
@@ -87,7 +87,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
         //let tr_id = u16::from_be_bytes([frame[0], frame[1]]);
         let proto_id = u16::from_be_bytes([frame[2], frame[3]]);
         let length = u16::from_be_bytes([frame[4], frame[5]]);
-        if proto_id != 0 || length < 6 {
+        if proto_id != 0 || length < 6 || length > 250 {
             return Err(ErrorKind::FrameBroken);
         }
         start_frame = 6;
@@ -119,7 +119,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
             match proto {
                 ModbusProto::TcpUdp => {
                     if response
-                        .add_bulk(&[0, 3, frame[7], frame[8] + 0x80, $err])
+                        .add_bulk(&[0, 3, frame[6], frame[7] + 0x80, $err])
                         .is_err()
                     {
                         return Err(ErrorKind::OOB);
@@ -198,12 +198,13 @@ pub fn process_frame<V: VectorTrait<u8>>(
                 finalize_response!();
                 Ok(())
             }
-            Err(_) => {
+            Err(ErrorKind::OOBContext) => {
                 response.cut_end(5, 0);
                 response_error!(0x02);
                 finalize_response!();
                 Ok(())
             }
+            Err(_) => Err(ErrorKind::OOB),
         };
     } else if func == 3 || func == 4 {
         // funcs 3 - 4
@@ -245,12 +246,13 @@ pub fn process_frame<V: VectorTrait<u8>>(
                 finalize_response!();
                 Ok(())
             }
-            Err(_) => {
+            Err(ErrorKind::OOBContext) => {
                 response.cut_end(5, 0);
                 response_error!(0x02);
                 finalize_response!();
                 Ok(())
             }
+            Err(_) => Err(ErrorKind::OOB),
         };
     } else if func == 5 {
         // func 5

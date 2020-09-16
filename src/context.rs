@@ -405,7 +405,7 @@ pub fn get_bools_as_u8<V: VectorTrait<u8>>(
             }
         }
         if result.add(cbyte).is_err() {
-            return Err(ErrorKind::OOBContext);
+            return Err(ErrorKind::OOB);
         };
     }
     return Ok(());
@@ -465,7 +465,7 @@ pub fn get_bulk<T: Copy, V: VectorTrait<T>>(
         return Err(ErrorKind::OOBContext);
     }
     if result.add_bulk(&reg_context[reg as usize..reg_to]).is_err() {
-        return Err(ErrorKind::OOBContext);
+        return Err(ErrorKind::OOB);
     }
     return Ok(());
 }
