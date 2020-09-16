@@ -2,7 +2,7 @@ use super::super::{ErrorKind, Mutex, MutexGuard, VectorTrait};
 use ieee754::Ieee754;
 
 #[cfg(not(feature = "smallcontext"))]
-pub const CONTEXT_SIZE: usize = 10_000; // divisible by 8 w/o reminder
+pub const CONTEXT_SIZE: usize = 10_000; // divisible by 8 w/o remainder
 
 #[cfg(feature = "smallcontext")]
 pub const CONTEXT_SIZE: usize = 1_000;
