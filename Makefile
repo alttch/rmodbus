@@ -8,16 +8,16 @@ test-std:
 	cargo test --features std -- --test-threads=1 --nocapture
 
 test-std-single:
-	cargo test --features std --features single -- --test-threads=1 --nocapture
+	cargo test --features "std single" -- --test-threads=1 --nocapture
 
 test-nostd:
 	cargo test --features nostd -- --test-threads=1 --nocapture
 
 test-nostd-single:
-	cargo test --features nostd --features single -- --test-threads=1 --nocapture
+	cargo test --features "nostd single" -- --test-threads=1 --nocapture
 
 test-nostd-single-smallcontext:
-	cargo test --features nostd --features single --features smallcontext -- --test-threads=1 --nocapture
+	cargo test --features "nostd single smallcontext" -- --test-threads=1 --nocapture
 
 clean:
 	find . -type d -name target -exec rm -rf {} \; || exit 0
@@ -40,4 +40,4 @@ doc:
 pub: doc test publish-cargo-crate
 
 publish-cargo-crate:
-	cargo publish
+	cargo publish --features std
