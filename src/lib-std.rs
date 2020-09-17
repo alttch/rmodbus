@@ -1,3 +1,20 @@
+#[macro_use]
+extern crate lazy_static_std;
+
+#[cfg(feature = "single")]
+macro_rules! lock_mutex {
+    ($v:path) => {
+        $v.lock()
+    };
+}
+
+#[cfg(not(feature = "single"))]
+macro_rules! lock_mutex {
+    ($v:path) => {
+        $v.lock().unwrap()
+    };
+}
+
 impl<T: Copy> VectorTrait<T> for Vec<T> {
     fn add(&mut self, value: T) -> Result<(), ErrorKind> {
         self.push(value);
@@ -24,20 +41,6 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
     fn get_slice(&self) -> &[T] {
         return self.as_slice();
     }
-}
-
-#[cfg(feature = "single")]
-macro_rules! lock_mutex {
-    ($v:path) => {
-        $v.lock()
-    };
-}
-
-#[cfg(not(feature = "single"))]
-macro_rules! lock_mutex {
-    ($v:path) => {
-        $v.lock().unwrap()
-    };
 }
 
 include!("rmodbus.rs");

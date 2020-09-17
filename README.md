@@ -4,6 +4,13 @@ A framework to build fast and reliable Modbus-powered applications.
 
 Cargo crate: https://crates.io/crates/rmodbus
 
+Usage (default: std, full context, multi-threading):
+
+```toml
+[dependencies]
+rmodbus = { version = "*", features = ["std"] }
+```
+
 ## What is rmodbus
 
 rmodbus is not a yet another Modbus server. rmodbus is a set of tools to

@@ -16,8 +16,5 @@ pub trait VectorTrait<T: Copy> {
     fn get_slice(&self) -> &[T];
 }
 
-#[macro_use]
-extern crate lazy_static;
-
 #[path = "server.rs"]
 pub mod server;

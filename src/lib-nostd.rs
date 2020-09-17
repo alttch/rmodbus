@@ -8,6 +8,9 @@ macro_rules! lock_mutex {
     };
 }
 
+#[macro_use]
+extern crate lazy_static_nostd;
+
 use fixedvec::FixedVec;
 
 impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {

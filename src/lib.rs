@@ -4,6 +4,13 @@
 //! 
 //! Cargo crate: https://crates.io/crates/rmodbus
 //! 
+//! Usage (default: std, full context, multi-threading):
+//! 
+//! ```toml
+//! [dependencies]
+//! rmodbus = { version = "*", features = ["std"] }
+//! ```
+//! 
 //! ## What is rmodbus
 //! 
 //! rmodbus is not a yet another Modbus server. rmodbus is a set of tools to
@@ -199,7 +206,7 @@
 //! ## Small context
 //! 
 //! Default Modbus context has 10000 registers of each type, which requires 42500
-//! bytes total. For the systems with small RAM amount it's possible to reduce the
+//! bytes total. For systems with small RAM amount it's possible to reduce the
 //! context size to the 1000 registers of each type (4250 bytes) with the following
 //! feature:
 //! 

@@ -5,10 +5,10 @@ all: test
 test: test-std test-std-single test-nostd test-nostd-single test-nostd-single-smallcontext
 
 test-std:
-	cargo test -- --test-threads=1 --nocapture
+	cargo test --features std -- --test-threads=1 --nocapture
 
 test-std-single:
-	cargo test --features single -- --test-threads=1 --nocapture
+	cargo test --features std --features single -- --test-threads=1 --nocapture
 
 test-nostd:
 	cargo test --features nostd -- --test-threads=1 --nocapture
@@ -35,7 +35,7 @@ doc:
 	sed 's|^|//! |g' README.md > src/lib.rs
 	cat src/lib.rs.tmp >> src/lib.rs
 	rm -f src/lib.rs.tmp
-	cargo doc
+	cargo doc --features std
 
 pub: doc test publish-cargo-crate
 
