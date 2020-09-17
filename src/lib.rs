@@ -200,7 +200,7 @@
 //! fake mutex does this instantly and without any CPU overhead.
 //! 
 //! ```toml
-//! rmodbus = { version = "*", features = ["single"] }
+//! rmodbus = { version = "*", features = ["std", "single"] } # or nostd
 //! ```
 //! 
 //! ## Small context
@@ -211,7 +211,7 @@
 //! feature:
 //! 
 //! ```toml
-//! rmodbus = { version = "*", features = ["smallcontext"] }
+//! rmodbus = { version = "*", features = ["std", "smallcontext"] } # or nostd
 //! ```
 //! 
 //! ## Modbus client

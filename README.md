@@ -200,7 +200,7 @@ For the compatibility, the context still need to be "unlocked", however the
 fake mutex does this instantly and without any CPU overhead.
 
 ```toml
-rmodbus = { version = "*", features = ["single"] }
+rmodbus = { version = "*", features = ["std", "single"] } # or nostd
 ```
 
 ## Small context
@@ -211,7 +211,7 @@ context size to the 1000 registers of each type (4250 bytes) with the following
 feature:
 
 ```toml
-rmodbus = { version = "*", features = ["smallcontext"] }
+rmodbus = { version = "*", features = ["std", "smallcontext"] } # or nostd
 ```
 
 ## Modbus client
