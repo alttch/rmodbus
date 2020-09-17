@@ -5,7 +5,7 @@ authors = ["Sergei S. <div@altertech.com>"]
 edition = "2018"
 
 [dependencies]
-rmodbus = { path = "../.." }
+rmodbus = { path = "../..", features=["std"] }
 fixedvec = "0.2.4"
 
 serial = "0.4.0"
