@@ -378,8 +378,10 @@ pub fn process_frame<V: VectorTrait<u8>>(
         }
     } else {
         // function unsupported
-        response_error!(0x01);
-        finalize_response!();
+        if !broadcast {
+            response_error!(0x01);
+            finalize_response!();
+        }
         return Ok(());
     }
 }
