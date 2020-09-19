@@ -48,7 +48,7 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///
 /// * the function may return wrong result for broken frames
 ///
-/// * As at this momennt only RTU serial protocol is supported, proto param should be specified but
+/// * As at this moment only RTU serial protocol is supported, proto param should be specified but
 /// is ignored.
 pub fn guess_frame_len(frame: &[u8], _proto: ModbusProto) -> u8 {
     return match frame[1] {
@@ -92,7 +92,7 @@ pub fn guess_frame_len(frame: &[u8], _proto: ModbusProto) -> u8 {
 ///
 /// There's no context param, the function always unlocks Modbus context itself: in a
 /// single-threaded environment set "single" feature to use fake mutex, in multi-thread
-/// environmentsm frame processing is usually a responsibility of the dedicated "processor" thread.
+/// environments frame processing is usually a responsibility of the dedicated "processor" thread.
 ///
 /// The function returns Error in cases:
 ///
