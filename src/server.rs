@@ -16,6 +16,7 @@ pub type ModbusFrame = [u8; 256];
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum ModbusProto {
     Rtu,
+    Ascii,
     TcpUdp,
 }
 
@@ -35,13 +36,110 @@ fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
-#[allow(dead_code)]
 fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
-    let mut lrc: u8 = 0;
+    let mut lrc: i32 = 0;
     for i in 0..data_length {
-        lrc = lrc ^ frame[i as usize]
+        lrc = lrc - frame[i as usize] as i32;
     }
-    return lrc;
+    return lrc as u8;
+}
+
+fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
+    if c >= 48 && c <= 57 {
+        return Ok(c - 48);
+    } else if c >= 65 && c <= 70 {
+        return Ok(c - 55);
+    } else {
+        return Err(ErrorKind::FrameBroken);
+    }
+}
+
+fn hex_to_chr(h: u8) -> u8 {
+    if h < 10 {
+        return h + 48;
+    } else {
+        return h + 55;
+    }
+}
+
+/// Parse ASCII Modbus frame
+///
+/// data - input buffer
+/// data_len - how many bytes to parse in buffer
+/// frame - frame buffer
+/// frame_pos - position in frame buffer to write
+///
+/// The frame can be parsed fully or partially (use frame_pos)
+///
+/// Errors:
+///
+/// * **OOB** input is larger than frame buffer (starting from frame_pos)
+/// * **FrameBroken** unable to decode input hex string
+pub fn parse_ascii_frame(
+    data: &[u8],
+    data_len: usize,
+    frame: &mut ModbusFrame,
+    frame_pos: u8,
+) -> Result<u8, ErrorKind> {
+    let mut dpos = match data[0] {
+        58 => 1, // ':'
+        _ => 0,
+    };
+    let mut cpos = frame_pos;
+    while dpos < data_len {
+        if cpos == 255 {
+            return Err(ErrorKind::OOB);
+        }
+        let ch = data[dpos];
+        if ch == 10 || ch == 13 || ch == 0 {
+            break;
+        }
+        let c = match chr_to_hex(data[dpos]) {
+            Ok(v) => v,
+            Err(_) => return Err(ErrorKind::FrameBroken),
+        };
+        dpos = dpos + 1;
+        if dpos >= data_len {
+            return Err(ErrorKind::OOB);
+        }
+        let c2 = match chr_to_hex(data[dpos]) {
+            Ok(v) => v,
+            Err(_) => return Err(ErrorKind::FrameBroken),
+        };
+        frame[cpos as usize] = c * 0x10 + c2;
+        dpos = dpos + 1;
+        cpos = cpos + 1;
+    }
+    return Ok(cpos - frame_pos - 1);
+}
+
+/// Generate ASCII frame
+///
+/// Generates ASCII frame from binary response, made by "process_frame" function (response must be
+/// supplited as slice)
+pub fn generate_ascii_frame<V: VectorTrait<u8>>(
+    data: &[u8],
+    result: &mut V,
+) -> Result<(), ErrorKind> {
+    result.clear_all();
+    if result.add(58).is_err() {
+        return Err(ErrorKind::OOB);
+    }
+    for d in data {
+        if result.add(hex_to_chr(d >> 4)).is_err() {
+            return Err(ErrorKind::OOB);
+        }
+        if result.add(hex_to_chr(*d & 0xf)).is_err() {
+            return Err(ErrorKind::OOB);
+        }
+    }
+    if result.add(0x0D).is_err() {
+        return Err(ErrorKind::OOB);
+    }
+    if result.add(0x0A).is_err() {
+        return Err(ErrorKind::OOB);
+    }
+    return Ok(());
 }
 
 /// Guess serial frame length
@@ -57,12 +155,31 @@ fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
 ///
 /// * the function may return wrong result for broken frames
 ///
-/// * As at this moment only RTU serial protocol is supported, proto param should be specified but
-/// is ignored.
-pub fn guess_frame_len(frame: &[u8], _proto: ModbusProto) -> u8 {
-    return match frame[1] {
-        15 | 16 => frame[6] + 9,
-        _ => 8,
+/// * the function may return ErrorKind::FrameBroken for broken ASCII frames
+pub fn guess_frame_len<'a>(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
+    let mut buf: ModbusFrame = [0; 256];
+    let f;
+    let extra;
+    let multiplier;
+    match proto {
+        ModbusProto::Rtu => {
+            f = frame;
+            extra = 2;
+            multiplier = 1;
+        }
+        ModbusProto::Ascii => match parse_ascii_frame(&frame, frame.len(), &mut buf, 0) {
+            Ok(_) => {
+                f = &buf;
+                extra = 5;
+                multiplier = 2;
+            }
+            Err(e) => return Err(e),
+        },
+        ModbusProto::TcpUdp => unimplemented!("unable to guess frame length for TCP/UDP"),
+    };
+    return match f[1] {
+        15 | 16 => Ok((f[6] + 7) * multiplier + extra),
+        _ => Ok(6 * multiplier + extra),
     };
 }
 
@@ -103,12 +220,15 @@ pub fn guess_frame_len(frame: &[u8], _proto: ModbusProto) -> u8 {
 /// single-threaded environment set "single" feature to use fake mutex, in multi-thread
 /// environments frame processing is usually a responsibility of the dedicated "processor" thread.
 ///
+/// For Modbus ASCII, the frame should be parsed first to binary format (parse_ascii_frame
+/// function) and the result must be converted to ASCII (generate_ascii_frame).
+///
 /// The function returns Error in cases:
 ///
 /// * **rmodbus::ErrorKind::FrameBroken**: the frame header is absolutely incorrect and there's no
 ///   way to form a valid Modbus error reply
 ///
-/// * **rmodbus::ErrorKind::FrameCRCError**: frame CRC error (Modbus RTU)
+/// * **rmodbus::ErrorKind::FrameCRCError**: frame CRC error (Modbus RTU, ASCII)
 ///
 /// * **rmodbus::ErrorKind::OOB**: for nostd only, unable to write response into FixedVec
 pub fn process_frame<V: VectorTrait<u8>>(
@@ -145,8 +265,10 @@ pub fn process_frame<V: VectorTrait<u8>>(
     macro_rules! check_frame_crc {
         ($len:expr) => {
             proto == ModbusProto::TcpUdp
-                || calc_crc16(frame, $len)
-                    == u16::from_le_bytes([frame[$len as usize], frame[$len as usize + 1]]);
+                || (proto == ModbusProto::Rtu
+                    && calc_crc16(frame, $len)
+                        == u16::from_le_bytes([frame[$len as usize], frame[$len as usize + 1]]))
+                || (proto == ModbusProto::Ascii && calc_lrc(frame, $len) == frame[$len as usize])
         };
     }
     macro_rules! response_error {
@@ -160,7 +282,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
                         return Err(ErrorKind::OOB);
                     }
                 }
-                ModbusProto::Rtu => {
+                ModbusProto::Rtu | ModbusProto::Ascii => {
                     if response
                         .add_bulk(&[frame[0], frame[1] + 0x80, $err])
                         .is_err()
@@ -182,11 +304,20 @@ pub fn process_frame<V: VectorTrait<u8>>(
     }
     macro_rules! finalize_response {
         () => {
-            if proto == ModbusProto::Rtu {
-                let crc = calc_crc16(&response.get_slice(), response.get_len() as u8);
-                if response.add_bulk(&crc.to_le_bytes()).is_err() {
-                    return Err(ErrorKind::OOB);
+            match proto {
+                ModbusProto::Rtu => {
+                    let crc = calc_crc16(&response.get_slice(), response.get_len() as u8);
+                    if response.add_bulk(&crc.to_le_bytes()).is_err() {
+                        return Err(ErrorKind::OOB);
+                    }
                 }
+                ModbusProto::Ascii => {
+                    let lrc = calc_lrc(&response.get_slice(), response.get_len() as u8);
+                    if response.add(lrc).is_err() {
+                        return Err(ErrorKind::OOB);
+                    }
+                }
+                _ => {}
             }
         };
     }

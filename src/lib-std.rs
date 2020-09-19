@@ -532,7 +532,10 @@ mod tests {
         let c = crc16.to_le_bytes();
         frame[len] = c[0];
         frame[len + 1] = c[1];
-        assert_eq!(guess_frame_len(&frame, ModbusProto::Rtu), (len + 2) as u8);
+        assert_eq!(
+            guess_frame_len(&frame, ModbusProto::Rtu).unwrap(),
+            (len + 2) as u8
+        );
         return frame;
     }
 
