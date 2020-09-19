@@ -71,7 +71,7 @@ fn load(fname: &str, ctx: &mut MutexGuard<context::ModbusContext>) -> Result<(),
     return Ok(());
 }
 
-#[path = "../../example-server/src/tcp.rs"]
+#[path = "servers/tcp.rs"]
 mod tcp;
 
 fn main() {

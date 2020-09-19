@@ -2,13 +2,10 @@ VERSION=0.3.8
 
 all: test
 
-test: test-std test-std-single test-nostd test-nostd-single test-nostd-single-smallcontext
+test: test-std test-nostd test-nostd-single test-nostd-single-smallcontext
 
 test-std:
 	cargo test --features std -- --test-threads=1 --nocapture
-
-test-std-single:
-	cargo test --features "std single" -- --test-threads=1 --nocapture
 
 test-nostd:
 	cargo test --features nostd -- --test-threads=1 --nocapture

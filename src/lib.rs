@@ -80,6 +80,13 @@
 //! folder (if you're reading this text somewhere else, visit [rmodbus project
 //! repository](https://github.com/alttch/rmodbus).
 //! 
+//! Running examples:
+//! 
+//! ```
+//! cargo run --example app --features=std
+//! cargo run --example tcpserver --features=std
+//! ```
+//! 
 //! ## Modbus context
 //! 
 //! The rule is simple: one standard Modbus context per application. 10k+10k 16-bit

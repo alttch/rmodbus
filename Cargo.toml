@@ -8,6 +8,7 @@ repository = "https://github.com/alttch/rmodbus"
 description = "Fast and platform-independent Modbus server framework"
 readme = "README.md"
 keywords = ["modbus", "server", "hardware", "nostd"]
+autoexamples = false
 
 [lib]
 name ="rmodbus"
@@ -35,5 +36,31 @@ smallcontext = []
 [dev-dependencies]
 rand = "0.7.3"
 crc16 = "0.4.0"
+serial = "0.4.0"
+
+[[example]]
+name = "app"
+path = "examples/app.rs"
+required-features = ["std"]
+
+[[example]]
+name = "tcpserver"
+path = "examples/tcpserver.rs"
+required-features = ["std"]
+
+[[example]]
+name = "udpserver"
+path = "examples/udpserver.rs"
+required-features = ["std"]
+
+[[example]]
+name = "rtuserver"
+path = "examples/rtuserver.rs"
+required-features = ["std"]
+
+[[example]]
+name = "asciiserver"
+path = "examples/asciiserver.rs"
+required-features = ["std"]
 
 #!test-threads = 1
