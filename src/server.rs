@@ -68,6 +68,10 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
 ///
 /// For broadcast requests, the response vector is empty
 ///
+/// There's no context param, the function always unlocks Modbus context itself: in a
+/// single-threaded environment set "single" feature to use fake mutex, in multi-thread
+/// environmentsm frame processing is usually a responsibility of the dedicated "processor" thread.
+///
 /// The function returns Error in cases:
 ///
 /// * **rmodbus::ErrorKind::FrameBroken**: the frame header is absolutely incorrect and there's no
