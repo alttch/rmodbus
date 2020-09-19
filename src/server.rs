@@ -35,6 +35,28 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
     return crc;
 }
 
+/// Guess serial frame length
+///
+/// Serial frames are often read either byte-by-byte or by DMA. In the both cases, the exact frame
+/// length should be known.
+///
+/// How to use: read at least first 7 bytes into buffer and call the function to guess the total
+/// frame length. The remaining amount of bytes to read will be function result - 7. 8 bytes is
+/// also fine, as that's the minimal correct frame length.
+///
+/// * the function will panic if the buffer length is less than 7
+///
+/// * the function may return wrong result for broken frames
+///
+/// * As at this momennt only RTU serial protocol is supported, proto param should be specified but
+/// is ignored.
+pub fn guess_frame_len(frame: &[u8], _proto: ModbusProto) -> u8 {
+    return match frame[1] {
+        15 | 16 => frame[6] + 9,
+        _ => 8,
+    };
+}
+
 /// Process Modbus frame
 ///
 /// Simple example of Modbus/UDP blocking server:

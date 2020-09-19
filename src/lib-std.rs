@@ -521,6 +521,7 @@ mod tests {
         return frame;
     }
 
+    // also automatically checks server::guest_rtu_frame_len
     fn gen_rtu_frame(data: &[u8]) -> ModbusFrame {
         let mut frame: ModbusFrame = [0; 256];
         for (i, v) in data.iter().enumerate() {
@@ -531,6 +532,7 @@ mod tests {
         let c = crc16.to_le_bytes();
         frame[len] = c[0];
         frame[len + 1] = c[1];
+        assert_eq!(guess_frame_len(&frame, ModbusProto::Rtu), (len + 2) as u8);
         return frame;
     }
 
@@ -758,7 +760,7 @@ mod tests {
         let mut result = Vec::new();
         // write multiple holdings
         let request = [
-            1, 0x10, 1, 0x2c, 0, 4, 0x0a, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
+            1, 0x10, 1, 0x2c, 0, 4, 8, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
         ];
         let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0x10, 1, 0x2c, 0, 4];
         let frame = gen_tcp_frame(&request);
@@ -773,7 +775,7 @@ mod tests {
         check_rtu_response(&result, &response);
         // write holdings context oob
         let request = [
-            1, 0x10, 0x99, 0xe8, 0, 4, 0x0a, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
+            1, 0x10, 0x99, 0xe8, 0, 4, 8, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
         ];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x90, 2];
         let frame = gen_tcp_frame(&request);
