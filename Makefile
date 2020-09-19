@@ -24,7 +24,7 @@ clean:
 	find . -type f -name Cargo.lock -exec rm -f {} \; || exit 0
 
 tag:
-	git tag -a v${VERSION}
+	git tag -a v${VERSION} -m v${VERSION}
 	git push origin --tags
 
 ver:
