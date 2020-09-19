@@ -19,7 +19,7 @@ pub enum ModbusProto {
     TcpUdp,
 }
 
-fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
+fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     let mut crc: u16 = 0xffff;
     for pos in 0..data_length as usize {
         crc = crc ^ frame[pos] as u16;
@@ -33,6 +33,15 @@ fn calc_rtu_crc(frame: &[u8], data_length: u8) -> u16 {
         }
     }
     return crc;
+}
+
+#[allow(dead_code)]
+fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
+    let mut lrc: u8 = 0;
+    for i in 0..data_length {
+        lrc = lrc ^ frame[i as usize]
+    }
+    return lrc;
 }
 
 /// Guess serial frame length
@@ -136,7 +145,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
     macro_rules! check_frame_crc {
         ($len:expr) => {
             proto == ModbusProto::TcpUdp
-                || calc_rtu_crc(frame, $len)
+                || calc_crc16(frame, $len)
                     == u16::from_le_bytes([frame[$len as usize], frame[$len as usize + 1]]);
         };
     }
@@ -174,7 +183,7 @@ pub fn process_frame<V: VectorTrait<u8>>(
     macro_rules! finalize_response {
         () => {
             if proto == ModbusProto::Rtu {
-                let crc = calc_rtu_crc(&response.get_slice(), response.get_len() as u8);
+                let crc = calc_crc16(&response.get_slice(), response.get_len() as u8);
                 if response.add_bulk(&crc.to_le_bytes()).is_err() {
                     return Err(ErrorKind::OOB);
                 }
