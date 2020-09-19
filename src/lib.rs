@@ -28,7 +28,7 @@
 //! 
 //! * provides a set of tools to easily work with Modbus context
 //! 
-//! * supports server frame processing for Modbus TCP/UDP and RTU
+//! * supports server frame processing for Modbus TCP/UDP, RTU and ASCII.
 //! 
 //! * server context can be easily, managed, imported and exported
 //! 
@@ -76,8 +76,8 @@
 //! }
 //! ```
 //! 
-//! There are also examples for Serial-RTU and UDP in *examples* folder (if you're
-//! reading this text somewhere else, visit [rmodbus project
+//! There are also examples for Serial-RTU, Serial-ASCII and UDP in *examples*
+//! folder (if you're reading this text somewhere else, visit [rmodbus project
 //! repository](https://github.com/alttch/rmodbus).
 //! 
 //! ## Modbus context

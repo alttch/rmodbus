@@ -147,16 +147,16 @@ pub fn generate_ascii_frame<V: VectorTrait<u8>>(
 /// Serial frames are often read either byte-by-byte or by DMA. In the both cases, the exact frame
 /// length should be known.
 ///
-/// How to use: read at least first 7 bytes into buffer and call the function to guess the total
-/// frame length. The remaining amount of bytes to read will be function result - 7. 8 bytes is
-/// also fine, as that's the minimal correct frame length.
+/// How to use: read at least first 7 bytes (16 for ASCII) into buffer and call the function to
+/// guess the total frame length. The remaining amount of bytes to read will be function result -
+/// 7. 8 bytes is also fine, as that's the minimal correct frame length.
 ///
-/// * the function will panic if the buffer length is less than 7
+/// * the function will panic if the buffer length is less than 7 (for ASCII - 16)
 ///
 /// * the function may return wrong result for broken frames
 ///
 /// * the function may return ErrorKind::FrameBroken for broken ASCII frames
-pub fn guess_frame_len<'a>(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
+pub fn guess_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut buf: ModbusFrame = [0; 256];
     let f;
     let extra;
