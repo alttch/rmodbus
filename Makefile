@@ -29,9 +29,9 @@ doc:
 	sed 's|^|//! |g' README.md > src/lib.rs
 	cat src/lib.rs.tmp >> src/lib.rs
 	rm -f src/lib.rs.tmp
-	cargo doc --features std
+	cargo doc
 
 pub: doc test publish-cargo-crate
 
 publish-cargo-crate:
-	cargo publish --features std
+	cargo publish
