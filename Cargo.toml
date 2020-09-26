@@ -16,27 +16,24 @@ path = "src/lib.rs"
 
 [dependencies]
 ieee754 = "0.2.6"
-fixedvec = { version = "0.2.4", optional = true }
-spin = { version = "0.5.2", optional = true }
-lazy_static_std = { package="lazy_static", version = "1.4.0", optional=true }
-lazy_static_nostd = { package="lazy_static", version = "1.4.0", optional=true, features=["spin_no_std"] }
+fixedvec = "0.2.4"
 
-[package.metadata.docs.rs]
-features = ["std"]
+#[package.metadata.docs.rs]
+#features = []
 
-[package.metadata.playground]
-features = ["std"]
+#[package.metadata.playground]
+#features = []
 
 [features]
-std = ["lazy_static_std"]
-nostd = ["fixedvec", "spin", "lazy_static_nostd"]
-single = []
+nostd = []
 smallcontext = []
 
 [dev-dependencies]
 rand = "0.7.3"
 crc16 = "0.4.0"
 serial = "0.4.0"
+lazy_static = { version = "1.4.0", features=["spin_no_std"], default-features = false }
+spin = "0.5.2"
 
 [[example]]
 name = "app"
@@ -62,5 +59,3 @@ required-features = ["std"]
 name = "asciiserver"
 path = "examples/asciiserver.rs"
 required-features = ["std"]
-
-#!test-threads = 1

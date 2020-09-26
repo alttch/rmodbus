@@ -4,13 +4,6 @@ A framework to build fast and reliable Modbus-powered applications.
 
 Cargo crate: https://crates.io/crates/rmodbus
 
-Usage (default: std, full context, multi-threading):
-
-```toml
-[dependencies]
-rmodbus = { version = "*", features = ["std"] }
-```
-
 ## What is rmodbus
 
 rmodbus is not a yet another Modbus server. rmodbus is a set of tools to
@@ -176,38 +169,15 @@ fn save(fname: &str, ctx: &MutexGuard<context::ModbusContext>) -> Result<(), std
 To let the above program communicate with outer world, Modbus server must be up
 and running in the separate thread, asynchronously or whatever is preferred.
 
-## no_std
+## no\_std
 
 rmodbus supports no\_std mode. Most of the library code is written the way to
 support both std and no\_std.
-
-### Switching library to no_std
 
 Set dependency as:
 
 ```toml
 rmodbus = { version = "*", features = ["nostd"] }
-```
-
-### Types and crates in no\_std mode
-
-* To perform context bulk gets and obtain responses from Modbus frame
-  processing, use [FixedVec](https://crates.io/crates/fixedvec) instead of
-  std::vec::Vec
-
-* In the no\_std mode, rmodbus context is protected with
-  [spin](https://crates.io/crates/spin) Mutex instead of std::sync::mutex. Note
-  that spin MutexGuard doesn't require unwrap() after locking.
-
-## Single-threaded and async apps
-
-Single-threaded applications can gain up to +60-100% speed boost by removing
-Modbus context mutex. This can be performed by replacing mutex with a fake one.
-For the compatibility, the context still need to be "unlocked", however the
-fake mutex does this instantly and without any CPU overhead.
-
-```toml
-rmodbus = { version = "*", features = ["std", "single"] } # or nostd
 ```
 
 ## Small context
@@ -218,8 +188,20 @@ context size to the 1000 registers of each type (4250 bytes) with the following
 feature:
 
 ```toml
-rmodbus = { version = "*", features = ["std", "smallcontext"] } # or nostd
+rmodbus = { version = "*", features = ["nostd", "smallcontext"] }
 ```
+
+## Differences from 0.3.x
+
+Starting from version 0.4:
+
+* Modbus context is no longer created automatically and no mutex guard is
+  provided by default. Use ModbusContext::new() to create context object and
+  then use it as you wish - protect with any kind of Mutex, with RwLock or just
+  put into UnsafeCell.
+
+* Context SDK changes: all functions moved inside context, removed unnecessary
+  ones, function args optimized.
 
 ## Modbus client
 

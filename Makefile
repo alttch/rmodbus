@@ -1,20 +1,17 @@
-VERSION=0.3.9
+VERSION=0.4.0
 
 all: test
 
-test: test-std test-nostd test-nostd-single test-nostd-single-smallcontext
+test: test-std test-nostd test-nostd-smallcontext
 
 test-std:
-	cargo test --features std -- --test-threads=1 --nocapture
+	cargo test -- --test-threads=1 --nocapture
 
 test-nostd:
 	cargo test --features nostd -- --test-threads=1 --nocapture
 
-test-nostd-single:
-	cargo test --features "nostd single" -- --test-threads=1 --nocapture
-
-test-nostd-single-smallcontext:
-	cargo test --features "nostd single smallcontext" -- --test-threads=1 --nocapture
+test-nostd-smallcontext:
+	cargo test --features "nostd smallcontext" -- --test-threads=1 --nocapture
 
 clean:
 	find . -type d -name target -exec rm -rf {} \; || exit 0
