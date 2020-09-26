@@ -191,9 +191,15 @@
 //! rmodbus = { version = "*", features = ["nostd", "smallcontext"] }
 //! ```
 //! 
-//! ## Differences from 0.3.x
+//! ## Vectors
 //! 
-//! Starting from version 0.4:
+//! Some of rmodbus functions use vectors to store result. In std mode, either
+//! standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
+//! used. In nostd mode, only FixedVec is supported.
+//! 
+//! ## Changelog
+//! 
+//! ### v0.4
 //! 
 //! * Modbus context is no longer created automatically and no mutex guard is
 //!   provided by default. Use ModbusContext::new() to create context object and
@@ -202,6 +208,10 @@
 //! 
 //! * Context SDK changes: all functions moved inside context, removed unnecessary
 //!   ones, function args optimized.
+//! 
+//! * FixedVec support included by default, both in std and nostd.
+//! 
+//! * Added support of 64-bit integers
 //! 
 //! ## Modbus client
 //! 
@@ -215,6 +225,15 @@ extern crate lazy_static;
 #[cfg(test)]
 #[macro_use]
 extern crate fixedvec;
+
+pub trait VectorTrait<T: Copy> {
+    fn add(&mut self, value: T) -> Result<(), ErrorKind>;
+    fn add_bulk(&mut self, other: &[T]) -> Result<(), ErrorKind>;
+    fn get_len(&self) -> usize;
+    fn clear_all(&mut self);
+    fn cut_end(&mut self, len_to_cut: usize, value: T);
+    fn get_slice(&self) -> &[T];
+}
 
 #[cfg(not(feature = "nostd"))]
 impl<T: Copy> VectorTrait<T> for Vec<T> {
@@ -279,7 +298,16 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
 }
 
-include!("rmodbus.rs");
+#[derive(Debug)]
+pub enum ErrorKind {
+    OOB,
+    OOBContext,
+    FrameBroken,
+    FrameCRCError,
+}
+
+#[path = "server.rs"]
+pub mod server;
 
 #[cfg(test)]
 #[cfg(not(feature = "nostd"))]

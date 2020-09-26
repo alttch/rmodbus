@@ -191,9 +191,15 @@ feature:
 rmodbus = { version = "*", features = ["nostd", "smallcontext"] }
 ```
 
-## Differences from 0.3.x
+## Vectors
 
-Starting from version 0.4:
+Some of rmodbus functions use vectors to store result. In std mode, either
+standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
+used. In nostd mode, only FixedVec is supported.
+
+## Changelog
+
+### v0.4
 
 * Modbus context is no longer created automatically and no mutex guard is
   provided by default. Use ModbusContext::new() to create context object and
@@ -202,6 +208,10 @@ Starting from version 0.4:
 
 * Context SDK changes: all functions moved inside context, removed unnecessary
   ones, function args optimized.
+
+* FixedVec support included by default, both in std and nostd.
+
+* Added support of 64-bit integers
 
 ## Modbus client
 

@@ -508,28 +508,28 @@ impl ModbusContext {
 
     /// Get four inputs as u64
     ///
-    /// Returns 32-bit value (big-endian)
+    /// Returns 64-bit value (big-endian)
     pub fn get_inputs_as_u64(&self, reg: u16) -> Result<u64, ErrorKind> {
         get_u64!(self.inputs, reg);
     }
 
     /// Get four holdings as u64
     ///
-    /// Returns 32-bit value (big-endian)
+    /// Returns 64-bit value (big-endian)
     pub fn get_holdings_as_u64(&self, reg: u16) -> Result<u64, ErrorKind> {
         get_u64!(self.holdings, reg);
     }
 
     /// Set four inputs from u64
     ///
-    /// Uses 32-bit value to set four registers (big-endian)
+    /// Uses 64-bit value to set four registers (big-endian)
     pub fn set_inputs_from_u64(&mut self, reg: u16, value: u64) -> Result<(), ErrorKind> {
         set_u64!(self.inputs, reg, value);
     }
 
     /// Set four holdings from u64
     ///
-    /// Uses 32-bit value to set four registers (big-endian)
+    /// Uses 64-bit value to set four registers (big-endian)
     pub fn set_holdings_from_u64(&mut self, reg: u16, value: u64) -> Result<(), ErrorKind> {
         set_u64!(self.holdings, reg, value);
     }
