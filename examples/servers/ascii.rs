@@ -2,7 +2,15 @@ use serial::prelude::*;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use rmodbus::server::*;
+use lazy_static::lazy_static;
+
+use std::sync::RwLock;
+
+use rmodbus::server::{context::*, *};
+
+lazy_static! {
+    pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
+}
 
 pub fn asciiserver(unit: u8, port: &str) {
     let mut port = serial::open(port).unwrap();
@@ -25,8 +33,8 @@ pub fn asciiserver(unit: u8, port: &str) {
                 "{}",
                 guess_frame_len(&asciibuf, ModbusProto::Ascii).unwrap()
             );
-            let mut frame: ModbusFrame = [0; 256];
-            let result = parse_ascii_frame(&asciibuf, rd, &mut frame, 0);
+            let mut buf: ModbusFrameBuf = [0; 256];
+            let result = parse_ascii_frame(&asciibuf, rd, &mut buf, 0);
             if result.is_err() {
                 println!("unable to decode");
                 continue;
@@ -34,16 +42,29 @@ pub fn asciiserver(unit: u8, port: &str) {
                 println!("parsed {} bytes", result.unwrap());
             }
             let mut response = Vec::new();
-            let result = process_frame(unit, &frame, ModbusProto::Ascii, &mut response);
-            if result.is_err() || response.is_empty() {
-                println!("no response to send {:?}", result);
+            let mut frame = ModbusFrame::new(unit, &buf, ModbusProto::Ascii, &mut response);
+            if frame.parse().is_err() {
+                println!("server error");
                 continue;
             }
-            println!("{:x?}", response);
-            let mut response_ascii = Vec::new();
-            generate_ascii_frame(&response, &mut response_ascii).unwrap();
-            println!("{:x?}", response_ascii);
-            port.write(response_ascii.as_slice()).unwrap();
+            if frame.processing_required {
+                let result = match frame.readonly {
+                    true => frame.process_read(&CONTEXT.read().unwrap()),
+                    false => frame.process_write(&mut CONTEXT.write().unwrap()),
+                };
+                if result.is_err() {
+                    println!("frame processing error");
+                    continue;
+                }
+            }
+            if frame.response_required {
+                frame.finalize_response().unwrap();
+                println!("{:x?}", response);
+                let mut response_ascii = Vec::new();
+                generate_ascii_frame(&response, &mut response_ascii).unwrap();
+                println!("{:x?}", response_ascii);
+                port.write(response_ascii.as_slice()).unwrap();
+            }
         }
     }
 }

@@ -265,7 +265,7 @@ impl ModbusContext {
     ///for value in ctx.iter() {
     ///    // store value somewhere
     ///}
-    pub fn iter(&mut self) -> ModbusContextIterator {
+    pub fn iter(&self) -> ModbusContextIterator {
         return ModbusContextIterator { curr: 0, ctx: self };
     }
 

@@ -2,7 +2,15 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread;
 
-use rmodbus::server::{ModbusFrame, ModbusProto, process_frame};
+use lazy_static::lazy_static;
+
+use std::sync::RwLock;
+
+use rmodbus::server::{context::ModbusContext, ModbusFrame, ModbusFrameBuf, ModbusProto};
+
+lazy_static! {
+    pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
+}
 
 pub fn tcpserver(unit: u8, listen: &str) {
     let listener = TcpListener::bind(listen).unwrap();
@@ -12,17 +20,29 @@ pub fn tcpserver(unit: u8, listen: &str) {
             println!("client connected");
             let mut stream = stream.unwrap();
             loop {
-                let mut buf: ModbusFrame = [0; 256];
+                let mut buf: ModbusFrameBuf = [0; 256];
                 let mut response = Vec::new(); // for nostd use FixedVec with alloc [u8;256]
                 if stream.read(&mut buf).unwrap_or(0) == 0 {
                     return;
                 }
-                if process_frame(unit, &buf, ModbusProto::TcpUdp, &mut response).is_err() {
-                        println!("server error");
+                let mut frame = ModbusFrame::new(unit, &buf, ModbusProto::TcpUdp, &mut response);
+                if frame.parse().is_err() {
+                    println!("server error");
+                    return;
+                }
+                if frame.processing_required {
+                    let result = match frame.readonly {
+                        true => frame.process_read(&CONTEXT.read().unwrap()),
+                        false => frame.process_write(&mut CONTEXT.write().unwrap()),
+                    };
+                    if result.is_err() {
+                        println!("frame processing error");
                         return;
                     }
-                println!("{:x?}", response.as_slice());
-                if !response.is_empty() {
+                }
+                if frame.response_required {
+                    frame.finalize_response().unwrap();
+                    println!("{:x?}", response.as_slice());
                     if stream.write(response.as_slice()).is_err() {
                         return;
                     }

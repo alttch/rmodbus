@@ -76,8 +76,8 @@ repository](https://github.com/alttch/rmodbus).
 Running examples:
 
 ```shell
-cargo run --example app --features=std
-cargo run --example tcpserver --features=std
+cargo run --example app
+cargo run --example tcpserver
 ```
 
 ## Modbus context
