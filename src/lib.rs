@@ -223,6 +223,7 @@
 extern crate lazy_static;
 
 #[cfg(test)]
+#[allow(unused_imports)]
 #[macro_use]
 extern crate fixedvec;
 
@@ -311,6 +312,9 @@ pub mod server;
 
 #[cfg(test)]
 #[cfg(not(feature = "nostd"))]
+// TODO tests for ascii
+// TODO rewrite all examples
+// TODO rewrite examples in docs
 mod tests {
     use super::server::context::*;
     use super::server::*;
@@ -754,8 +758,8 @@ mod tests {
         assert_eq!(dump, dump2);
     }
 
-    fn gen_tcp_frame(data: &[u8]) -> ModbusFrame {
-        let mut frame: ModbusFrame = [0; 256];
+    fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
+        let mut frame: ModbusFrameBuf = [0; 256];
         frame[0] = 0x77;
         frame[1] = 0x55;
         frame[2] = 0;
@@ -770,8 +774,8 @@ mod tests {
     }
 
     // also automatically checks server::guest_rtu_frame_len
-    fn gen_rtu_frame(data: &[u8]) -> ModbusFrame {
-        let mut frame: ModbusFrame = [0; 256];
+    fn gen_rtu_frame(data: &[u8]) -> ModbusFrameBuf {
+        let mut frame: ModbusFrameBuf = [0; 256];
         for (i, v) in data.iter().enumerate() {
             frame[i] = *v;
         }
@@ -802,26 +806,49 @@ mod tests {
         assert_eq!(result_crc, State::<MODBUS>::calculate(r.as_slice()));
     }
 
-    /*
     #[test]
     fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
-        clear_all();
+        let mut ctx = CTX.write().unwrap();
+        ctx.clear_all();
         let mut result = Vec::new();
+
         // read coils
-        coil_set(5, true).unwrap();
-        coil_set(7, true).unwrap();
-        coil_set(9, true).unwrap();
+        ctx.set_coil(5, true).unwrap();
+        ctx.set_coil(7, true).unwrap();
+        ctx.set_coil(9, true).unwrap();
         let request = [1, 1, 0, 5, 0, 5];
         let response = [0x77, 0x55, 0, 0, 0, 4, 1, 1, 1, 0x15];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.readonly, true);
+        assert_eq!(frame.count, 5);
+        assert_eq!(frame.reg, 5);
+        assert_eq!(frame.error, 0);
+        frame.process_read(&ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let mut frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+
+        let mut framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.readonly, true);
+        assert_eq!(frame.count, 5);
+        assert_eq!(frame.reg, 5);
+        assert_eq!(frame.error, 0);
+        frame.process_read(&ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // check rtu crc error
-        frame[request.len() + 1] = ((frame[request.len() + 1] as u16) + 1) as u8;
-        match process_frame(1, &frame, ModbusProto::Rtu, &mut result) {
+        framebuf[request.len() + 1] = ((framebuf[request.len() + 1] as u16) + 1) as u8;
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        match frame.parse() {
             Ok(_) => panic!(),
             Err(e) => match e {
                 ErrorKind::FrameCRCError => {}
@@ -831,44 +858,72 @@ mod tests {
         // check illegal_function
         let request = [1, 7, 0x27, 0xe, 0, 0xf];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x87, 1];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, false);
+        assert_eq!(frame.error, 1);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, false);
+        assert_eq!(frame.error, 1);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // check context oob
         let request = [1, 1, 0x27, 0xe, 0, 0xf];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x81, 2];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        frame.process_read(&ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        frame.process_read(&ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // check invalid length
         let request = [1, 1, 0, 5, 0, 5];
-        let mut frame = gen_tcp_frame(&request);
-        frame[5] = 2;
-        match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+        let mut framebuf = gen_tcp_frame(&request);
+        framebuf[5] = 2;
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        match frame.parse() {
             Ok(_) => panic!(),
             Err(e) => match e {
                 ErrorKind::FrameBroken => {}
                 _ => panic!("{:?}", e),
             },
         }
-        let mut frame = gen_tcp_frame(&request);
-        frame[5] = 251;
-        match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+        let mut framebuf = gen_tcp_frame(&request);
+        framebuf[5] = 251;
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        match frame.parse() {
             Ok(_) => panic!(),
             Err(e) => match e {
                 ErrorKind::FrameBroken => {}
                 _ => panic!("{:?}", e),
             },
         }
-        let mut frame = gen_tcp_frame(&request);
-        frame[3] = 22;
-        match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
+        let mut framebuf = gen_tcp_frame(&request);
+        framebuf[3] = 22;
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        match frame.parse() {
             Ok(_) => panic!(),
             Err(e) => match e {
                 ErrorKind::FrameBroken => {}
@@ -876,36 +931,64 @@ mod tests {
             },
         }
         // read discretes
-        discrete_set(10, true).unwrap();
-        discrete_set(12, true).unwrap();
-        discrete_set(16, true).unwrap();
-        let frame = gen_tcp_frame(&[1, 2, 0, 5, 0, 0x10]);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        ctx.set_discrete(10, true).unwrap();
+        ctx.set_discrete(12, true).unwrap();
+        ctx.set_discrete(16, true).unwrap();
+        let framebuf = gen_tcp_frame(&[1, 2, 0, 5, 0, 0x10]);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, true);
+        frame.process_read(&ctx).unwrap();
+        frame.finalize_response().unwrap();
         assert_eq!(
             result.as_slice(),
             [0x77, 0x55, 0, 0, 0, 5, 1, 2, 2, 0xa0, 8]
         );
         // read holdings
-        holding_set(2, 9977).unwrap();
-        holding_set(4, 9543).unwrap();
-        holding_set(7, 9522).unwrap();
+        ctx.set_holding(2, 9977).unwrap();
+        ctx.set_holding(4, 9543).unwrap();
+        ctx.set_holding(7, 9522).unwrap();
         let request = [1, 3, 0, 0, 0, 0xb];
-        let frame = gen_tcp_frame(&request);
+        let framebuf = gen_tcp_frame(&request);
         let response = [
             0x77, 0x55, 0, 0, 0, 0x19, 1, 3, 0x16, 0, 0, 0, 0, 0x26, 0xf9, 0, 0, 0x25, 0x47, 0, 0,
             0, 0, 0x25, 0x32, 0, 0, 0, 0, 0, 0,
         ];
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, true);
+        frame.process_read(&ctx).unwrap();
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, true);
+        frame.process_read(&ctx).unwrap();
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // read inputs
-        input_set(280, 99).unwrap();
-        input_set(281, 15923).unwrap();
-        input_set(284, 54321).unwrap();
-        let frame = gen_tcp_frame(&[1, 4, 1, 0x18, 0, 6]);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        ctx.set_input(280, 99).unwrap();
+        ctx.set_input(281, 15923).unwrap();
+        ctx.set_input(284, 54321).unwrap();
+        let framebuf = gen_tcp_frame(&[1, 4, 1, 0x18, 0, 6]);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, true);
+        frame.process_read(&ctx).unwrap();
+        frame.finalize_response().unwrap();
         assert_eq!(
             result.as_slice(),
             [
@@ -917,126 +1000,277 @@ mod tests {
 
     #[test]
     fn test_std_frame_fc05_fc06() {
-        clear_all();
+        let mut ctx = CTX.write().unwrap();
+        ctx.clear_all();
         let mut result = Vec::new();
         // write coil
         let request = [1, 5, 0, 0xb, 0xff, 0];
         let response = [0x77, 0x55, 0, 0, 0, 6, 1, 5, 0, 0xb, 0xff, 0];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        assert_eq!(coil_get(11).unwrap(), true);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        assert_eq!(ctx.get_coil(11).unwrap(), true);
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // write coil broadcast tcp
         let request = [0, 5, 0, 0x5, 0xff, 0];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
-        assert_eq!(result.len(), 0);
-        assert_eq!(coil_get(5).unwrap(), true);
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, false);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        assert_eq!(ctx.get_coil(5).unwrap(), true);
         let request = [0, 5, 0, 0x7, 0xff, 0];
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
-        assert_eq!(result.len(), 0);
-        assert_eq!(coil_get(7).unwrap(), true);
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, false);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        assert_eq!(ctx.get_coil(7).unwrap(), true);
         // write coil invalid data
         let request = [1, 5, 0, 0xb, 0xff, 1];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x85, 3];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 3);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
         // write coil context oob
         let request = [1, 5, 0x99, 0x99, 0xff, 0];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x85, 2];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // write holding
         let request = [1, 6, 0, 0xc, 0x33, 0x55];
         let response = [0x77, 0x55, 0, 0, 0, 6, 1, 6, 0, 0xc, 0x33, 0x55];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        assert_eq!(holding_get(12).unwrap(), 0x3355);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        assert_eq!(ctx.get_holding(12).unwrap(), 0x3355);
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // write holding context oob
         let request = [1, 6, 0xff, 0xc, 0x33, 0x55];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x86, 2];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
     }
 
     #[test]
     fn test_std_frame_fc15() {
-        clear_all();
+        let mut ctx = CTX.write().unwrap();
+        ctx.clear_all();
         let mut result = Vec::new();
         // write multiple coils
         let request = [1, 0xf, 1, 0x31, 0, 5, 1, 0x25]; // 6 bits in data but 5 coils
         let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0xf, 01, 0x31, 0, 5];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        assert_eq!(coil_get(305).unwrap(), true);
-        assert_eq!(coil_get(306).unwrap(), false);
-        assert_eq!(coil_get(307).unwrap(), true);
-        assert_eq!(coil_get(308).unwrap(), false);
-        assert_eq!(coil_get(309).unwrap(), false);
-        assert_eq!(coil_get(310).unwrap(), false);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        assert_eq!(ctx.get_coil(305).unwrap(), true);
+        assert_eq!(ctx.get_coil(306).unwrap(), false);
+        assert_eq!(ctx.get_coil(307).unwrap(), true);
+        assert_eq!(ctx.get_coil(308).unwrap(), false);
+        assert_eq!(ctx.get_coil(309).unwrap(), false);
+        assert_eq!(ctx.get_coil(310).unwrap(), false);
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // write coils context oob
         let request = [1, 0xf, 0x99, 0xe8, 0, 5, 1, 0x25]; // 6 bits in data but 5 coils
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x8f, 2];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
     }
 
     #[test]
     fn test_std_frame_fc16() {
-        clear_all();
+        let mut ctx = CTX.write().unwrap();
+        ctx.clear_all();
         let mut result = Vec::new();
         // write multiple holdings
         let request = [
             1, 0x10, 1, 0x2c, 0, 4, 8, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
         ];
         let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0x10, 1, 0x2c, 0, 4];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.func, 0x10);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        assert_eq!(holding_get(300).unwrap(), 0x1122);
-        assert_eq!(holding_get(301).unwrap(), 0x1133);
-        assert_eq!(holding_get(302).unwrap(), 0x1155);
-        assert_eq!(holding_get(303).unwrap(), 0x1199);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        assert_eq!(ctx.get_holding(300).unwrap(), 0x1122);
+        assert_eq!(ctx.get_holding(301).unwrap(), 0x1133);
+        assert_eq!(ctx.get_holding(302).unwrap(), 0x1155);
+        assert_eq!(ctx.get_holding(303).unwrap(), 0x1199);
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
         // write holdings context oob
         let request = [
             1, 0x10, 0x99, 0xe8, 0, 4, 8, 0x11, 0x22, 0x11, 0x33, 0x11, 0x55, 0x11, 0x99,
         ];
         let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x90, 2];
-        let frame = gen_tcp_frame(&request);
-        process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         assert_eq!(result.as_slice(), response);
-        let frame = gen_rtu_frame(&request);
-        process_frame(1, &frame, ModbusProto::Rtu, &mut result).unwrap();
+        let framebuf = gen_rtu_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, false);
+        frame.process_write(&mut ctx).unwrap();
+        assert_eq!(frame.error, 2);
+        frame.finalize_response().unwrap();
         check_rtu_response(&result, &response);
-    }*/
+    }
 }
 
 #[cfg(test)]
@@ -1269,8 +1503,8 @@ mod tests {
         assert_eq!(dump, dump2);
     }
 
-    fn gen_tcp_frame(data: &[u8]) -> ModbusFrame {
-        let mut frame: ModbusFrame = [0; 256];
+    fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
+        let mut frame: ModbusFrameBuf = [0; 256];
         frame[0] = 0x77;
         frame[1] = 0x55;
         frame[2] = 0;
@@ -1284,30 +1518,53 @@ mod tests {
         return frame;
     }
 
-    //#[test]
-    //fn test_nostd_frame() {
-    //clear_all();
-    //let mut result_mem = alloc_stack!([u8; 256]);
-    //let mut result = FixedVec::new(&mut result_mem);
-    //coil_set(5, true).unwrap();
-    //coil_set(7, true).unwrap();
-    //coil_set(9, true).unwrap();
-    //let request = [1, 1, 0, 5, 0, 5];
-    //let response = [0x77, 0x55, 0, 0, 0, 4, 1, 1, 1, 0x15];
-    //let frame = gen_tcp_frame(&request);
-    //process_frame(1, &frame, ModbusProto::TcpUdp, &mut result).unwrap();
-    //assert_eq!(result.as_slice(), response);
-    //check result OOB
-    //let mut result_mem = alloc_stack!([u8; 10]);
-    //for i in 0..10 {
-    //let mut result = FixedVec::new(&mut result_mem[..i]);
-    //match process_frame(1, &frame, ModbusProto::TcpUdp, &mut result) {
-    //Ok(_) => panic!("{:x?}", result),
-    //Err(e) => match e {
-    //ErrorKind::OOB => {}
-    //_ => panic!("{:?}", e),
-    //},
-    //}
-    //}
-    //}
+    #[test]
+    fn test_nostd_frame() {
+        let mut ctx = CTX.write();
+        ctx.clear_coils();
+        ctx.clear_all();
+        let mut result_mem = alloc_stack!([u8; 256]);
+        let mut result = FixedVec::new(&mut result_mem);
+        ctx.set_coil(5, true).unwrap();
+        ctx.set_coil(7, true).unwrap();
+        ctx.set_coil(9, true).unwrap();
+        let request = [1, 1, 0, 5, 0, 5];
+        let response = [0x77, 0x55, 0, 0, 0, 4, 1, 1, 1, 0x15];
+        let framebuf = gen_tcp_frame(&request);
+        let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+        frame.parse().unwrap();
+        assert_eq!(frame.response_required, true);
+        assert_eq!(frame.processing_required, true);
+        assert_eq!(frame.error, 0);
+        assert_eq!(frame.readonly, true);
+        frame.process_read(&ctx).unwrap();
+        assert_eq!(frame.error, 0);
+        frame.finalize_response().unwrap();
+        assert_eq!(result.as_slice(), response);
+        //check result OOB
+        let mut result_mem = alloc_stack!([u8; 10]);
+        for i in 0..10 {
+            let mut result = FixedVec::new(&mut result_mem[..i]);
+            let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
+            match frame.parse() {
+                Ok(_) => {
+                    if i > 3 {
+                        match frame.process_read(&ctx) {
+                            Ok(_) => panic!("{:x?}", result),
+                            Err(e) => match e {
+                                ErrorKind::OOB => {}
+                                _ => panic!("{:?}", e),
+                            },
+                        }
+                    } else {
+                        panic!("{:x?}", result)
+                    }
+                }
+                Err(e) => match e {
+                    ErrorKind::OOB => {}
+                    _ => panic!("{:?}", e),
+                },
+            }
+        }
+    }
 }

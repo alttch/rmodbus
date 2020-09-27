@@ -9,14 +9,6 @@ pub const CONTEXT_SIZE: usize = 10_000; // divisible by 8 w/o remainder
 #[cfg(feature = "smallcontext")]
 pub const CONTEXT_SIZE: usize = 1_000;
 
-#[derive(Eq, PartialEq, Debug)]
-pub enum ModbusContextRegister {
-    Coil,
-    Discrete,
-    Input,
-    Holding,
-}
-
 /// Contains standard Modbus register contexts
 pub struct ModbusContext {
     pub coils: [bool; CONTEXT_SIZE],
