@@ -241,7 +241,7 @@ used. In nostd mode, only FixedVec is supported.
 
 * FixedVec support included by default, both in std and nostd.
 
-* Added support of 64-bit integers
+* Added support for 64-bit integers
 
 ## Modbus client
 
