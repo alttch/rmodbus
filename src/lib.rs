@@ -1,53 +1,53 @@
 //! # rmodbus - Modbus for Rust
-//! 
+//!
 //! A framework to build fast and reliable Modbus-powered applications.
-//! 
+//!
 //! Cargo crate: https://crates.io/crates/rmodbus
-//! 
+//!
 //! ## What is rmodbus
-//! 
+//!
 //! rmodbus is not a yet another Modbus server. rmodbus is a set of tools to
 //! quickly build Modbus-powered applications.
-//! 
+//!
 //! ## Why yet another Modbus lib?
-//! 
+//!
 //! * rmodbus is transport and protocol independent
-//! 
+//!
 //! * rmodbus is platform independent (**no\_std is fully supported!**)
-//! 
+//!
 //! * can be easily used in blocking and async (non-blocking) applications
-//! 
+//!
 //! * tuned for speed and reliability
-//! 
+//!
 //! * provides a set of tools to easily work with Modbus context
-//! 
+//!
 //! * supports server frame processing for Modbus TCP/UDP, RTU and ASCII.
-//! 
+//!
 //! * server context can be easily, managed, imported and exported
-//! 
+//!
 //! ## So the server isn't included?
-//! 
+//!
 //! Yes, there's no server included. You build the server by your own. You choose
 //! protocol, technology and everything else. rmodbus just process frames and works
 //! with Modbus context.
-//! 
+//!
 //! Here's an example of a simple TCP blocking server:
-//! 
+//!
 //! ```rust,ignore
 //! use std::io::{Read, Write};
 //! use std::net::TcpListener;
 //! use std::thread;
-//! 
+//!
 //! use lazy_static::lazy_static;
-//! 
+//!
 //! use std::sync::RwLock;
-//! 
+//!
 //! use rmodbus::server::{context::ModbusContext, ModbusFrame, ModbusFrameBuf, ModbusProto};
-//! 
+//!
 //! lazy_static! {
 //!     pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
 //! }
-//! 
+//!
 //! pub fn tcpserver(unit: u8, listen: &str) {
 //!     let listener = TcpListener::bind(listen).unwrap();
 //!     println!("listening started, ready to accept");
@@ -88,60 +88,60 @@
 //!     }
 //! }
 //! ```
-//! 
+//!
 //! There are also examples for Serial-RTU, Serial-ASCII and UDP in *examples*
 //! folder (if you're reading this text somewhere else, visit [rmodbus project
 //! repository](https://github.com/alttch/rmodbus).
-//! 
+//!
 //! Running examples:
-//! 
+//!
 //! ```shell
 //! cargo run --example app --features std
 //! cargo run --example tcpserver --features std
 //! ```
-//! 
+//!
 //! ## Modbus context
-//! 
+//!
 //! The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
 //! registers and 10k+10k coils are usually more than enough. This takes about
 //! 43Kbytes of RAM, but if you need to reduce context size, download library
 //! source and change *CONTEXT_SIZE* constant in "context.rs".
-//! 
+//!
 //! rmodbus server context is thread-safe, easy to use and has a lot of functions.
-//! 
+//!
 //! The context is created automatically, as soon as the library is imported. No
 //! additional action is required.
-//! 
+//!
 //! Every time Modbus context is accessed, a context mutex must be locked. This
 //! slows down a performance, but guarantees that the context always has valid data
 //! after bulk-sets or after 32-bit data types were written. So make sure your
 //! application locks context only when required and only for a short period time.
-//! 
+//!
 //! There are two groups of context functions:
-//! 
+//!
 //! * High-level API: simple functions like *coil_get* automatically lock the
 //!   context but do this every time when called. Use this for testing or if the
 //!   speed is not important.
-//! 
+//!
 //! * Advanced way is to use low-level API, lock the context manually and then call
 //!   proper functions, like *set*, *set_f32* etc.
-//! 
+//!
 //! Take a look at simple PLC example:
-//! 
+//!
 //! ```rust,ignore
 //! use std::fs::File;
 //! use std::io::Write;
-//! 
+//!
 //! use lazy_static::lazy_static;
-//! 
+//!
 //! use std::sync::RwLock;
-//! 
+//!
 //! use rmodbus::server::context::ModbusContext;
-//! 
+//!
 //! lazy_static! {
 //!     pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
 //! }
-//! 
+//!
 //! fn looping() {
 //!     println!("Loop started");
 //!     loop {
@@ -176,7 +176,7 @@
 //!         ctx.set_inputs_from_f32(20, 935.77).unwrap();
 //!     }
 //! }
-//! 
+//!
 //! fn save(fname: &str, ctx: &ModbusContext) -> Result<(), std::io::Error> {
 //!     let mut file = match File::create(fname) {
 //!         Ok(v) => v,
@@ -195,56 +195,56 @@
 //!     return Ok(());
 //! }
 //! ```
-//! 
+//!
 //! To let the above program communicate with outer world, Modbus server must be up
 //! and running in the separate thread, asynchronously or whatever is preferred.
-//! 
+//!
 //! ## no\_std
-//! 
+//!
 //! rmodbus supports no\_std mode. Most of the library code is written the way to
 //! support both std and no\_std.
-//! 
+//!
 //! Set dependency as:
-//! 
+//!
 //! ```toml
 //! rmodbus = { version = "*", features = ["nostd"] }
 //! ```
-//! 
+//!
 //! ## Small context
-//! 
+//!
 //! Default Modbus context has 10000 registers of each type, which requires 42500
 //! bytes total. For systems with small RAM amount it's possible to reduce the
 //! context size to the 1000 registers of each type (4250 bytes) with the following
 //! feature:
-//! 
+//!
 //! ```toml
 //! rmodbus = { version = "*", features = ["nostd", "smallcontext"] }
 //! ```
-//! 
+//!
 //! ## Vectors
-//! 
+//!
 //! Some of rmodbus functions use vectors to store result. In std mode, either
 //! standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
 //! used. In nostd mode, only FixedVec is supported.
-//! 
+//!
 //! ## Changelog
-//! 
+//!
 //! ### v0.4
-//! 
+//!
 //! * Modbus context is no longer created automatically and no mutex guard is
 //!   provided by default. Use ModbusContext::new() to create context object and
 //!   then use it as you wish - protect with any kind of Mutex, with RwLock or just
 //!   put into UnsafeCell.
-//! 
+//!
 //! * Context SDK changes: all functions moved inside context, removed unnecessary
 //!   ones, function args optimized.
-//! 
+//!
 //! * FixedVec support included by default, both in std and nostd.
-//! 
+//!
 //! * Added support of 64-bit integers
-//! 
+//!
 //! ## Modbus client
-//! 
+//!
 //! Planned.
 #![cfg_attr(feature = "nostd", no_std)]
 
@@ -264,6 +264,7 @@ pub trait VectorTrait<T: Copy> {
     fn clear_all(&mut self);
     fn cut_end(&mut self, len_to_cut: usize, value: T);
     fn get_slice(&self) -> &[T];
+    fn replace(&mut self, index: usize, value: T);
 }
 
 #[cfg(not(feature = "nostd"))]
@@ -292,6 +293,9 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
     }
     fn get_slice(&self) -> &[T] {
         return self.as_slice();
+    }
+    fn replace(&mut self, index: usize, value: T) {
+        self[index] = value;
     }
 }
 
@@ -327,6 +331,9 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     fn get_slice(&self) -> &[T] {
         return self.as_slice();
     }
+    fn replace(&mut self, index: usize, value: T) {
+        self[index] = value;
+    }
 }
 
 #[derive(Debug)]
@@ -335,17 +342,286 @@ pub enum ErrorKind {
     OOBContext,
     FrameBroken,
     FrameCRCError,
+    IllegalFunction,
+    IllegalDataAddress,
+    IllegalDataValue,
+    SlaveDeviceFailure,
+    Acknowledge,
+    SlaveyDeviceBusy,
+    NegativeAcknowledge,
+    MemoryParityError,
+    GatewayPathUnavailable,
+    GatewayTargetFailed,
+    UnknownError,
+}
+
+impl ErrorKind {
+    pub fn from_modbus_error(code: u8) -> Self {
+        use ErrorKind::*;
+        match code {
+            0x01 => IllegalFunction,
+            0x02 => IllegalDataAddress,
+            0x03 => IllegalDataValue,
+            0x04 => SlaveDeviceFailure,
+            0x05 => Acknowledge,
+            0x06 => SlaveyDeviceBusy,
+            0x07 => NegativeAcknowledge,
+            0x08 => MemoryParityError,
+            0x09 => GatewayPathUnavailable,
+            0x10 => GatewayTargetFailed,
+            _ => UnknownError,
+        }
+    }
+}
+
+pub const MODBUS_GET_COILS: u8 = 1;
+pub const MODBUS_GET_DISCRETES: u8 = 2;
+pub const MODBUS_GET_HOLDINGS: u8 = 3;
+pub const MODBUS_GET_INPUTS: u8 = 4;
+pub const MODBUS_SET_COIL: u8 = 5;
+pub const MODBUS_SET_HOLDING: u8 = 6;
+pub const MODBUS_SET_COILS_BULK: u8 = 15;
+pub const MODBUS_SET_HOLDINGS_BULK: u8 = 16;
+
+/// Modbus protocol selection for frame processing
+///
+/// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
+/// * for **Rtu**, frame checksums are verified / added to replies
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
+pub enum ModbusProto {
+    Rtu,
+    Ascii,
+    TcpUdp,
+}
+
+/// Standard Modbus frame buffer
+///
+/// As max length of Modbus frame + headers is always 256 bytes or less, the frame buffer is a
+/// fixed [u8; 256] array.
+pub type ModbusFrameBuf = [u8; 256];
+
+pub const MODBUS_ERROR_ILLEGAL_FUNCTION: u8 = 1;
+pub const MODBUS_ERROR_ILLEGAL_DATA_ADDRESS: u8 = 2;
+pub const MODBUS_ERROR_ILLEGAL_DATA_VALUE: u8 = 3;
+
+/// Parse ASCII Modbus frame
+///
+/// data - input buffer
+/// data_len - how many bytes to parse in buffer
+/// frame_buf - frame buffer to write output
+/// frame_pos - position in frame buffer to write
+///
+/// The frame can be parsed fully or partially (use frame_pos)
+///
+/// Errors:
+///
+/// * **OOB** input is larger than frame buffer (starting from frame_pos)
+/// * **FrameBroken** unable to decode input hex string
+pub fn parse_ascii_frame(
+    data: &[u8],
+    data_len: usize,
+    frame_buf: &mut ModbusFrameBuf,
+    frame_pos: u8,
+) -> Result<u8, ErrorKind> {
+    let mut dpos = match data[0] {
+        58 => 1, // ':'
+        _ => 0,
+    };
+    let mut cpos = frame_pos;
+    while dpos < data_len {
+        if cpos == 255 {
+            return Err(ErrorKind::OOB);
+        }
+        let ch = data[dpos];
+        if ch == 10 || ch == 13 || ch == 0 {
+            break;
+        }
+        let c = match chr_to_hex(data[dpos]) {
+            Ok(v) => v,
+            Err(_) => return Err(ErrorKind::FrameBroken),
+        };
+        dpos = dpos + 1;
+        if dpos >= data_len {
+            return Err(ErrorKind::OOB);
+        }
+        let c2 = match chr_to_hex(data[dpos]) {
+            Ok(v) => v,
+            Err(_) => return Err(ErrorKind::FrameBroken),
+        };
+        frame_buf[cpos as usize] = c * 0x10 + c2;
+        dpos = dpos + 1;
+        cpos = cpos + 1;
+    }
+    return Ok(cpos - frame_pos - 1);
+}
+
+/// Generate ASCII frame
+///
+/// Generates ASCII frame from binary response, made by "process_frame" function (response must be
+/// supplited as slice)
+pub fn generate_ascii_frame<V: VectorTrait<u8>>(
+    data: &[u8],
+    result: &mut V,
+) -> Result<(), ErrorKind> {
+    result.clear_all();
+    if result.add(58).is_err() {
+        return Err(ErrorKind::OOB);
+    }
+    for d in data {
+        if result.add(hex_to_chr(d >> 4)).is_err() {
+            return Err(ErrorKind::OOB);
+        }
+        if result.add(hex_to_chr(*d & 0xf)).is_err() {
+            return Err(ErrorKind::OOB);
+        }
+    }
+    if result.add(0x0D).is_err() {
+        return Err(ErrorKind::OOB);
+    }
+    if result.add(0x0A).is_err() {
+        return Err(ErrorKind::OOB);
+    }
+    return Ok(());
+}
+
+fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
+    let mut crc: u16 = 0xffff;
+    for pos in 0..data_length as usize {
+        crc = crc ^ frame[pos] as u16;
+        for _ in (0..8).rev() {
+            if (crc & 0x0001) != 0 {
+                crc = crc >> 1;
+                crc = crc ^ 0xA001;
+            } else {
+                crc = crc >> 1;
+            }
+        }
+    }
+    return crc;
+}
+
+fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
+    let mut lrc: i32 = 0;
+    for i in 0..data_length {
+        lrc = lrc - frame[i as usize] as i32;
+    }
+    return lrc as u8;
+}
+
+fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
+    if c >= 48 && c <= 57 {
+        return Ok(c - 48);
+    } else if c >= 65 && c <= 70 {
+        return Ok(c - 55);
+    } else {
+        return Err(ErrorKind::FrameBroken);
+    }
+}
+
+fn hex_to_chr(h: u8) -> u8 {
+    if h < 10 {
+        return h + 48;
+    } else {
+        return h + 55;
+    }
+}
+
+/// Guess response frame length
+///
+/// Frames are often read byte-by-byte. The function allows to guess total frame length, having
+/// first 7 (or more) bytes read.
+///
+/// How to use: read at least first 7 bytes (16 for ASCII) into buffer and call the function to
+/// guess the total frame length. The remaining amount of bytes to read will be function result -
+/// 7. 8 bytes is also fine, as that's the minimal correct frame length.
+///
+/// * the function will panic if the buffer length is less than 6 (3 for RTU, 7 for ASCII)
+///
+/// * the function may return wrong result for broken frames
+///
+/// * the function may return ErrorKind::FrameBroken for broken ASCII frames
+pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
+    let mut b: ModbusFrameBuf = [0; 256];
+    let (f, extra) = match proto {
+        ModbusProto::Ascii => {
+            if parse_ascii_frame(buf, buf.len(), &mut b, 0).is_err() {
+                return Err(ErrorKind::FrameBroken);
+            }
+            (&b[0..256], 1)
+        }
+        ModbusProto::TcpUdp => {
+            let proto = u16::from_be_bytes([buf[2], buf[3]]);
+            return match proto {
+                0 => Ok((u16::from_be_bytes([buf[4], buf[5]]) + 6) as u8),
+                _ => Err(ErrorKind::FrameBroken),
+            };
+        }
+        ModbusProto::Rtu => (buf, 2),
+    };
+    let func = f[1];
+    return match func < 0x80 {
+        true => match func {
+            1 | 2 | 3 | 4 => Ok(f[2] + 5 + extra),
+            5 | 6 | 15 | 16 => Ok(8 + extra),
+            _ => Err(ErrorKind::FrameBroken),
+        },
+        false => Ok(5 + extra),
+    };
+}
+
+/// Guess request frame length
+///
+/// Frames are often read byte-by-byte. The function allows to guess total frame length, having
+/// first 7 (or more) bytes read.
+///
+/// How to use: read at least first 7 bytes (16 for ASCII) into buffer and call the function to
+/// guess the total frame length. The remaining amount of bytes to read will be function result -
+/// 7. 8 bytes is also fine, as that's the minimal correct frame length.
+///
+/// * the function will panic if the buffer length is less than 7 (for ASCII - 16)
+///
+/// * the function may return wrong result for broken frames
+///
+/// * the function may return ErrorKind::FrameBroken for broken ASCII frames
+pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
+    let mut buf: ModbusFrameBuf = [0; 256];
+    let f;
+    let extra;
+    let multiplier;
+    match proto {
+        ModbusProto::Rtu => {
+            f = frame;
+            extra = 2;
+            multiplier = 1;
+        }
+        ModbusProto::Ascii => match parse_ascii_frame(&frame, frame.len(), &mut buf, 0) {
+            Ok(_) => {
+                f = &buf;
+                extra = 5;
+                multiplier = 2;
+            }
+            Err(e) => return Err(e),
+        },
+        ModbusProto::TcpUdp => unimplemented!("unable to guess frame length for TCP/UDP"),
+    };
+    return match f[1] {
+        15 | 16 => Ok((f[6] + 7) * multiplier + extra),
+        _ => Ok(6 * multiplier + extra),
+    };
 }
 
 #[path = "server.rs"]
 pub mod server;
+
+#[path = "client.rs"]
+pub mod client;
 
 #[cfg(test)]
 #[cfg(not(feature = "nostd"))]
 mod tests {
     use super::server::context::*;
     use super::server::*;
-    use super::ErrorKind;
+    use super::*;
 
     use crc16::*;
     use rand::Rng;
@@ -812,7 +1088,7 @@ mod tests {
         frame[len] = c[0];
         frame[len + 1] = c[1];
         assert_eq!(
-            guess_frame_len(&frame, ModbusProto::Rtu).unwrap(),
+            guess_request_frame_len(&frame, ModbusProto::Rtu).unwrap(),
             (len + 2) as u8
         );
         return frame;
