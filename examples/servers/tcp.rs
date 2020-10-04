@@ -6,7 +6,10 @@ use lazy_static::lazy_static;
 
 use std::sync::RwLock;
 
-use rmodbus::server::{context::ModbusContext, ModbusFrame, ModbusFrameBuf, ModbusProto};
+use rmodbus::{
+    server::{context::ModbusContext, ModbusFrame},
+    ModbusFrameBuf, ModbusProto,
+};
 
 lazy_static! {
     pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());

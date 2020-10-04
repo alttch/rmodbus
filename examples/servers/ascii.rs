@@ -6,7 +6,11 @@ use lazy_static::lazy_static;
 
 use std::sync::RwLock;
 
-use rmodbus::server::{context::*, *};
+use rmodbus::{
+    generate_ascii_frame, guess_request_frame_len, parse_ascii_frame,
+    server::{context::ModbusContext, ModbusFrame},
+    ModbusFrameBuf, ModbusProto,
+};
 
 lazy_static! {
     pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
@@ -31,7 +35,7 @@ pub fn asciiserver(unit: u8, port: &str) {
             println!("got frame len {}", rd);
             println!(
                 "{}",
-                guess_frame_len(&asciibuf, ModbusProto::Ascii).unwrap()
+                guess_request_frame_len(&asciibuf, ModbusProto::Ascii).unwrap()
             );
             let mut buf: ModbusFrameBuf = [0; 256];
             let result = parse_ascii_frame(&asciibuf, rd, &mut buf, 0);

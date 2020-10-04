@@ -60,3 +60,8 @@ required-features = ["std"]
 name = "asciiserver"
 path = "examples/asciiserver.rs"
 required-features = ["std"]
+
+[[example]]
+name = "tcpclient"
+path = "examples/tcpclient.rs"
+required-features = ["std"]
