@@ -1,4 +1,4 @@
-// TODO set coil, set holding, set coils bulk, set holdings bulk
+// TODO fn docs
 // TODO tests
 // TODO client examples
 
@@ -73,10 +73,103 @@ impl ModbusRequest {
         return self.generate(&[], request);
     }
 
+    pub fn generate_set_coil<V: VectorTrait<u8>>(
+        &mut self,
+        reg: u16,
+        value: bool,
+        request: &mut V,
+    ) -> Result<(), ErrorKind> {
+        self.reg = reg;
+        self.count = 1;
+        self.func = MODBUS_SET_COIL;
+        return self.generate(
+            &[
+                match value {
+                    true => 0xff,
+                    false => 0x00,
+                },
+                0x00,
+            ],
+            request,
+        );
+    }
+
+    pub fn generate_set_holding<V: VectorTrait<u8>>(
+        &mut self,
+        reg: u16,
+        value: u16,
+        request: &mut V,
+    ) -> Result<(), ErrorKind> {
+        self.reg = reg;
+        self.count = 1;
+        self.func = MODBUS_SET_HOLDING;
+        return self.generate(&value.to_be_bytes(), request);
+    }
+
+    pub fn generate_set_holdings_bulk<V: VectorTrait<u8>>(
+        &mut self,
+        reg: u16,
+        values: &[u16],
+        request: &mut V,
+    ) -> Result<(), ErrorKind> {
+        if values.len() > 125 {
+            return Err(ErrorKind::OOB);
+        }
+        self.reg = reg;
+        self.count = values.len() as u16;
+        self.func = MODBUS_SET_HOLDINGS_BULK;
+        let mut data: ModbusFrameBuf = [0; 256];
+        let mut pos = 0;
+        for v in values {
+            data[pos] = (v >> 8) as u8;
+            data[pos + 1] = *v as u8;
+            pos = pos + 2;
+        }
+        return self.generate(&data[..values.len() * 2], request);
+    }
+
+    pub fn generate_set_coils_bulk<V: VectorTrait<u8>>(
+        &mut self,
+        reg: u16,
+        values: &[bool],
+        request: &mut V,
+    ) -> Result<(), ErrorKind> {
+        if values.len() > 4000 {
+            return Err(ErrorKind::OOB);
+        }
+        self.reg = reg;
+        self.count = values.len() as u16;
+        self.func = MODBUS_SET_COILS_BULK;
+        let mut data: ModbusFrameBuf = [0; 256];
+        let mut pos = 0;
+        let mut cbyte = 0;
+        let mut bidx = 0;
+        for v in values {
+            if *v {
+                cbyte = cbyte | 1 << bidx;
+            }
+            bidx = bidx + 1;
+            if bidx > 7 {
+                bidx = 0;
+                data[pos] = cbyte;
+                pos = pos + 1;
+                cbyte = 0;
+            }
+        }
+        let len;
+        if bidx > 0 {
+            data[pos] = cbyte;
+            len = pos + 1;
+        } else {
+            len = pos;
+        }
+        return self.generate(&data[..len], request);
+    }
+
     fn parse_response(&self, buf: &[u8]) -> Result<(usize, usize), ErrorKind> {
         let (frame_start, frame_end) = match self.proto {
             ModbusProto::TcpUdp => {
-                if buf.len() < 11 {
+                if buf.len() < 9 {
                     return Err(ErrorKind::FrameBroken);
                 }
                 let tr_id = u16::from_be_bytes([buf[0], buf[1]]);
@@ -87,7 +180,7 @@ impl ModbusRequest {
                 (6, buf.len())
             }
             ModbusProto::Rtu => {
-                if buf.len() < 7 {
+                if buf.len() < 5 {
                     return Err(ErrorKind::FrameBroken);
                 }
                 let len = buf.len();
@@ -98,7 +191,7 @@ impl ModbusRequest {
                 (0, buf.len() - 2)
             }
             ModbusProto::Ascii => {
-                if buf.len() < 6 {
+                if buf.len() < 4 {
                     return Err(ErrorKind::FrameBroken);
                 }
                 let len = buf.len();
@@ -111,20 +204,23 @@ impl ModbusRequest {
         };
         let unit_id = buf[frame_start];
         let func = buf[frame_start + 1];
-        if unit_id != self.unit_id || (func != self.func && func < 0x81) {
+        if unit_id != self.unit_id {
             return Err(ErrorKind::FrameBroken);
         }
-        if func > 0x80 {
-            return Err(ErrorKind::from_modbus_error(func - 0x80));
+        if func != self.func {
+            // func-0x80 but some servers respond any shit
+            return Err(ErrorKind::from_modbus_error(buf[frame_start + 2]));
         }
-        let len = buf[frame_start + 2] as usize;
-        if len * 2 < (frame_end - frame_start) - 3 {
-            return Err(ErrorKind::FrameBroken);
+        if self.func > 0 && self.func < 5 {
+            let len = buf[frame_start + 2] as usize;
+            if len * 2 < (frame_end - frame_start) - 3 {
+                return Err(ErrorKind::FrameBroken);
+            }
         }
         return Ok((frame_start, frame_end));
     }
 
-    pub fn ok(&self, buf: &[u8]) -> Result<(), ErrorKind> {
+    pub fn parse_ok(&self, buf: &[u8]) -> Result<(), ErrorKind> {
         match self.parse_response(buf) {
             Ok(_) => return Ok(()),
             Err(e) => return Err(e),
@@ -190,13 +286,33 @@ impl ModbusRequest {
         if request.add_bulk(&[self.unit_id, self.func]).is_err() {
             return Err(ErrorKind::OOB);
         }
+        if request.add_bulk(&self.reg.to_be_bytes()).is_err() {
+            return Err(ErrorKind::OOB);
+        }
         match self.func {
             MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
-                if request.add_bulk(&self.reg.to_be_bytes()).is_err() {
-                    return Err(ErrorKind::OOB);
-                }
                 if request.add_bulk(&self.count.to_be_bytes()).is_err() {
                     return Err(ErrorKind::OOB);
+                }
+            }
+            MODBUS_SET_COIL | MODBUS_SET_HOLDING => {
+                for v in data {
+                    if request.add(*v).is_err() {
+                        return Err(ErrorKind::OOB);
+                    }
+                }
+            }
+            MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
+                if request.add_bulk(&self.count.to_be_bytes()).is_err() {
+                    return Err(ErrorKind::OOB);
+                }
+                if request.add(data.len() as u8).is_err() {
+                    return Err(ErrorKind::OOB);
+                }
+                for v in data {
+                    if request.add(*v).is_err() {
+                        return Err(ErrorKind::OOB);
+                    }
                 }
             }
             _ => unimplemented!(),
