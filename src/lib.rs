@@ -336,7 +336,7 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum ErrorKind {
     OOB,
     OOBContext,
@@ -619,6 +619,7 @@ pub mod client;
 #[cfg(test)]
 #[cfg(not(feature = "nostd"))]
 mod tests {
+    use super::client::*;
     use super::server::context::*;
     use super::server::*;
     use super::*;
@@ -1600,6 +1601,354 @@ mod tests {
         frame.finalize_response().unwrap();
         generate_ascii_frame(&result.as_slice(), &mut ascii_result).unwrap();
         assert_eq!(ascii_result.as_slice(), response);
+    }
+
+    #[test]
+    fn test_client() {
+        let mut ctx = CTX.write().unwrap();
+        ctx.clear_discretes();
+        let coils = [
+            true, true, true, false, true, true, false, true, true, false, true,
+        ];
+        let holdings = [2345u16, 4723, 193, 3845, 8321, 1244, 8723, 2231, 48572];
+        let protos = [ModbusProto::TcpUdp, ModbusProto::Rtu, ModbusProto::Ascii];
+
+        for proto in &protos {
+            // set coils bulk
+            ctx.clear_coils();
+            let mut mreq = ModbusRequest::new(2, *proto);
+            let mut request = Vec::new();
+            mreq.generate_set_coils_bulk(100, &coils, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            mreq.parse_ok(&response).unwrap();
+            for i in 100..100 + coils.len() {
+                assert_eq!(ctx.get_coil(i as u16).unwrap(), coils[i - 100]);
+            }
+
+            // reading coils
+            let mut mreq = ModbusRequest::new(3, *proto);
+            let mut request = Vec::new();
+            mreq.generate_get_coils(100, coils.len() as u16, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, true);
+            frame.process_read(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            let mut result = Vec::new();
+            mreq.parse_bool(&response, &mut result).unwrap();
+            assert_eq!(result, coils);
+
+            // reading discretes
+            ctx.clear_coils();
+            ctx.clear_discretes();
+            for c in 200..200 + coils.len() {
+                ctx.set_discrete(c as u16, coils[c - 200]).unwrap();
+            }
+            let mut mreq = ModbusRequest::new(3, *proto);
+            let mut request = Vec::new();
+            mreq.generate_get_discretes(200, coils.len() as u16, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, true);
+            frame.process_read(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            let mut result = Vec::new();
+            mreq.parse_bool(&response, &mut result).unwrap();
+            assert_eq!(result, coils);
+
+            // set single coil
+            ctx.clear_coils();
+            ctx.clear_discretes();
+            let mut mreq = ModbusRequest::new(4, *proto);
+            let mut request = Vec::new();
+            mreq.generate_set_coil(100, true, &mut request).unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            mreq.parse_ok(&response).unwrap();
+            assert_eq!(ctx.get_coil(100).unwrap(), true);
+
+            // set coils oob
+            let mut mreq = ModbusRequest::new(4, *proto);
+            let mut request = Vec::new();
+            mreq.generate_set_coil(10001, true, &mut request).unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 2);
+            frame.finalize_response().unwrap();
+            assert_eq!(
+                mreq.parse_ok(&response).err().unwrap(),
+                ErrorKind::IllegalDataAddress
+            );
+
+            // set holdings bulk
+            ctx.clear_holdings();
+            let mut mreq = ModbusRequest::new(2, *proto);
+            let mut request = Vec::new();
+            mreq.generate_set_holdings_bulk(100, &holdings, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            mreq.parse_ok(&response).unwrap();
+            for i in 100..100 + holdings.len() {
+                assert_eq!(ctx.get_holding(i as u16).unwrap(), holdings[i - 100]);
+            }
+
+            // reading holdings
+            let mut mreq = ModbusRequest::new(3, *proto);
+            let mut request = Vec::new();
+            mreq.generate_get_holdings(100, holdings.len() as u16, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, true);
+            frame.process_read(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            let mut result = Vec::new();
+            mreq.parse_u16(&response, &mut result).unwrap();
+            assert_eq!(result, holdings);
+
+            // reading inputs
+            ctx.clear_holdings();
+            ctx.clear_inputs();
+            for c in 200..200 + holdings.len() {
+                ctx.set_input(c as u16, holdings[c - 200]).unwrap();
+            }
+            let mut mreq = ModbusRequest::new(3, *proto);
+            let mut request = Vec::new();
+            mreq.generate_get_inputs(200, holdings.len() as u16, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, true);
+            frame.process_read(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            let mut result = Vec::new();
+            mreq.parse_u16(&response, &mut result).unwrap();
+            assert_eq!(result, holdings);
+
+            // set single holding
+            ctx.clear_holdings();
+            ctx.clear_inputs();
+            let mut mreq = ModbusRequest::new(4, *proto);
+            let mut request = Vec::new();
+            mreq.generate_set_holding(100, 7777, &mut request).unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            mreq.parse_ok(&response).unwrap();
+            assert_eq!(ctx.get_coil(100).unwrap(), true);
+
+            // set holding oob
+            let mut mreq = ModbusRequest::new(4, *proto);
+            let mut request = Vec::new();
+            mreq.generate_set_holding(10001, 0x7777, &mut request)
+                .unwrap();
+            let mut response = Vec::new();
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_frame = Vec::new();
+                generate_ascii_frame(&request, &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 2);
+            frame.finalize_response().unwrap();
+            assert_eq!(
+                mreq.parse_ok(&response).err().unwrap(),
+                ErrorKind::IllegalDataAddress
+            );
+        }
     }
 }
 

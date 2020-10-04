@@ -1,6 +1,5 @@
-// TODO fn docs
-// TODO tests
 // TODO client examples
+// TODO fn docs
 
 use super::*;
 
