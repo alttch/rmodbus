@@ -1,8 +1,8 @@
-use std::net::{TcpStream};
 use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::time::Duration;
 
-use rmodbus::{ModbusProto, guess_response_frame_len, client::ModbusRequest};
+use rmodbus::{client::ModbusRequest, guess_response_frame_len, ModbusProto};
 
 fn main() {
     let timeout = Duration::from_secs(1);
@@ -18,7 +18,8 @@ fn main() {
 
     // set 2 coils
     let mut request = Vec::new();
-    mreq.generate_set_coils_bulk(0, &[true, true], &mut request).unwrap();
+    mreq.generate_set_coils_bulk(0, &[true, true], &mut request)
+        .unwrap();
 
     // write request to stream
     stream.write(&request).unwrap();
@@ -55,6 +56,6 @@ fn main() {
     // check if frame has no Modbus error inside and parse response bools into data vec
     mreq.parse_bool(&response, &mut data).unwrap();
     for i in 0..data.len() {
-        println!("{} {}",i , data[i]);
+        println!("{} {}", i, data[i]);
     }
 }
