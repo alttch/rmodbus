@@ -265,7 +265,6 @@ pub trait VectorTrait<T: Copy> {
     fn cut_end(&mut self, len_to_cut: usize, value: T);
     fn get_slice(&self) -> &[T];
     fn replace(&mut self, index: usize, value: T);
-    fn get(&self, index: usize) -> T;
 }
 
 #[cfg(not(feature = "nostd"))]
@@ -297,9 +296,6 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
     }
     fn replace(&mut self, index: usize, value: T) {
         self[index] = value;
-    }
-    fn get(&self, index: usize) -> T {
-        self[index]
     }
 }
 
@@ -337,9 +333,6 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
     fn replace(&mut self, index: usize, value: T) {
         self[index] = value;
-    }
-    fn get(&self, index: usize) -> T {
-        self[index]
     }
 }
 

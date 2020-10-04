@@ -227,7 +227,7 @@ impl ModbusRequest {
         };
     }
 
-    pub fn parse_as_u16<V: VectorTrait<u16>>(
+    pub fn parse_u16<V: VectorTrait<u16>>(
         &self,
         buf: &[u8],
         result: &mut V,
@@ -250,7 +250,7 @@ impl ModbusRequest {
         Ok(())
     }
 
-    pub fn parse_as_bool<V: VectorTrait<bool>>(
+    pub fn parse_bool<V: VectorTrait<bool>>(
         &self,
         buf: &[u8],
         result: &mut V,
