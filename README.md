@@ -222,22 +222,6 @@ Some of rmodbus functions use vectors to store result. In std mode, either
 standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
 used. In nostd mode, only FixedVec is supported.
 
-## Changelog
-
-### v0.4
-
-* Modbus context is no longer created automatically and no mutex guard is
-  provided by default. Use ModbusContext::new() to create context object and
-  then use it as you wish - protect with any kind of Mutex, with RwLock or just
-  put into UnsafeCell.
-
-* Context SDK changes: all functions moved inside context, removed unnecessary
-  ones, function args optimized.
-
-* FixedVec support included by default, both in std and nostd.
-
-* Added support for 64-bit integers
-
 ## Modbus client
 
 Modbus client is designed with same principles as the server: the crate gives
@@ -308,3 +292,26 @@ fn main() {
     }
 }
 ```
+
+## Changelog
+
+### v0.5
+
+* Common functions and structures moved to main crate module
+
+* Modbus client
+
+### v0.4
+
+* Modbus context is no longer created automatically and no mutex guard is
+  provided by default. Use ModbusContext::new() to create context object and
+  then use it as you wish - protect with any kind of Mutex, with RwLock or just
+  put into UnsafeCell.
+
+* Context SDK changes: all functions moved inside context, removed unnecessary
+  ones, function args optimized.
+
+* FixedVec support included by default, both in std and nostd.
+
+* Added support for 64-bit integers
+
