@@ -1608,7 +1608,7 @@ mod tests {
 mod tests {
     use super::server::context::*;
     use super::server::*;
-    use super::ErrorKind;
+    use super::{ErrorKind, ModbusFrameBuf, ModbusProto};
 
     use fixedvec::FixedVec;
     use rand::Rng;
