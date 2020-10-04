@@ -1,6 +1,3 @@
-// TODO client examples
-// TODO fn docs
-
 use super::*;
 
 pub struct ModbusRequest {

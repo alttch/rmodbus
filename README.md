@@ -6,7 +6,7 @@ Cargo crate: https://crates.io/crates/rmodbus
 
 ## What is rmodbus
 
-rmodbus is not a yet another Modbus server. rmodbus is a set of tools to
+rmodbus is not a yet another Modbus client/server. rmodbus is a set of tools to
 quickly build Modbus-powered applications.
 
 ## Why yet another Modbus lib?
@@ -21,7 +21,7 @@ quickly build Modbus-powered applications.
 
 * provides a set of tools to easily work with Modbus context
 
-* supports server frame processing for Modbus TCP/UDP, RTU and ASCII.
+* supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII.
 
 * server context can be easily, managed, imported and exported
 
@@ -42,7 +42,10 @@ use lazy_static::lazy_static;
 
 use std::sync::RwLock;
 
-use rmodbus::server::{context::ModbusContext, ModbusFrame, ModbusFrameBuf, ModbusProto};
+use rmodbus::{
+    server::{context::ModbusContext, ModbusFrame},
+    ModbusFrameBuf, ModbusProto,
+};
 
 lazy_static! {
     pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
@@ -130,23 +133,15 @@ Take a look at simple PLC example:
 
 ```rust,ignore
 use std::fs::File;
-use std::io::Write;
-
-use lazy_static::lazy_static;
-
-use std::sync::RwLock;
+use std::io::{Write};
 
 use rmodbus::server::context::ModbusContext;
-
-lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
-}
 
 fn looping() {
     println!("Loop started");
     loop {
         // READ WORK MODES ETC
-        let ctx = CONTEXT.read().unwrap();
+        let ctx = srv::CONTEXT.read().unwrap();
         let _param1 = ctx.get_holding(1000).unwrap();
         let _param2 = ctx.get_holdings_as_f32(1100).unwrap(); // ieee754 f32
         let _param3 = ctx.get_holdings_as_u32(1200).unwrap(); // u32
@@ -154,7 +149,7 @@ fn looping() {
         drop(ctx);
         if cmd != 0 {
             println!("got command code {}", cmd);
-            let mut ctx = CONTEXT.write().unwrap();
+            let mut ctx = srv::CONTEXT.write().unwrap();
             ctx.set_holding(1500, 0).unwrap();
             match cmd {
                 1 => {
@@ -170,7 +165,7 @@ fn looping() {
         // DO SOME JOB
         // ..........
         // WRITE RESULTS
-        let mut ctx = CONTEXT.write().unwrap();
+        let mut ctx = srv::CONTEXT.write().unwrap();
         ctx.set_coil(0, true).unwrap();
         ctx.set_holdings_bulk(10, &(vec![10, 20])).unwrap();
         ctx.set_inputs_from_f32(20, 935.77).unwrap();
@@ -245,4 +240,71 @@ used. In nostd mode, only FixedVec is supported.
 
 ## Modbus client
 
-Planned.
+Modbus client is designed with same principles as the server: the crate gives
+frame generator / processor, while the frames can be read / written with any
+source and with any required way.
+
+TCP client Example:
+
+```rust,ignore
+use std::net::{TcpStream};
+use std::io::{Read, Write};
+use std::time::Duration;
+
+use rmodbus::{ModbusProto, guess_response_frame_len, client::ModbusRequest};
+
+fn main() {
+    let timeout = Duration::from_secs(1);
+
+    // open TCP connection
+    let mut stream = TcpStream::connect("localhost:5502").unwrap();
+    stream.set_read_timeout(Some(timeout)).unwrap();
+    stream.set_write_timeout(Some(timeout)).unwrap();
+
+    // create request object
+    let mut mreq = ModbusRequest::new(1, ModbusProto::TcpUdp);
+    mreq.tr_id = 2; // just for test, default tr_id is 1
+
+    // set 2 coils
+    let mut request = Vec::new();
+    mreq.generate_set_coils_bulk(0, &[true, true], &mut request).unwrap();
+
+    // write request to stream
+    stream.write(&request).unwrap();
+
+    // read first 6 bytes of response frame
+    let mut buf = [0u8; 6];
+    stream.read_exact(&mut buf).unwrap();
+    let mut response = Vec::new();
+    response.extend_from_slice(&buf);
+    let len = guess_response_frame_len(&buf, ModbusProto::TcpUdp).unwrap();
+    // read rest of response frame
+    if len > 6 {
+        let mut rest = vec![0u8; (len - 6) as usize];
+        stream.read_exact(&mut rest).unwrap();
+        response.extend(rest);
+    }
+    // check if frame has no Modbus error inside
+    mreq.parse_ok(&response).unwrap();
+
+    // get coil values back
+    mreq.generate_get_coils(0, 2, &mut request).unwrap();
+    stream.write(&request).unwrap();
+    let mut buf = [0u8; 6];
+    stream.read_exact(&mut buf).unwrap();
+    let mut response = Vec::new();
+    response.extend_from_slice(&buf);
+    let len = guess_response_frame_len(&buf, ModbusProto::TcpUdp).unwrap();
+    if len > 6 {
+        let mut rest = vec![0u8; (len - 6) as usize];
+        stream.read_exact(&mut rest).unwrap();
+        response.extend(rest);
+    }
+    let mut data = Vec::new();
+    // check if frame has no Modbus error inside and parse response bools into data vec
+    mreq.parse_bool(&response, &mut data).unwrap();
+    for i in 0..data.len() {
+        println!("{} {}",i , data[i]);
+    }
+}
+```
