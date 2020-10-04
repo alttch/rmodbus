@@ -1,6 +1,10 @@
 use super::*;
 
+/// Modbus client generator/processor
+///
+/// One object can be used for multiple calls
 pub struct ModbusRequest {
+    /// transaction id, (TCP/UDP only), default: 1. To change, set the value manually
     pub tr_id: u16,
     pub unit_id: u8,
     pub func: u8,
@@ -10,6 +14,7 @@ pub struct ModbusRequest {
 }
 
 impl ModbusRequest {
+    /// Crate new Modbus client
     pub fn new(unit_id: u8, proto: ModbusProto) -> Self {
         Self {
             tr_id: 1,
@@ -216,6 +221,7 @@ impl ModbusRequest {
         return Ok((frame_start, frame_end));
     }
 
+    /// Parse response and make sure there's no Modbus error inside
     pub fn parse_ok(&self, buf: &[u8]) -> Result<(), ErrorKind> {
         match self.parse_response(buf) {
             Ok(_) => return Ok(()),
@@ -223,6 +229,8 @@ impl ModbusRequest {
         };
     }
 
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as u16
+    /// (getting holdings, inputs)
     pub fn parse_u16<V: VectorTrait<u16>>(
         &self,
         buf: &[u8],
@@ -246,6 +254,8 @@ impl ModbusRequest {
         Ok(())
     }
 
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as bools
+    /// (getting coils, discretes)
     pub fn parse_bool<V: VectorTrait<bool>>(
         &self,
         buf: &[u8],
