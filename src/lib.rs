@@ -1604,7 +1604,7 @@ mod tests {
     }
 
     #[test]
-    fn test_client() {
+    fn test_std_client() {
         let mut ctx = CTX.write().unwrap();
         ctx.clear_discretes();
         let coils = [
@@ -1955,9 +1955,10 @@ mod tests {
 #[cfg(test)]
 #[cfg(feature = "nostd")]
 mod tests {
+    use super::client::*;
     use super::server::context::*;
     use super::server::*;
-    use super::{ErrorKind, ModbusFrameBuf, ModbusProto};
+    use super::*;
 
     use fixedvec::FixedVec;
     use rand::Rng;
@@ -2244,6 +2245,93 @@ mod tests {
                     _ => panic!("{:?}", e),
                 },
             }
+        }
+    }
+
+    #[test]
+    fn test_nostd_client() {
+        let mut ctx = CTX.write();
+        ctx.clear_discretes();
+        let coils = [
+            true, true, true, false, true, true, false, true, true, false, true,
+        ];
+        let protos = [ModbusProto::TcpUdp, ModbusProto::Rtu, ModbusProto::Ascii];
+
+        for proto in &protos {
+            // set coils bulk
+            ctx.clear_coils();
+            let mut mreq = ModbusRequest::new(2, *proto);
+            let mut request_mem = alloc_stack!([u8; 256]);
+            let mut request = FixedVec::new(&mut request_mem);
+            mreq.generate_set_coils_bulk(100, &coils, &mut request)
+                .unwrap();
+            let mut response_mem = alloc_stack!([u8; 256]);
+            let mut response = FixedVec::new(&mut response_mem);
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_mem = alloc_stack!([u8; 1024]);
+                let mut ascii_frame = FixedVec::new(&mut ascii_mem);
+                generate_ascii_frame(&request.as_slice(), &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame.as_slice(), ascii_frame.len(), &mut framebuf, 0)
+                    .unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, false);
+            frame.process_write(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            mreq.parse_ok(&response.as_slice()).unwrap();
+            for i in 100..100 + coils.len() {
+                assert_eq!(ctx.get_coil(i as u16).unwrap(), coils[i - 100]);
+            }
+
+            // reading coils
+            let mut mreq = ModbusRequest::new(3, *proto);
+            let mut request_mem = alloc_stack!([u8; 256]);
+            let mut request = FixedVec::new(&mut request_mem);
+            mreq.generate_get_coils(100, coils.len() as u16, &mut request)
+                .unwrap();
+            let mut response_mem = alloc_stack!([u8; 256]);
+            let mut response = FixedVec::new(&mut response_mem);
+            let mut framebuf: ModbusFrameBuf = [0; 256];
+            if *proto == ModbusProto::Rtu {
+                let mut ascii_mem = alloc_stack!([u8; 1024]);
+                let mut ascii_frame = FixedVec::new(&mut ascii_mem);
+                generate_ascii_frame(&request.as_slice(), &mut ascii_frame).unwrap();
+                for i in 0..framebuf.len() {
+                    framebuf[i] = 0
+                }
+                parse_ascii_frame(&ascii_frame.as_slice(), ascii_frame.len(), &mut framebuf, 0)
+                    .unwrap();
+            } else {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
+            }
+            let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
+            frame.parse().unwrap();
+            assert_eq!(frame.response_required, true);
+            assert_eq!(frame.processing_required, true);
+            assert_eq!(frame.error, 0);
+            assert_eq!(frame.readonly, true);
+            frame.process_read(&mut ctx).unwrap();
+            assert_eq!(frame.error, 0);
+            frame.finalize_response().unwrap();
+            let mut result_mem = alloc_stack!([bool; 256]);
+            let mut result = FixedVec::new(&mut result_mem);
+            mreq.parse_bool(&response.as_slice(), &mut result).unwrap();
+            assert_eq!(result.as_slice(), coils);
         }
     }
 }
