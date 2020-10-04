@@ -76,6 +76,9 @@ impl ModbusRequest {
     fn parse_response(&self, buf: &[u8]) -> Result<(usize, usize), ErrorKind> {
         let (frame_start, frame_end) = match self.proto {
             ModbusProto::TcpUdp => {
+                if buf.len() < 11 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let tr_id = u16::from_be_bytes([buf[0], buf[1]]);
                 let proto = u16::from_be_bytes([buf[2], buf[3]]);
                 if tr_id != self.tr_id || proto != 0 {
@@ -84,6 +87,9 @@ impl ModbusRequest {
                 (6, buf.len())
             }
             ModbusProto::Rtu => {
+                if buf.len() < 7 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let len = buf.len();
                 let crc = calc_crc16(buf, len as u8 - 2);
                 if crc != u16::from_le_bytes([buf[len - 2], buf[len - 1]]) {
@@ -92,6 +98,9 @@ impl ModbusRequest {
                 (0, buf.len() - 2)
             }
             ModbusProto::Ascii => {
+                if buf.len() < 6 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let len = buf.len();
                 let lrc = calc_lrc(buf, len as u8 - 1);
                 if lrc != buf[len - 1] {
@@ -113,6 +122,13 @@ impl ModbusRequest {
             return Err(ErrorKind::FrameBroken);
         }
         return Ok((frame_start, frame_end));
+    }
+
+    pub fn ok(&self, buf: &[u8]) -> Result<(), ErrorKind> {
+        match self.parse_response(buf) {
+            Ok(_) => return Ok(()),
+            Err(e) => return Err(e),
+        };
     }
 
     pub fn parse_as_u16<V: VectorTrait<u16>>(
