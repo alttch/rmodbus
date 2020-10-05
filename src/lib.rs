@@ -422,6 +422,7 @@ pub enum ErrorKind {
     MemoryParityError,
     GatewayPathUnavailable,
     GatewayTargetFailed,
+    CommunicationError,
     UnknownError,
 }
 
