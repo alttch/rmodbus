@@ -23,7 +23,7 @@ quickly build Modbus-powered applications.
 
 * supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII.
 
-* server context can be easily, managed, imported and exported
+* server context can be easily managed, imported and exported
 
 ## So the server isn't included?
 
@@ -112,22 +112,10 @@ source and change *CONTEXT_SIZE* constant in "context.rs".
 
 rmodbus server context is thread-safe, easy to use and has a lot of functions.
 
-The context is created automatically, as soon as the library is imported. No
-additional action is required.
-
 Every time Modbus context is accessed, a context mutex must be locked. This
 slows down a performance, but guarantees that the context always has valid data
 after bulk-sets or after 32-bit data types were written. So make sure your
 application locks context only when required and only for a short period time.
-
-There are two groups of context functions:
-
-* High-level API: simple functions like *coil_get* automatically lock the
-  context but do this every time when called. Use this for testing or if the
-  speed is not important.
-
-* Advanced way is to use low-level API, lock the context manually and then call
-  proper functions, like *set*, *set_f32* etc.
 
 Take a look at simple PLC example:
 
