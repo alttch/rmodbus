@@ -222,6 +222,8 @@ impl ModbusRequest {
     }
 
     /// Parse response and make sure there's no Modbus error inside
+    ///
+    /// The input buffer SHOULD be cut to actual response length
     pub fn parse_ok(&self, buf: &[u8]) -> Result<(), ErrorKind> {
         match self.parse_response(buf) {
             Ok(_) => return Ok(()),
@@ -231,6 +233,8 @@ impl ModbusRequest {
 
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as u16
     /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
     pub fn parse_u16<V: VectorTrait<u16>>(
         &self,
         buf: &[u8],
@@ -256,6 +260,8 @@ impl ModbusRequest {
 
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as bools
     /// (getting coils, discretes)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
     pub fn parse_bool<V: VectorTrait<bool>>(
         &self,
         buf: &[u8],

@@ -472,6 +472,8 @@ pub const MODBUS_ERROR_ILLEGAL_DATA_VALUE: u8 = 3;
 ///
 /// The frame can be parsed fully or partially (use frame_pos)
 ///
+/// Returns number of bytes parsed
+///
 /// Errors:
 ///
 /// * **OOB** input is larger than frame buffer (starting from frame_pos)
@@ -511,7 +513,7 @@ pub fn parse_ascii_frame(
         dpos = dpos + 1;
         cpos = cpos + 1;
     }
-    return Ok(cpos - frame_pos - 1);
+    return Ok(cpos - frame_pos);
 }
 
 /// Generate ASCII frame
@@ -601,12 +603,12 @@ fn hex_to_chr(h: u8) -> u8 {
 /// * the function may return ErrorKind::FrameBroken for broken ASCII frames
 pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut b: ModbusFrameBuf = [0; 256];
-    let (f, extra) = match proto {
+    let (f, multiplier, extra) = match proto {
         ModbusProto::Ascii => {
             if parse_ascii_frame(buf, buf.len(), &mut b, 0).is_err() {
                 return Err(ErrorKind::FrameBroken);
             }
-            (&b[0..256], 1)
+            (&b[0..256], 2, 5) // : + two chars LRC + \r\n
         }
         ModbusProto::TcpUdp => {
             let proto = u16::from_be_bytes([buf[2], buf[3]]);
@@ -615,16 +617,16 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
                 _ => Err(ErrorKind::FrameBroken),
             };
         }
-        ModbusProto::Rtu => (buf, 2),
+        ModbusProto::Rtu => (buf, 1, 2), // two bytes CRC16
     };
     let func = f[1];
     return match func < 0x80 {
         true => match func {
-            1 | 2 | 3 | 4 => Ok(f[2] + 5 + extra),
-            5 | 6 | 15 | 16 => Ok(8 + extra),
+            1 | 2 | 3 | 4 => Ok((f[2] + 3) * multiplier + extra),
+            5 | 6 | 15 | 16 => Ok(6 * multiplier + extra),
             _ => Err(ErrorKind::FrameBroken),
         },
-        false => Ok(5 + extra),
+        false => Ok(3 * multiplier + extra),
     };
 }
 
