@@ -129,6 +129,29 @@ impl ModbusRequest {
         return self.generate(&data[..values.len() * 2], request);
     }
 
+    pub fn generate_set_holdings_string<V: VectorTrait<u8>>(
+        &mut self,
+        reg: u16,
+        values: &str,
+        request: &mut V,
+    ) -> Result<(), ErrorKind> {
+        let values = values.as_bytes();
+        let length = values.len() + values.len() % 2;
+        if length > 250 {
+            return Err(ErrorKind::OOB);
+        }
+        self.reg = reg;
+        self.count = length as u16 / 2u16;
+        self.func = MODBUS_SET_HOLDINGS_BULK;
+        let mut data: ModbusFrameBuf = [0; 256];
+        let mut pos = 0;
+        for v in values {
+            data[pos] = *v;
+            pos +=1;
+        }
+        return self.generate(&data[..length], request);
+    }
+
     pub fn generate_set_coils_bulk<V: VectorTrait<u8>>(
         &mut self,
         reg: u16,
@@ -255,6 +278,27 @@ impl ModbusRequest {
             }
             pos = pos + 2;
         }
+        Ok(())
+    }
+
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as u16
+    /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_string(
+        &self,
+        buf: &[u8],
+        result: &mut String,
+    ) -> Result<(), ErrorKind> {
+        let (frame_start, frame_end) = match self.parse_response(buf) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+        let val = &buf[frame_start + 3 .. frame_end];
+        let vl = val.iter()
+            .position(|&c| c == b'\0')
+            .unwrap_or(val.len());
+        *result = std::str::from_utf8(&val[..vl]).unwrap().to_string();
         Ok(())
     }
 
