@@ -298,7 +298,10 @@ impl ModbusRequest {
         let vl = val.iter()
             .position(|&c| c == b'\0')
             .unwrap_or(val.len());
-        *result = std::str::from_utf8(&val[..vl]).unwrap().to_string();
+        *result = match std::str::from_utf8(&val[..vl]) {
+            Ok(v) => v.to_string(),
+            Err(e) => return Err(ErrorKind::Utf8Error),
+        };
         Ok(())
     }
 

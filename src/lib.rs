@@ -412,6 +412,7 @@ pub enum ErrorKind {
     GatewayTargetFailed,
     CommunicationError,
     UnknownError,
+    Utf8Error,
 }
 
 impl ErrorKind {
