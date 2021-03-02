@@ -285,6 +285,7 @@ impl ModbusRequest {
     /// (getting holdings, inputs)
     ///
     /// The input buffer SHOULD be cut to actual response length
+    #[cfg(not(feature = "nostd"))]
     pub fn parse_string(
         &self,
         buf: &[u8],
@@ -300,7 +301,7 @@ impl ModbusRequest {
             .unwrap_or(val.len());
         *result = match std::str::from_utf8(&val[..vl]) {
             Ok(v) => v.to_string(),
-            Err(e) => return Err(ErrorKind::Utf8Error),
+            Err(_) => return Err(ErrorKind::Utf8Error),
         };
         Ok(())
     }
