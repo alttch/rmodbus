@@ -1,56 +1,56 @@
 //! # rmodbus - Modbus for Rust
-//!
+//! 
 //! A framework to build fast and reliable Modbus-powered applications.
-//!
+//! 
 //! Cargo crate: https://crates.io/crates/rmodbus
-//!
+//! 
 //! ## What is rmodbus
-//!
+//! 
 //! rmodbus is not a yet another Modbus client/server. rmodbus is a set of tools to
 //! quickly build Modbus-powered applications.
-//!
+//! 
 //! ## Why yet another Modbus lib?
-//!
+//! 
 //! * rmodbus is transport and protocol independent
-//!
+//! 
 //! * rmodbus is platform independent (**no\_std is fully supported!**)
-//!
+//! 
 //! * can be easily used in blocking and async (non-blocking) applications
-//!
+//! 
 //! * tuned for speed and reliability
-//!
+//! 
 //! * provides a set of tools to easily work with Modbus context
-//!
+//! 
 //! * supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII.
-//!
+//! 
 //! * server context can be easily managed, imported and exported
-//!
+//! 
 //! ## So the server isn't included?
-//!
+//! 
 //! Yes, there's no server included. You build the server by your own. You choose
 //! protocol, technology and everything else. rmodbus just process frames and works
 //! with Modbus context.
-//!
+//! 
 //! Here's an example of a simple TCP blocking server:
-//!
+//! 
 //! ```rust,ignore
 //! use std::io::{Read, Write};
 //! use std::net::TcpListener;
 //! use std::thread;
-//!
+//! 
 //! use lazy_static::lazy_static;
-//!
+//! 
 //! use std::sync::RwLock;
-//!
+//! 
 //! use rmodbus::{
 //!     server::{context::ModbusContext, ModbusFrame},
 //!     ModbusFrameBuf, ModbusProto,
 //! };
-//!
+//! 
 //! lazy_static! {
 //!     pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
 //! }
-//!
+//! 
 //! pub fn tcpserver(unit: u8, listen: &str) {
 //!     let listener = TcpListener::bind(listen).unwrap();
 //!     println!("listening started, ready to accept");
@@ -91,40 +91,40 @@
 //!     }
 //! }
 //! ```
-//!
+//! 
 //! There are also examples for Serial-RTU, Serial-ASCII and UDP in *examples*
 //! folder (if you're reading this text somewhere else, visit [rmodbus project
 //! repository](https://github.com/alttch/rmodbus).
-//!
+//! 
 //! Running examples:
-//!
+//! 
 //! ```shell
 //! cargo run --example app --features std
 //! cargo run --example tcpserver --features std
 //! ```
-//!
+//! 
 //! ## Modbus context
-//!
+//! 
 //! The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
 //! registers and 10k+10k coils are usually more than enough. This takes about
 //! 43Kbytes of RAM, but if you need to reduce context size, download library
 //! source and change *CONTEXT_SIZE* constant in "context.rs".
-//!
+//! 
 //! rmodbus server context is thread-safe, easy to use and has a lot of functions.
-//!
+//! 
 //! Every time Modbus context is accessed, a context mutex must be locked. This
 //! slows down a performance, but guarantees that the context always has valid data
 //! after bulk-sets or after 32-bit data types were written. So make sure your
 //! application locks context only when required and only for a short period time.
-//!
+//! 
 //! Take a look at simple PLC example:
-//!
+//! 
 //! ```rust,ignore
 //! use std::fs::File;
 //! use std::io::{Write};
-//!
+//! 
 //! use rmodbus::server::context::ModbusContext;
-//!
+//! 
 //! fn looping() {
 //!     println!("Loop started");
 //!     loop {
@@ -159,7 +159,7 @@
 //!         ctx.set_inputs_from_f32(20, 935.77).unwrap();
 //!     }
 //! }
-//!
+//! 
 //! fn save(fname: &str, ctx: &ModbusContext) -> Result<(), std::io::Error> {
 //!     let mut file = match File::create(fname) {
 //!         Ok(v) => v,
@@ -178,73 +178,73 @@
 //!     return Ok(());
 //! }
 //! ```
-//!
+//! 
 //! To let the above program communicate with outer world, Modbus server must be up
 //! and running in the separate thread, asynchronously or whatever is preferred.
-//!
+//! 
 //! ## no\_std
-//!
+//! 
 //! rmodbus supports no\_std mode. Most of the library code is written the way to
 //! support both std and no\_std.
-//!
+//! 
 //! Set dependency as:
-//!
+//! 
 //! ```toml
 //! rmodbus = { version = "*", features = ["nostd"] }
 //! ```
-//!
+//! 
 //! ## Small context
-//!
+//! 
 //! Default Modbus context has 10000 registers of each type, which requires 42500
 //! bytes total. For systems with small RAM amount it's possible to reduce the
 //! context size to the 1000 registers of each type (4250 bytes) with the following
 //! feature:
-//!
+//! 
 //! ```toml
 //! rmodbus = { version = "*", features = ["nostd", "smallcontext"] }
 //! ```
-//!
+//! 
 //! ## Vectors
-//!
+//! 
 //! Some of rmodbus functions use vectors to store result. In std mode, either
 //! standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
 //! used. In nostd mode, only FixedVec is supported.
-//!
+//! 
 //! ## Modbus client
-//!
+//! 
 //! Modbus client is designed with same principles as the server: the crate gives
 //! frame generator / processor, while the frames can be read / written with any
 //! source and with any required way.
-//!
+//! 
 //! TCP client Example:
-//!
+//! 
 //! ```rust,ignore
 //! use std::io::{Read, Write};
 //! use std::net::TcpStream;
 //! use std::time::Duration;
-//!
+//! 
 //! use rmodbus::{client::ModbusRequest, guess_response_frame_len, ModbusProto};
-//!
+//! 
 //! fn main() {
 //!     let timeout = Duration::from_secs(1);
-//!
+//! 
 //!     // open TCP connection
 //!     let mut stream = TcpStream::connect("localhost:5502").unwrap();
 //!     stream.set_read_timeout(Some(timeout)).unwrap();
 //!     stream.set_write_timeout(Some(timeout)).unwrap();
-//!
+//! 
 //!     // create request object
 //!     let mut mreq = ModbusRequest::new(1, ModbusProto::TcpUdp);
 //!     mreq.tr_id = 2; // just for test, default tr_id is 1
-//!
+//! 
 //!     // set 2 coils
 //!     let mut request = Vec::new();
 //!     mreq.generate_set_coils_bulk(0, &[true, true], &mut request)
 //!         .unwrap();
-//!
+//! 
 //!     // write request to stream
 //!     stream.write(&request).unwrap();
-//!
+//! 
 //!     // read first 6 bytes of response frame
 //!     let mut buf = [0u8; 6];
 //!     stream.read_exact(&mut buf).unwrap();
@@ -259,7 +259,7 @@
 //!     }
 //!     // check if frame has no Modbus error inside
 //!     mreq.parse_ok(&response).unwrap();
-//!
+//! 
 //!     // get coil values back
 //!     mreq.generate_get_coils(0, 2, &mut request).unwrap();
 //!     stream.write(&request).unwrap();
@@ -281,29 +281,29 @@
 //!     }
 //! }
 //! ```
-//!
+//! 
 //! ## Changelog
-//!
+//! 
 //! ### v0.5
-//!
+//! 
 //! * Common functions and structures moved to main crate module
-//!
+//! 
 //! * Modbus client
-//!
+//! 
 //! ### v0.4
-//!
+//! 
 //! * Modbus context is no longer created automatically and no mutex guard is
 //!   provided by default. Use ModbusContext::new() to create context object and
 //!   then use it as you wish - protect with any kind of Mutex, with RwLock or just
 //!   put into UnsafeCell.
-//!
+//! 
 //! * Context SDK changes: all functions moved inside context, removed unnecessary
 //!   ones, function args optimized.
-//!
+//! 
 //! * FixedVec support included by default, both in std and nostd.
-//!
+//! 
 //! * Added support for 64-bit integers
-//!
+//! 
 #![cfg_attr(feature = "nostd", no_std)]
 
 #[cfg(test)]
