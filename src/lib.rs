@@ -434,6 +434,57 @@ impl ErrorKind {
     }
 }
 
+
+impl std::fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg: &str =
+            match self {
+                ErrorKind::OOB                   => "OOB",
+                ErrorKind::OOBContext            => "OOBContext",
+                ErrorKind::FrameBroken           => "FrameBroken",
+                ErrorKind::FrameCRCError         => "FrameCRCError",
+                ErrorKind::IllegalFunction       => "IllegalFunction",
+                ErrorKind::IllegalDataAddress    => "IllegalDataAddress",
+                ErrorKind::IllegalDataValue      => "IllegalDataValue",
+                ErrorKind::SlaveDeviceFailure    => "SlaveDeviceFailure",
+                ErrorKind::Acknowledge           => "Acknowledge",
+                ErrorKind::SlaveDeviceBusy       => "SlaveDeviceBusy",
+                ErrorKind::NegativeAcknowledge   => "NegativeAcknowledge",
+                ErrorKind::MemoryParityError     => "MemoryParityError",
+                ErrorKind::GatewayPathUnavailable=> "GatewayPathUnavailable",
+                ErrorKind::GatewayTargetFailed   => "GatewayTargetFailed",
+                ErrorKind::CommunicationError    => "CommunicationError",
+                ErrorKind::UnknownError          => "UnknownError",
+                ErrorKind::Utf8Error             => "Utf8Error",
+            };
+            write!(f,"{}", msg )
+    } // fn fmt
+} // impl std::fmt::Display
+
+impl std::error::Error for ErrorKind {
+    fn description(&self) -> &str {
+        match self {
+            ErrorKind::OOB                   => "OUT OF BUFFER",
+            ErrorKind::OOBContext            => "OUT OF BUFFER IN CONTEXT",
+            ErrorKind::FrameBroken           => "FRAME BROKEN",
+            ErrorKind::FrameCRCError         => "FRAME CRC ERROR",
+            ErrorKind::IllegalFunction       => "MODBUS ERROR CODE 01 - ILLEGAL FUNCTION",
+            ErrorKind::IllegalDataAddress    => "MODBUS ERROR CODE 02 - ILLEGAL DATA ADDRESS",
+            ErrorKind::IllegalDataValue      => "MODBUS ERROR CODE 03 - ILLEGAL DATA VALUE",
+            ErrorKind::SlaveDeviceFailure    => "MODBUS ERROR CODE 04 - SLAVE DEVICE FAILURE",
+            ErrorKind::Acknowledge           => "MODBUS ERROR CODE 05 - ACKNOWLEDGE",
+            ErrorKind::SlaveDeviceBusy       => "MODBUS ERROR CODE 06 - SLAVE DEVICE BUSY",
+            ErrorKind::NegativeAcknowledge   => "MODBUS ERROR CODE 07 - NEGATIVE ACKNOWLEDGE",
+            ErrorKind::MemoryParityError     => "MODBUS ERROR CODE 08 - MEMORY PARITY ERROR",
+            ErrorKind::GatewayPathUnavailable=> "MODBUS ERROR CODE 10 - GATEWAY PATH UNAVAILABLE",
+            ErrorKind::GatewayTargetFailed   => "MODBUS ERROR CODE 11 - GATEWAY TARGET DEVICE FAILED TO RESPOND",
+            ErrorKind::CommunicationError    => "MODBUS ERROR CODE 21 - Response CRC did not match calculated CRC",
+            ErrorKind::UnknownError          => "UNKNOWN MODBUS ERROR",
+            ErrorKind::Utf8Error             => "UTF8 CONVERTION ERROR",
+        }
+    } // fn description
+} // impl std::error::Error
+
 pub const MODBUS_GET_COILS: u8 = 1;
 pub const MODBUS_GET_DISCRETES: u8 = 2;
 pub const MODBUS_GET_HOLDINGS: u8 = 3;
