@@ -1,6 +1,6 @@
 [package]
 name = "rmodbus"
-version = "0.5.3"
+version = "0.5.4"
 authors = ["Sergei S. <div@altertech.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -10,6 +10,12 @@ readme = "README.md"
 keywords = ["modbus", "server", "hardware", "nostd"]
 autoexamples = false
 
+[package.metadata.docs.rs]
+features = []
+
+[package.metadata.playground]
+features = []
+
 [lib]
 name ="rmodbus"
 path = "src/lib.rs"
@@ -17,12 +23,6 @@ path = "src/lib.rs"
 [dependencies]
 ieee754 = "0.2.6"
 fixedvec = "0.2.4"
-
-[package.metadata.docs.rs]
-features = []
-
-[package.metadata.playground]
-features = []
 
 [features]
 nostd = []
