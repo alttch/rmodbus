@@ -2,7 +2,7 @@
 
 A framework to build fast and reliable Modbus-powered applications.
 
-Cargo crate: https://crates.io/crates/rmodbus
+Cargo crate: <https://crates.io/crates/rmodbus>
 
 ## What is rmodbus
 
