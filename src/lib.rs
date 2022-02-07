@@ -434,6 +434,7 @@ impl ErrorKind {
     }
 }
 
+#[cfg(not(feature = "nostd"))]
 impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg: &str = match self {
@@ -459,6 +460,7 @@ impl std::fmt::Display for ErrorKind {
     } // fn fmt
 } // impl std::fmt::Display
 
+#[cfg(not(feature = "nostd"))]
 impl std::error::Error for ErrorKind {
     fn description(&self) -> &str {
         match self {
