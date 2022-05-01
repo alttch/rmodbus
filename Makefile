@@ -1,4 +1,4 @@
-VERSION=0.5.3
+VERSION=$(shell grep ^version Cargo.toml|cut -d\" -f2)
 
 all: test
 

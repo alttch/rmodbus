@@ -1,21 +1,13 @@
 #[path = "context.rs"]
 pub mod context;
 
-use super::*;
-
-macro_rules! tcp_response_set_data_len {
-    ($self: expr, $len:expr) => {
-        if $self.proto == ModbusProto::TcpUdp {
-            if $self
-                .response
-                .add_bulk(&($len as u16).to_be_bytes())
-                .is_err()
-            {
-                return Err(ErrorKind::OOB);
-            }
-        }
-    };
-}
+use crate::{
+    calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait,
+    MODBUS_ERROR_ILLEGAL_DATA_ADDRESS, MODBUS_ERROR_ILLEGAL_DATA_VALUE,
+    MODBUS_ERROR_ILLEGAL_FUNCTION, MODBUS_GET_COILS, MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS,
+    MODBUS_GET_INPUTS, MODBUS_SET_COIL, MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING,
+    MODBUS_SET_HOLDINGS_BULK,
+};
 
 /// Modbus frame processor
 ///
@@ -37,19 +29,20 @@ macro_rules! tcp_response_set_data_len {
 ///     if frame.parse().is_ok() {
 ///         // parsed ok
 ///         if frame.processing_required {
-///             // call function depending is the request read-only or not
-///             // a little more typing, but allows to lock context only for reading when writing
+///             // call a function depending is the request read-only or not
+///             // a little more typing, but allows to lock the context only for reading if writing
 ///             // isn't required
 ///             let result = match frame.readonly {
 ///                 true => frame.process_read(&ctx),
 ///                 false => frame.process_write(&mut ctx)
 ///             };
 ///             if result.is_err() {
-///                 // fn error is returned at this point only if there's no space in response vec
+///                 // fn error is returned at this point only if there's no space in the response
+///                 // vec (so can be caused in nostd only)
 ///                 continue;
 ///             }
 ///         }
-///         // processing is over (if required), let's check is sending the response required
+///         // processing is over (if required), let's check is the response required
 ///         if frame.response_required {
 ///             // sets Modbus error if happened, for RTU/ASCII frames adds CRC/LRU
 ///             frame.finalize_response();
@@ -58,6 +51,15 @@ macro_rules! tcp_response_set_data_len {
 ///     }
 /// }
 /// ```
+
+macro_rules! tcp_response_set_data_len {
+    ($self: expr, $len:expr) => {
+        if $self.proto == ModbusProto::TcpUdp {
+            $self.response.extend(&($len as u16).to_be_bytes())?;
+        }
+    };
+}
+
 pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     pub unit_id: u8,
     buf: &'a ModbusFrameBuf,
@@ -88,13 +90,13 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         proto: ModbusProto,
         response: &'a mut V,
     ) -> Self {
-        response.clear_all();
+        response.clear();
         Self {
-            unit_id: unit_id,
-            buf: buf,
+            unit_id,
+            buf,
             func: 0,
-            proto: proto,
-            response: response,
+            proto,
+            response,
             processing_required: false,
             readonly: true,
             response_required: false,
@@ -109,206 +111,180 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         if self.error > 0 {
             match self.proto {
                 ModbusProto::TcpUdp => {
-                    if self
-                        .response
-                        .add_bulk(&[0, 3, self.unit_id, self.func + 0x80, self.error])
-                        .is_err()
-                    {
-                        return Err(ErrorKind::OOB);
-                    }
+                    self.response
+                        .extend(&[0, 3, self.unit_id, self.func + 0x80, self.error])?;
                 }
                 ModbusProto::Rtu | ModbusProto::Ascii => {
-                    if self
-                        .response
-                        .add_bulk(&[self.unit_id, self.func + 0x80, self.error])
-                        .is_err()
-                    {
-                        return Err(ErrorKind::OOB);
-                    }
+                    self.response
+                        .extend(&[self.unit_id, self.func + 0x80, self.error])?;
                 }
             }
         }
         match self.proto {
             ModbusProto::Rtu => {
-                let crc = calc_crc16(&self.response.get_slice(), self.response.get_len() as u8);
-                match self.response.add_bulk(&crc.to_le_bytes()) {
-                    Ok(_) => Ok(()),
-                    Err(_) => Err(ErrorKind::OOB),
+                let len = self.response.len();
+                if len > u8::MAX as usize {
+                    return Err(ErrorKind::OOB);
                 }
+                #[allow(clippy::cast_possible_truncation)]
+                let crc = calc_crc16(self.response.as_slice(), len as u8);
+                self.response.extend(&crc.to_le_bytes())
             }
             ModbusProto::Ascii => {
-                let lrc = calc_lrc(&self.response.get_slice(), self.response.get_len() as u8);
-                match self.response.add(lrc) {
-                    Ok(_) => Ok(()),
-                    Err(_) => Err(ErrorKind::OOB),
+                let len = self.response.len();
+                if len > u8::MAX as usize {
+                    return Err(ErrorKind::OOB);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                let lrc = calc_lrc(self.response.as_slice(), len as u8);
+                self.response.push(lrc)
+            }
+            ModbusProto::TcpUdp => Ok(()),
+        }
+    }
+    /// Process write functions
+    pub fn process_write(&mut self, ctx: &mut context::ModbusContext) -> Result<(), ErrorKind> {
+        match self.func {
+            MODBUS_SET_COIL => {
+                // func 5
+                // write single coil
+                let val = match u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]) {
+                    0xff00 => true,
+                    0x0000 => false,
+                    _ => {
+                        self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                        return Ok(());
+                    }
+                };
+                if ctx.set_coil(self.reg, val).is_err() {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                    return Ok(());
+                }
+                tcp_response_set_data_len!(self, 6);
+                // 6b unit, func, reg, val
+                self.response
+                    .extend(&self.buf[self.frame_start..self.frame_start + 6])
+            }
+            MODBUS_SET_HOLDING => {
+                // func 6
+                // write single register
+                let val = u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]);
+                if ctx.set_holding(self.reg, val).is_err() {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                    return Ok(());
+                }
+                tcp_response_set_data_len!(self, 6);
+                // 6b unit, func, reg, val
+                self.response
+                    .extend(&self.buf[self.frame_start..self.frame_start + 6])
+            }
+            MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
+                // funcs 15 & 16
+                // write multiple coils / registers
+                let bytes = self.buf[self.frame_start + 6];
+                let result = if self.func == MODBUS_SET_COILS_BULK {
+                    ctx.set_coils_from_u8(
+                        self.reg,
+                        self.count,
+                        &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
+                    )
+                } else {
+                    ctx.set_holdings_from_u8(
+                        self.reg,
+                        &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
+                    )
+                };
+                if result.is_ok() {
+                    tcp_response_set_data_len!(self, 6);
+                    // 6b unit, f, reg, cnt
+                    self.response
+                        .extend(&self.buf[self.frame_start..self.frame_start + 6])
+                } else {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                    Ok(())
                 }
             }
             _ => Ok(()),
         }
     }
-    /// Process write functions
-    pub fn process_write(&mut self, ctx: &mut context::ModbusContext) -> Result<(), ErrorKind> {
-        if self.func == MODBUS_SET_COIL {
-            // func 5
-            // write single coil
-            let val = match u16::from_be_bytes([
-                self.buf[self.frame_start + 4],
-                self.buf[self.frame_start + 5],
-            ]) {
-                0xff00 => true,
-                0x0000 => false,
-                _ => {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
-                    return Ok(());
-                }
-            };
-            let result = ctx.set_coil(self.reg, val);
-            if result.is_err() {
-                self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
-                return Ok(());
-            } else {
-                tcp_response_set_data_len!(self, 6);
-                // 6b unit, func, reg, val
-                if self
-                    .response
-                    .add_bulk(&self.buf[self.frame_start..self.frame_start + 6])
-                    .is_err()
-                {
-                    return Err(ErrorKind::OOB);
-                }
-                return Ok(());
-            }
-        } else if self.func == MODBUS_SET_HOLDING {
-            // func 6
-            // write single register
-            let val = u16::from_be_bytes([
-                self.buf[self.frame_start + 4],
-                self.buf[self.frame_start + 5],
-            ]);
-            let result = ctx.set_holding(self.reg, val);
-            if result.is_err() {
-                self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
-                return Ok(());
-            } else {
-                tcp_response_set_data_len!(self, 6);
-                // 6b unit, func, reg, val
-                if self
-                    .response
-                    .add_bulk(&self.buf[self.frame_start..self.frame_start + 6])
-                    .is_err()
-                {
-                    return Err(ErrorKind::OOB);
-                }
-                return Ok(());
-            }
-        } else if self.func == MODBUS_SET_COILS_BULK || self.func == MODBUS_SET_HOLDINGS_BULK {
-            // funcs 15 & 16
-            // write multiple coils / registers
-            let bytes = self.buf[self.frame_start + 6];
-            let result = match self.func {
-                MODBUS_SET_COILS_BULK => ctx.set_coils_from_u8(
-                    self.reg,
-                    self.count,
-                    &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
-                ),
-                MODBUS_SET_HOLDINGS_BULK => ctx.set_holdings_from_u8(
-                    self.reg,
-                    &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
-                ),
-                _ => panic!(), // never reaches
-            };
-            match result {
-                Ok(_) => {
-                    tcp_response_set_data_len!(self, 6);
-                    // 6b unit, f, reg, cnt
-                    if self
-                        .response
-                        .add_bulk(&self.buf[self.frame_start..self.frame_start + 6])
-                        .is_err()
-                    {
-                        return Err(ErrorKind::OOB);
-                    }
-                    return Ok(());
-                }
-                Err(_) => {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
-                    return Ok(());
-                }
-            }
-        }
-        Ok(())
-    }
     /// Process read functions
     pub fn process_read(&mut self, ctx: &context::ModbusContext) -> Result<(), ErrorKind> {
-        if self.func == MODBUS_GET_COILS || self.func == MODBUS_GET_DISCRETES {
-            // funcs 1 - 2
-            // read coils / discretes
-            let mut data_len = self.count >> 3;
-            if self.count % 8 != 0 {
-                data_len = data_len + 1;
-            }
-            tcp_response_set_data_len!(self, data_len + 3);
-            if self
-                .response
-                .add_bulk(&self.buf[self.frame_start..self.frame_start + 2]) // 2b unit and func
-                .is_err()
-            {
-                return Err(ErrorKind::OOB);
-            }
-            if self.response.add(data_len as u8).is_err() {
-                // 1b data len
-                return Err(ErrorKind::OOB);
-            }
-            let result = match self.func {
-                MODBUS_GET_COILS => ctx.get_coils_as_u8(self.reg, self.count, self.response),
-                MODBUS_GET_DISCRETES => {
+        match self.func {
+            MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+                // funcs 1 - 2
+                // read coils / discretes
+                let mut data_len = self.count >> 3;
+                if self.count % 8 != 0 {
+                    data_len += 1;
+                }
+                tcp_response_set_data_len!(self, data_len + 3);
+                // 2b unit and func
+                self.response
+                    .extend(&self.buf[self.frame_start..self.frame_start + 2])?;
+                if data_len > u16::from(u8::MAX) {
+                    return Err(ErrorKind::OOB);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                self.response.push(data_len as u8)?;
+                let result = if self.func == MODBUS_GET_COILS {
+                    ctx.get_coils_as_u8(self.reg, self.count, self.response)
+                } else {
                     ctx.get_discretes_as_u8(self.reg, self.count, self.response)
-                }
-                _ => panic!(), // never reaches
-            };
-            return match result {
-                Ok(_) => Ok(()),
-                Err(ErrorKind::OOBContext) => {
-                    self.response.cut_end(5, 0);
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                };
+                if let Err(e) = result {
+                    if e == ErrorKind::OOBContext {
+                        self.response.cut_end(5, 0);
+                        self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                } else {
                     Ok(())
                 }
-                Err(_) => Err(ErrorKind::OOB),
-            };
-        } else if self.func == MODBUS_GET_HOLDINGS || self.func == MODBUS_GET_INPUTS {
-            // funcs 3 - 4
-            // read holdings / inputs
-            let data_len = self.count << 1;
-            tcp_response_set_data_len!(self, data_len + 3);
-            if self
-                .response
-                .add_bulk(&self.buf[self.frame_start..self.frame_start + 2]) // 2b unit and func
-                .is_err()
-            {
-                return Err(ErrorKind::OOB);
             }
-            if self.response.add(data_len as u8).is_err() {
+            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+                // funcs 3 - 4
+                // read holdings / inputs
+                let data_len = self.count << 1;
+                tcp_response_set_data_len!(self, data_len + 3);
+                // 2b unit and func
+                self.response
+                    .extend(&self.buf[self.frame_start..self.frame_start + 2])?;
+                if data_len > u16::from(u8::MAX) {
+                    return Err(ErrorKind::OOB);
+                }
+                #[allow(clippy::cast_possible_truncation)]
                 // 1b data len
-                return Err(ErrorKind::OOB);
-            }
-            let result = match self.func {
-                MODBUS_GET_HOLDINGS => ctx.get_holdings_as_u8(self.reg, self.count, self.response),
-                MODBUS_GET_INPUTS => ctx.get_inputs_as_u8(self.reg, self.count, self.response),
-                _ => panic!(), // never reaches
-            };
-            return match result {
-                Ok(_) => Ok(()),
-                Err(ErrorKind::OOBContext) => {
-                    self.response.cut_end(5, 0);
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                self.response.push(data_len as u8)?;
+                let result = if self.func == MODBUS_GET_HOLDINGS {
+                    ctx.get_holdings_as_u8(self.reg, self.count, self.response)
+                } else {
+                    ctx.get_inputs_as_u8(self.reg, self.count, self.response)
+                };
+                if let Err(e) = result {
+                    if e == ErrorKind::OOBContext {
+                        self.response.cut_end(5, 0);
+                        self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                } else {
                     Ok(())
                 }
-                Err(_) => Err(ErrorKind::OOB),
-            };
+            }
+            _ => Ok(()),
         }
-        Ok(())
     }
     /// Parse frame buffer
+    #[allow(clippy::too_many_lines)]
     pub fn parse(&mut self) -> Result<(), ErrorKind> {
         if self.proto == ModbusProto::TcpUdp {
             //let tr_id = u16::from_be_bytes([self.buf[0], self.buf[1]]);
@@ -326,9 +302,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
         if !broadcast && self.proto == ModbusProto::TcpUdp {
             // copy 4 bytes: tr id and proto
-            if self.response.add_bulk(&self.buf[0..4]).is_err() {
-                return Err(ErrorKind::OOB);
-            }
+            self.response.extend(&self.buf[0..4])?;
         }
         self.func = self.buf[self.frame_start + 1];
         macro_rules! check_frame_crc {
@@ -344,118 +318,108 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                         && calc_lrc(self.buf, $len) == self.buf[$len as usize])
             };
         }
-        if self.func == MODBUS_GET_COILS || self.func == MODBUS_GET_DISCRETES {
-            // funcs 1 - 2
-            // read coils / discretes
-            if broadcast {
-                return Ok(());
-            }
-            if !check_frame_crc!(6) {
-                return Err(ErrorKind::FrameCRCError);
-            }
-            self.response_required = true;
-            self.count = u16::from_be_bytes([
-                self.buf[self.frame_start + 4],
-                self.buf[self.frame_start + 5],
-            ]);
-            if self.count > 2000 {
-                self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
-                return Ok(());
-            }
-            self.processing_required = true;
-            self.reg = u16::from_be_bytes([
-                self.buf[self.frame_start + 2],
-                self.buf[self.frame_start + 3],
-            ]);
-            return Ok(());
-        } else if self.func == MODBUS_GET_HOLDINGS || self.func == MODBUS_GET_INPUTS {
-            // funcs 3 - 4
-            // read holdings / inputs
-            if broadcast {
-                return Ok(());
-            }
-            if !check_frame_crc!(6) {
-                return Err(ErrorKind::FrameCRCError);
-            }
-            self.response_required = true;
-            self.count = u16::from_be_bytes([
-                self.buf[self.frame_start + 4],
-                self.buf[self.frame_start + 5],
-            ]);
-            if self.count > 125 {
-                self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
-                return Ok(());
-            }
-            self.processing_required = true;
-            self.reg = u16::from_be_bytes([
-                self.buf[self.frame_start + 2],
-                self.buf[self.frame_start + 3],
-            ]);
-            return Ok(());
-        } else if self.func == MODBUS_SET_COIL {
-            // func 5
-            // write single coil
-            if !check_frame_crc!(6) {
-                return Err(ErrorKind::FrameCRCError);
-            }
-            if !broadcast {
+        match self.func {
+            MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+                // funcs 1 - 2
+                // read coils / discretes
+                if broadcast {
+                    return Ok(());
+                }
+                if !check_frame_crc!(6) {
+                    return Err(ErrorKind::FrameCRCError);
+                }
                 self.response_required = true;
+                self.count = u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]);
+                if self.count > 2000 {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    return Ok(());
+                }
+                self.processing_required = true;
+                self.reg = u16::from_be_bytes([
+                    self.buf[self.frame_start + 2],
+                    self.buf[self.frame_start + 3],
+                ]);
+                Ok(())
             }
-            self.processing_required = true;
-            self.readonly = false;
-            self.reg = u16::from_be_bytes([
-                self.buf[self.frame_start + 2],
-                self.buf[self.frame_start + 3],
-            ]);
-            return Ok(());
-        } else if self.func == MODBUS_SET_HOLDING {
-            // func 6
-            // write single register
-            if !check_frame_crc!(6) {
-                return Err(ErrorKind::FrameCRCError);
-            }
-            if !broadcast {
+            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+                // funcs 3 - 4
+                // read holdings / inputs
+                if broadcast {
+                    return Ok(());
+                }
+                if !check_frame_crc!(6) {
+                    return Err(ErrorKind::FrameCRCError);
+                }
                 self.response_required = true;
+                self.count = u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]);
+                if self.count > 125 {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    return Ok(());
+                }
+                self.processing_required = true;
+                self.reg = u16::from_be_bytes([
+                    self.buf[self.frame_start + 2],
+                    self.buf[self.frame_start + 3],
+                ]);
+                Ok(())
             }
-            self.processing_required = true;
-            self.readonly = false;
-            self.reg = u16::from_be_bytes([
-                self.buf[self.frame_start + 2],
-                self.buf[self.frame_start + 3],
-            ]);
-            return Ok(());
-        } else if self.func == MODBUS_SET_COILS_BULK || self.func == MODBUS_SET_HOLDINGS_BULK {
-            // funcs 15 & 16
-            // write multiple coils / registers
-            let bytes = self.buf[self.frame_start + 6];
-            if !check_frame_crc!(7 + bytes) {
-                return Err(ErrorKind::FrameCRCError);
+            MODBUS_SET_COIL | MODBUS_SET_HOLDING => {
+                // func 5 / 6
+                // write single coil / register
+                if !check_frame_crc!(6) {
+                    return Err(ErrorKind::FrameCRCError);
+                }
+                if !broadcast {
+                    self.response_required = true;
+                }
+                self.processing_required = true;
+                self.readonly = false;
+                self.reg = u16::from_be_bytes([
+                    self.buf[self.frame_start + 2],
+                    self.buf[self.frame_start + 3],
+                ]);
+                Ok(())
             }
-            if !broadcast {
-                self.response_required = true;
+            MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
+                // funcs 15 & 16
+                // write multiple coils / registers
+                let bytes = self.buf[self.frame_start + 6];
+                if !check_frame_crc!(7 + bytes) {
+                    return Err(ErrorKind::FrameCRCError);
+                }
+                if !broadcast {
+                    self.response_required = true;
+                }
+                if bytes > 242 {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    return Ok(());
+                }
+                self.processing_required = true;
+                self.readonly = false;
+                self.reg = u16::from_be_bytes([
+                    self.buf[self.frame_start + 2],
+                    self.buf[self.frame_start + 3],
+                ]);
+                self.count = u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]);
+                Ok(())
             }
-            if bytes > 242 {
-                self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
-                return Ok(());
+            _ => {
+                // function unsupported
+                if !broadcast {
+                    self.response_required = true;
+                    self.error = MODBUS_ERROR_ILLEGAL_FUNCTION;
+                }
+                Ok(())
             }
-            self.processing_required = true;
-            self.readonly = false;
-            self.reg = u16::from_be_bytes([
-                self.buf[self.frame_start + 2],
-                self.buf[self.frame_start + 3],
-            ]);
-            self.count = u16::from_be_bytes([
-                self.buf[self.frame_start + 4],
-                self.buf[self.frame_start + 5],
-            ]);
-            return Ok(());
-        } else {
-            // function unsupported
-            if !broadcast {
-                self.response_required = true;
-                self.error = MODBUS_ERROR_ILLEGAL_FUNCTION;
-            }
-            return Ok(());
         }
     }
 }

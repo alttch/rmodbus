@@ -7,11 +7,12 @@ Cargo crate: <https://crates.io/crates/rmodbus>
 ## What is rmodbus
 
 rmodbus is not a yet another Modbus client/server. rmodbus is a set of tools to
-quickly build Modbus-powered applications.
+quickly build Modbus-powered applications. Consider rmodbus is a
+request/response codec, plus context manager.
 
 ## Why yet another Modbus lib?
 
-* rmodbus is transport and protocol independent
+* rmodbus is transport- and protocol-independent
 
 * rmodbus is platform independent (**no\_std is fully supported!**)
 
@@ -21,17 +22,17 @@ quickly build Modbus-powered applications.
 
 * provides a set of tools to easily work with Modbus context
 
-* supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII.
+* supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII
 
 * server context can be easily managed, imported and exported
 
-## So the server isn't included?
+## So no server is included?
 
-Yes, there's no server included. You build the server by your own. You choose
-protocol, technology and everything else. rmodbus just process frames and works
-with Modbus context.
+Yes, there is no server included. You build the server by your own. You choose
+the transport protocol, technology and everything else. rmodbus just process
+frames and works with Modbus context.
 
-Here's an example of a simple TCP blocking server:
+Here is an example of a simple TCP blocking server:
 
 ```rust,ignore
 use std::io::{Read, Write};
@@ -96,7 +97,7 @@ There are also examples for Serial-RTU, Serial-ASCII and UDP in *examples*
 folder (if you're reading this text somewhere else, visit [rmodbus project
 repository](https://github.com/alttch/rmodbus).
 
-Running examples:
+Launch the examples as:
 
 ```shell
 cargo run --example app --features std
@@ -107,17 +108,20 @@ cargo run --example tcpserver --features std
 
 The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
 registers and 10k+10k coils are usually more than enough. This takes about
-43Kbytes of RAM, but if you need to reduce context size, download library
-source and change *CONTEXT_SIZE* constant in "context.rs".
+43Kbytes of RAM, but if you need to reduce context size, download the library
+source and change *CONTEXT_SIZE* constant in "context.rs". There is also a
+"smallcontext", features, which makes context 10x more compact by reducing
+number of each register type and is cool for embedded apps.
 
 rmodbus server context is thread-safe, easy to use and has a lot of functions.
 
-Every time Modbus context is accessed, a context mutex must be locked. This
-slows down a performance, but guarantees that the context always has valid data
-after bulk-sets or after 32-bit data types were written. So make sure your
-application locks context only when required and only for a short period time.
+The context must be protected with a mutex/rwlock and every time Modbus context
+is accessed, a context mutex must be locked. This slows down performance, but
+guarantees that the context always has valid data after bulk-sets and after
+writes of long data types. So make sure your application locks context only
+when required and only for a short period time.
 
-Take a look at simple PLC example:
+A simple PLC example:
 
 ```rust,ignore
 use std::fs::File;
@@ -187,7 +191,7 @@ and running in the separate thread, asynchronously or whatever is preferred.
 rmodbus supports no\_std mode. Most of the library code is written the way to
 support both std and no\_std.
 
-Set dependency as:
+Set the dependency as:
 
 ```toml
 rmodbus = { version = "*", features = ["nostd"] }
@@ -196,7 +200,7 @@ rmodbus = { version = "*", features = ["nostd"] }
 ## Small context
 
 Default Modbus context has 10000 registers of each type, which requires 42500
-bytes total. For systems with small RAM amount it's possible to reduce the
+bytes total. For systems with small RAM amount it is possible to reduce the
 context size to the 1000 registers of each type (4250 bytes) with the following
 feature:
 
@@ -212,9 +216,9 @@ used. In nostd mode, only FixedVec is supported.
 
 ## Modbus client
 
-Modbus client is designed with same principles as the server: the crate gives
-frame generator / processor, while the frames can be read / written with any
-source and with any required way.
+Modbus client is designed with the same principles as the server: the crate
+gives frame generator / processor, while the frames can be read / written with
+any source and with any required way.
 
 TCP client Example:
 
@@ -283,6 +287,15 @@ fn main() {
 ```
 
 ## Changelog
+
+### v0.6
+
+* guess\_request\_frame\_len function now supports TCP (and perhaps UDP)
+
+* huge code refactoring, fixed and formatted for the nowadays Rust standards
+
+* majority of functions correctly check overflows and report errors instead of
+  invalid values/panics
 
 ### v0.5
 

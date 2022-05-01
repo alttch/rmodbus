@@ -7,11 +7,12 @@
 //! ## What is rmodbus
 //! 
 //! rmodbus is not a yet another Modbus client/server. rmodbus is a set of tools to
-//! quickly build Modbus-powered applications.
+//! quickly build Modbus-powered applications. Consider rmodbus is a
+//! request/response codec, plus context manager.
 //! 
 //! ## Why yet another Modbus lib?
 //! 
-//! * rmodbus is transport and protocol independent
+//! * rmodbus is transport- and protocol-independent
 //! 
 //! * rmodbus is platform independent (**no\_std is fully supported!**)
 //! 
@@ -21,17 +22,17 @@
 //! 
 //! * provides a set of tools to easily work with Modbus context
 //! 
-//! * supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII.
+//! * supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII
 //! 
 //! * server context can be easily managed, imported and exported
 //! 
-//! ## So the server isn't included?
+//! ## So no server is included?
 //! 
-//! Yes, there's no server included. You build the server by your own. You choose
-//! protocol, technology and everything else. rmodbus just process frames and works
-//! with Modbus context.
+//! Yes, there is no server included. You build the server by your own. You choose
+//! the transport protocol, technology and everything else. rmodbus just process
+//! frames and works with Modbus context.
 //! 
-//! Here's an example of a simple TCP blocking server:
+//! Here is an example of a simple TCP blocking server:
 //! 
 //! ```rust,ignore
 //! use std::io::{Read, Write};
@@ -96,7 +97,7 @@
 //! folder (if you're reading this text somewhere else, visit [rmodbus project
 //! repository](https://github.com/alttch/rmodbus).
 //! 
-//! Running examples:
+//! Launch the examples as:
 //! 
 //! ```shell
 //! cargo run --example app --features std
@@ -107,17 +108,20 @@
 //! 
 //! The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
 //! registers and 10k+10k coils are usually more than enough. This takes about
-//! 43Kbytes of RAM, but if you need to reduce context size, download library
-//! source and change *CONTEXT_SIZE* constant in "context.rs".
+//! 43Kbytes of RAM, but if you need to reduce context size, download the library
+//! source and change *CONTEXT_SIZE* constant in "context.rs". There is also a
+//! "smallcontext", features, which makes context 10x more compact by reducing
+//! number of each register type and is cool for embedded apps.
 //! 
 //! rmodbus server context is thread-safe, easy to use and has a lot of functions.
 //! 
-//! Every time Modbus context is accessed, a context mutex must be locked. This
-//! slows down a performance, but guarantees that the context always has valid data
-//! after bulk-sets or after 32-bit data types were written. So make sure your
-//! application locks context only when required and only for a short period time.
+//! The context must be protected with a mutex/rwlock and every time Modbus context
+//! is accessed, a context mutex must be locked. This slows down performance, but
+//! guarantees that the context always has valid data after bulk-sets and after
+//! writes of long data types. So make sure your application locks context only
+//! when required and only for a short period time.
 //! 
-//! Take a look at simple PLC example:
+//! A simple PLC example:
 //! 
 //! ```rust,ignore
 //! use std::fs::File;
@@ -187,7 +191,7 @@
 //! rmodbus supports no\_std mode. Most of the library code is written the way to
 //! support both std and no\_std.
 //! 
-//! Set dependency as:
+//! Set the dependency as:
 //! 
 //! ```toml
 //! rmodbus = { version = "*", features = ["nostd"] }
@@ -196,7 +200,7 @@
 //! ## Small context
 //! 
 //! Default Modbus context has 10000 registers of each type, which requires 42500
-//! bytes total. For systems with small RAM amount it's possible to reduce the
+//! bytes total. For systems with small RAM amount it is possible to reduce the
 //! context size to the 1000 registers of each type (4250 bytes) with the following
 //! feature:
 //! 
@@ -212,9 +216,9 @@
 //! 
 //! ## Modbus client
 //! 
-//! Modbus client is designed with same principles as the server: the crate gives
-//! frame generator / processor, while the frames can be read / written with any
-//! source and with any required way.
+//! Modbus client is designed with the same principles as the server: the crate
+//! gives frame generator / processor, while the frames can be read / written with
+//! any source and with any required way.
 //! 
 //! TCP client Example:
 //! 
@@ -284,6 +288,15 @@
 //! 
 //! ## Changelog
 //! 
+//! ### v0.6
+//! 
+//! * guess\_request\_frame\_len function now supports TCP (and perhaps UDP)
+//! 
+//! * huge code refactoring, fixed and formatted for the nowadays Rust standards
+//! 
+//! * majority of functions correctly check overflows and report errors instead of
+//!   invalid values/panics
+//! 
 //! ### v0.5
 //! 
 //! * Common functions and structures moved to main crate module
@@ -316,30 +329,39 @@ extern crate lazy_static;
 extern crate fixedvec;
 
 pub trait VectorTrait<T: Copy> {
-    fn add(&mut self, value: T) -> Result<(), ErrorKind>;
-    fn add_bulk(&mut self, other: &[T]) -> Result<(), ErrorKind>;
-    fn get_len(&self) -> usize;
-    fn clear_all(&mut self);
+    fn push(&mut self, value: T) -> Result<(), ErrorKind>;
+    fn extend(&mut self, other: &[T]) -> Result<(), ErrorKind>;
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
+    fn clear(&mut self);
     fn cut_end(&mut self, len_to_cut: usize, value: T);
-    fn get_slice(&self) -> &[T];
+    fn as_slice(&self) -> &[T];
     fn replace(&mut self, index: usize, value: T);
 }
 
 #[cfg(not(feature = "nostd"))]
 impl<T: Copy> VectorTrait<T> for Vec<T> {
-    fn add(&mut self, value: T) -> Result<(), ErrorKind> {
-        self.push(value);
-        return Ok(());
+    #[inline]
+    fn push(&mut self, value: T) -> Result<(), ErrorKind> {
+        Vec::push(self, value);
+        Ok(())
     }
-    fn add_bulk(&mut self, values: &[T]) -> Result<(), ErrorKind> {
-        self.extend_from_slice(values);
-        return Ok(());
+    #[inline]
+    fn extend(&mut self, values: &[T]) -> Result<(), ErrorKind> {
+        Vec::extend_from_slice(self, values);
+        Ok(())
     }
-    fn get_len(&self) -> usize {
-        return self.len();
+    #[inline]
+    fn len(&self) -> usize {
+        Vec::len(self)
     }
-    fn clear_all(&mut self) {
-        self.clear();
+    #[inline]
+    fn is_empty(&self) -> bool {
+        Vec::is_empty(self)
+    }
+    #[inline]
+    fn clear(&mut self) {
+        Vec::clear(self);
     }
     fn cut_end(&mut self, len_to_cut: usize, value: T) {
         let len = self.len();
@@ -349,9 +371,11 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
             self.resize(len - len_to_cut, value);
         }
     }
-    fn get_slice(&self) -> &[T] {
-        return self.as_slice();
+    #[inline]
+    fn as_slice(&self) -> &[T] {
+        Vec::as_slice(self)
     }
+    #[inline]
     fn replace(&mut self, index: usize, value: T) {
         self[index] = value;
     }
@@ -360,23 +384,25 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
 use fixedvec::FixedVec;
 
 impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
-    fn add(&mut self, value: T) -> Result<(), ErrorKind> {
-        return match self.push(value) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ErrorKind::OOB),
-        };
+    #[inline]
+    fn push(&mut self, value: T) -> Result<(), ErrorKind> {
+        FixedVec::push(self, value).map_err(|_| ErrorKind::OOB)
     }
-    fn add_bulk(&mut self, values: &[T]) -> Result<(), ErrorKind> {
-        return match self.push_all(values) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ErrorKind::OOB),
-        };
+    #[inline]
+    fn extend(&mut self, values: &[T]) -> Result<(), ErrorKind> {
+        FixedVec::push_all(self, values).map_err(|_| ErrorKind::OOB)
     }
-    fn get_len(&self) -> usize {
-        return self.len();
+    #[inline]
+    fn len(&self) -> usize {
+        FixedVec::len(self)
     }
-    fn clear_all(&mut self) {
-        self.clear();
+    #[inline]
+    fn is_empty(&self) -> bool {
+        FixedVec::is_empty(self)
+    }
+    #[inline]
+    fn clear(&mut self) {
+        FixedVec::clear(self);
     }
     fn cut_end(&mut self, len_to_cut: usize, value: T) {
         let len = self.len();
@@ -386,9 +412,11 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
             self.resize(len - len_to_cut, value);
         }
     }
-    fn get_slice(&self) -> &[T] {
-        return self.as_slice();
+    #[inline]
+    fn as_slice(&self) -> &[T] {
+        FixedVec::as_slice(self)
     }
+    #[inline]
     fn replace(&mut self, index: usize, value: T) {
         self[index] = value;
     }
@@ -417,19 +445,18 @@ pub enum ErrorKind {
 
 impl ErrorKind {
     pub fn from_modbus_error(code: u8) -> Self {
-        use ErrorKind::*;
         match code {
-            0x01 => IllegalFunction,
-            0x02 => IllegalDataAddress,
-            0x03 => IllegalDataValue,
-            0x04 => SlaveDeviceFailure,
-            0x05 => Acknowledge,
-            0x06 => SlaveDeviceBusy,
-            0x07 => NegativeAcknowledge,
-            0x08 => MemoryParityError,
-            0x09 => GatewayPathUnavailable,
-            0x10 => GatewayTargetFailed,
-            _ => UnknownError,
+            0x01 => ErrorKind::IllegalFunction,
+            0x02 => ErrorKind::IllegalDataAddress,
+            0x03 => ErrorKind::IllegalDataValue,
+            0x04 => ErrorKind::SlaveDeviceFailure,
+            0x05 => ErrorKind::Acknowledge,
+            0x06 => ErrorKind::SlaveDeviceBusy,
+            0x07 => ErrorKind::NegativeAcknowledge,
+            0x08 => ErrorKind::MemoryParityError,
+            0x09 => ErrorKind::GatewayPathUnavailable,
+            0x10 => ErrorKind::GatewayTargetFailed,
+            _ => ErrorKind::UnknownError,
         }
     }
 }
@@ -540,36 +567,27 @@ pub fn parse_ascii_frame(
     frame_buf: &mut ModbusFrameBuf,
     frame_pos: u8,
 ) -> Result<u8, ErrorKind> {
-    let mut dpos = match data[0] {
-        58 => 1, // ':'
-        _ => 0,
-    };
+    let mut data_pos = if data[0] == 58 { 1 } else { 0 };
     let mut cpos = frame_pos;
-    while dpos < data_len {
+    while data_pos < data_len {
         if cpos == 255 {
             return Err(ErrorKind::OOB);
         }
-        let ch = data[dpos];
+        let ch = data[data_pos];
         if ch == 10 || ch == 13 || ch == 0 {
             break;
         }
-        let c = match chr_to_hex(data[dpos]) {
-            Ok(v) => v,
-            Err(_) => return Err(ErrorKind::FrameBroken),
-        };
-        dpos = dpos + 1;
-        if dpos >= data_len {
+        let c = chr_to_hex(data[data_pos])?;
+        data_pos += 1;
+        if data_pos >= data_len {
             return Err(ErrorKind::OOB);
         }
-        let c2 = match chr_to_hex(data[dpos]) {
-            Ok(v) => v,
-            Err(_) => return Err(ErrorKind::FrameBroken),
-        };
+        let c2 = chr_to_hex(data[data_pos])?;
         frame_buf[cpos as usize] = c * 0x10 + c2;
-        dpos = dpos + 1;
-        cpos = cpos + 1;
+        data_pos += 1;
+        cpos += 1;
     }
-    return Ok(cpos - frame_pos);
+    Ok(cpos - frame_pos)
 }
 
 /// Generate ASCII frame
@@ -580,66 +598,56 @@ pub fn generate_ascii_frame<V: VectorTrait<u8>>(
     data: &[u8],
     result: &mut V,
 ) -> Result<(), ErrorKind> {
-    result.clear_all();
-    if result.add(58).is_err() {
-        return Err(ErrorKind::OOB);
-    }
+    result.clear();
+    result.push(58)?;
     for d in data {
-        if result.add(hex_to_chr(d >> 4)).is_err() {
-            return Err(ErrorKind::OOB);
-        }
-        if result.add(hex_to_chr(*d & 0xf)).is_err() {
-            return Err(ErrorKind::OOB);
-        }
+        result.push(hex_to_chr(d >> 4))?;
+        result.push(hex_to_chr(*d & 0xf))?;
     }
-    if result.add(0x0D).is_err() {
-        return Err(ErrorKind::OOB);
-    }
-    if result.add(0x0A).is_err() {
-        return Err(ErrorKind::OOB);
-    }
-    return Ok(());
+    result.push(0x0D)?;
+    result.push(0x0A)
 }
 
 fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     let mut crc: u16 = 0xffff;
-    for pos in 0..data_length as usize {
-        crc = crc ^ frame[pos] as u16;
+    for i in frame.iter().take(data_length as usize) {
+        crc ^= u16::from(*i);
         for _ in (0..8).rev() {
-            if (crc & 0x0001) != 0 {
-                crc = crc >> 1;
-                crc = crc ^ 0xA001;
+            if (crc & 0x0001) == 0 {
+                crc >>= 1;
             } else {
-                crc = crc >> 1;
+                crc >>= 1;
+                crc ^= 0xA001;
             }
         }
     }
-    return crc;
+    crc
 }
 
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
 fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
     let mut lrc: i32 = 0;
     for i in 0..data_length {
-        lrc = lrc - frame[i as usize] as i32;
+        lrc -= i32::from(frame[i as usize]);
     }
-    return lrc as u8;
+    lrc as u8
 }
 
 fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
-    if c >= 48 && c <= 57 {
-        return Ok(c - 48);
-    } else if c >= 65 && c <= 70 {
-        return Ok(c - 55);
-    } else {
-        return Err(ErrorKind::FrameBroken);
+    match c {
+        48..=57 => Ok(c - 48),
+        65..=70 => Ok(c - 55),
+        _ => Err(ErrorKind::FrameBroken),
     }
 }
 
+#[inline]
 fn hex_to_chr(h: u8) -> u8 {
     if h < 10 {
-        return h + 48;
+        h + 48
     } else {
-        return h + 55;
+        h + 55
     }
 }
 
@@ -648,42 +656,56 @@ fn hex_to_chr(h: u8) -> u8 {
 /// Frames are often read byte-by-byte. The function allows to guess total frame length, having
 /// first 7 (or more) bytes read.
 ///
-/// How to use: read at least first 7 bytes (16 for ASCII) into buffer and call the function to
-/// guess the total frame length. The remaining amount of bytes to read will be function result -
-/// 7. 8 bytes is also fine, as that's the minimal correct frame length.
-///
-/// * the function will panic if the buffer length is less than 6 (3 for RTU, 7 for ASCII)
+/// How to use: read at least first 6 bytes (3 for RTU, 7 for ASCII) into buffer and call the
+/// function to guess the total frame length. The remaining amount of bytes to read will be
+/// function result - 7. 8 bytes is also fine, as that's the minimal correct frame length.
 ///
 /// * the function may return wrong result for broken frames
 ///
 /// * the function may return ErrorKind::FrameBroken for broken ASCII frames
+///
+/// # Panics
+///
+/// The function panics if the buffer length is less than 6 (3 for RTU, 7 for ASCII)
 pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut b: ModbusFrameBuf = [0; 256];
     let (f, multiplier, extra) = match proto {
-        ModbusProto::Ascii => {
-            if parse_ascii_frame(buf, buf.len(), &mut b, 0).is_err() {
-                return Err(ErrorKind::FrameBroken);
-            }
-            (&b[0..256], 2, 5) // : + two chars LRC + \r\n
-        }
         ModbusProto::TcpUdp => {
             let proto = u16::from_be_bytes([buf[2], buf[3]]);
-            return match proto {
-                0 => Ok((u16::from_be_bytes([buf[4], buf[5]]) + 6) as u8),
-                _ => Err(ErrorKind::FrameBroken),
-            };
+            if proto == 0 {
+                let len = u16::from_be_bytes([buf[4], buf[5]]) + 6;
+                if len > u16::from(u8::MAX) {
+                    return Err(ErrorKind::FrameBroken);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                return Ok(len as u8);
+            }
+            return Err(ErrorKind::FrameBroken);
         }
         ModbusProto::Rtu => (buf, 1, 2), // two bytes CRC16
+        ModbusProto::Ascii => {
+            parse_ascii_frame(buf, buf.len(), &mut b, 0)?;
+            (&b[..], 2, 5) // : + two chars LRC + \r\n
+        }
     };
     let func = f[1];
-    return match func < 0x80 {
-        true => match func {
-            1 | 2 | 3 | 4 => Ok((f[2] + 3) * multiplier + extra),
-            5 | 6 | 15 | 16 => Ok(6 * multiplier + extra),
-            _ => Err(ErrorKind::FrameBroken),
-        },
-        false => Ok(3 * multiplier + extra),
+    let len: usize = if func < 0x80 {
+        match func {
+            1 | 2 | 3 | 4 => (f[2] as usize + 3) * multiplier + extra,
+            5 | 6 | 15 | 16 => 6 * multiplier + extra,
+            _ => {
+                return Err(ErrorKind::FrameBroken);
+            }
+        }
+    } else {
+        3 * multiplier + extra
     };
+    if len > u8::MAX as usize {
+        Err(ErrorKind::FrameBroken)
+    } else {
+        #[allow(clippy::cast_possible_truncation)]
+        Ok(len as u8)
+    }
 }
 
 /// Guess request frame length
@@ -695,36 +717,44 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
 /// guess the total frame length. The remaining amount of bytes to read will be function result -
 /// 7. 8 bytes is also fine, as that's the minimal correct frame length.
 ///
-/// * the function will panic if the buffer length is less than 7 (for ASCII - 16)
-///
 /// * the function may return wrong result for broken frames
 ///
 /// * the function may return ErrorKind::FrameBroken for broken ASCII frames
+///
+/// # Panics
+///
+/// The function panics if the buffer length is less than 7 (for ASCII - 16)
 pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut buf: ModbusFrameBuf = [0; 256];
-    let f;
-    let extra;
-    let multiplier;
-    match proto {
-        ModbusProto::Rtu => {
-            f = frame;
-            extra = 2;
-            multiplier = 1;
+    let (f, extra, multiplier) = match proto {
+        ModbusProto::Rtu => (frame, 2, 1),
+        ModbusProto::Ascii => {
+            parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
+            (&buf[..], 5, 2)
         }
-        ModbusProto::Ascii => match parse_ascii_frame(&frame, frame.len(), &mut buf, 0) {
-            Ok(_) => {
-                f = &buf;
-                extra = 5;
-                multiplier = 2;
+        ModbusProto::TcpUdp => {
+            let proto = u16::from_be_bytes([frame[2], frame[3]]);
+            if proto == 0 {
+                let len = u16::from_be_bytes([frame[4], frame[5]]) + 6;
+                if len > u16::from(u8::MAX) {
+                    return Err(ErrorKind::FrameBroken);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                return Ok(len as u8);
             }
-            Err(e) => return Err(e),
-        },
-        ModbusProto::TcpUdp => unimplemented!("unable to guess frame length for TCP/UDP"),
+            return Err(ErrorKind::FrameBroken);
+        }
     };
-    return match f[1] {
-        15 | 16 => Ok((f[6] + 7) * multiplier + extra),
-        _ => Ok(6 * multiplier + extra),
+    let len: usize = match f[1] {
+        15 | 16 => (f[6] as usize + 7) * multiplier + extra,
+        _ => 6 * multiplier + extra,
     };
+    if len > u8::MAX as usize {
+        Err(ErrorKind::FrameBroken)
+    } else {
+        #[allow(clippy::cast_possible_truncation)]
+        Ok(len as u8)
+    }
 }
 
 #[path = "server.rs"]
@@ -1191,7 +1221,11 @@ mod tests {
         for (i, v) in data.iter().enumerate() {
             frame[i + 6] = *v;
         }
-        return frame;
+        assert_eq!(
+            guess_request_frame_len(&frame, ModbusProto::TcpUdp).unwrap(),
+            (data.len() + 6) as u8
+        );
+        frame
     }
 
     // also automatically checks server::guest_rtu_frame_len
@@ -1209,7 +1243,7 @@ mod tests {
             guess_request_frame_len(&frame, ModbusProto::Rtu).unwrap(),
             (len + 2) as u8
         );
-        return frame;
+        frame
     }
 
     fn check_rtu_response(result: &Vec<u8>, response: &[u8]) {

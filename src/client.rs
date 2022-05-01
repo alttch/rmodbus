@@ -1,4 +1,8 @@
-use super::*;
+use crate::{
+    calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait, MODBUS_GET_COILS,
+    MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS, MODBUS_GET_INPUTS, MODBUS_SET_COIL,
+    MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING, MODBUS_SET_HOLDINGS_BULK,
+};
 
 /// Modbus client generator/processor
 ///
@@ -18,11 +22,22 @@ impl ModbusRequest {
     pub fn new(unit_id: u8, proto: ModbusProto) -> Self {
         Self {
             tr_id: 1,
-            unit_id: unit_id,
+            unit_id,
             func: 0,
             reg: 0,
             count: 0,
-            proto: proto,
+            proto,
+        }
+    }
+
+    pub fn new_tcp_udp(unit_id: u8, tr_id: u16) -> Self {
+        Self {
+            tr_id,
+            unit_id,
+            func: 0,
+            reg: 0,
+            count: 0,
+            proto: ModbusProto::TcpUdp,
         }
     }
 
@@ -35,7 +50,7 @@ impl ModbusRequest {
         self.reg = reg;
         self.count = count;
         self.func = MODBUS_GET_COILS;
-        return self.generate(&[], request);
+        self.generate(&[], request)
     }
 
     pub fn generate_get_discretes<V: VectorTrait<u8>>(
@@ -47,7 +62,7 @@ impl ModbusRequest {
         self.reg = reg;
         self.count = count;
         self.func = MODBUS_GET_DISCRETES;
-        return self.generate(&[], request);
+        self.generate(&[], request)
     }
 
     pub fn generate_get_holdings<V: VectorTrait<u8>>(
@@ -59,7 +74,7 @@ impl ModbusRequest {
         self.reg = reg;
         self.count = count;
         self.func = MODBUS_GET_HOLDINGS;
-        return self.generate(&[], request);
+        self.generate(&[], request)
     }
 
     pub fn generate_get_inputs<V: VectorTrait<u8>>(
@@ -71,7 +86,7 @@ impl ModbusRequest {
         self.reg = reg;
         self.count = count;
         self.func = MODBUS_GET_INPUTS;
-        return self.generate(&[], request);
+        self.generate(&[], request)
     }
 
     pub fn generate_set_coil<V: VectorTrait<u8>>(
@@ -83,16 +98,7 @@ impl ModbusRequest {
         self.reg = reg;
         self.count = 1;
         self.func = MODBUS_SET_COIL;
-        return self.generate(
-            &[
-                match value {
-                    true => 0xff,
-                    false => 0x00,
-                },
-                0x00,
-            ],
-            request,
-        );
+        self.generate(&[if value { 0xff } else { 0x00 }, 0x00], request)
     }
 
     pub fn generate_set_holding<V: VectorTrait<u8>>(
@@ -104,9 +110,10 @@ impl ModbusRequest {
         self.reg = reg;
         self.count = 1;
         self.func = MODBUS_SET_HOLDING;
-        return self.generate(&value.to_be_bytes(), request);
+        self.generate(&value.to_be_bytes(), request)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn generate_set_holdings_bulk<V: VectorTrait<u8>>(
         &mut self,
         reg: u16,
@@ -124,11 +131,12 @@ impl ModbusRequest {
         for v in values {
             data[pos] = (v >> 8) as u8;
             data[pos + 1] = *v as u8;
-            pos = pos + 2;
+            pos += 2;
         }
-        return self.generate(&data[..values.len() * 2], request);
+        self.generate(&data[..values.len() * 2], request)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn generate_set_holdings_string<V: VectorTrait<u8>>(
         &mut self,
         reg: u16,
@@ -144,25 +152,25 @@ impl ModbusRequest {
         self.count = length as u16 / 2u16;
         self.func = MODBUS_SET_HOLDINGS_BULK;
         let mut data: ModbusFrameBuf = [0; 256];
-        let mut pos = 0;
-        for v in values {
+        for (pos, v) in values.iter().enumerate() {
             data[pos] = *v;
-            pos +=1;
         }
-        return self.generate(&data[..length], request);
+        self.generate(&data[..length], request)
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn generate_set_coils_bulk<V: VectorTrait<u8>>(
         &mut self,
         reg: u16,
         values: &[bool],
         request: &mut V,
     ) -> Result<(), ErrorKind> {
-        if values.len() > 4000 {
+        let l = values.len();
+        if l > 4000 {
             return Err(ErrorKind::OOB);
         }
         self.reg = reg;
-        self.count = values.len() as u16;
+        self.count = l as u16;
         self.func = MODBUS_SET_COILS_BULK;
         let mut data: ModbusFrameBuf = [0; 256];
         let mut pos = 0;
@@ -170,13 +178,13 @@ impl ModbusRequest {
         let mut bidx = 0;
         for v in values {
             if *v {
-                cbyte = cbyte | 1 << bidx;
+                cbyte |= 1 << bidx;
             }
-            bidx = bidx + 1;
+            bidx += 1;
             if bidx > 7 {
                 bidx = 0;
                 data[pos] = cbyte;
-                pos = pos + 1;
+                pos += 1;
                 cbyte = 0;
             }
         }
@@ -187,13 +195,14 @@ impl ModbusRequest {
         } else {
             len = pos;
         }
-        return self.generate(&data[..len], request);
+        self.generate(&data[..len], request)
     }
 
     fn parse_response(&self, buf: &[u8]) -> Result<(usize, usize), ErrorKind> {
         let (frame_start, frame_end) = match self.proto {
             ModbusProto::TcpUdp => {
-                if buf.len() < 9 {
+                let l = buf.len();
+                if l < 9 {
                     return Err(ErrorKind::FrameBroken);
                 }
                 let tr_id = u16::from_be_bytes([buf[0], buf[1]]);
@@ -201,29 +210,39 @@ impl ModbusRequest {
                 if tr_id != self.tr_id || proto != 0 {
                     return Err(ErrorKind::FrameBroken);
                 }
-                (6, buf.len())
+                (6, l)
             }
             ModbusProto::Rtu => {
-                if buf.len() < 5 {
+                let mut l = buf.len();
+                if l < 5 {
                     return Err(ErrorKind::FrameBroken);
                 }
-                let len = buf.len();
-                let crc = calc_crc16(buf, len as u8 - 2);
-                if crc != u16::from_le_bytes([buf[len - 2], buf[len - 1]]) {
+                l -= 2;
+                if l > u8::MAX as usize {
+                    return Err(ErrorKind::FrameBroken);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                let crc = calc_crc16(buf, l as u8);
+                if crc != u16::from_le_bytes([buf[l], buf[l + 1]]) {
                     return Err(ErrorKind::FrameCRCError);
                 }
-                (0, buf.len() - 2)
+                (0, l)
             }
             ModbusProto::Ascii => {
-                if buf.len() < 4 {
+                let mut l = buf.len();
+                if l < 4 {
                     return Err(ErrorKind::FrameBroken);
                 }
-                let len = buf.len();
-                let lrc = calc_lrc(buf, len as u8 - 1);
-                if lrc != buf[len - 1] {
+                l -= 1;
+                if l > u8::MAX as usize {
+                    return Err(ErrorKind::FrameBroken);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                let lrc = calc_lrc(buf, l as u8);
+                if lrc != buf[l] {
                     return Err(ErrorKind::FrameCRCError);
                 }
-                (0, buf.len() - 1)
+                (0, l)
             }
         };
         let unit_id = buf[frame_start];
@@ -241,17 +260,15 @@ impl ModbusRequest {
                 return Err(ErrorKind::FrameBroken);
             }
         }
-        return Ok((frame_start, frame_end));
+        Ok((frame_start, frame_end))
     }
 
     /// Parse response and make sure there's no Modbus error inside
     ///
     /// The input buffer SHOULD be cut to actual response length
     pub fn parse_ok(&self, buf: &[u8]) -> Result<(), ErrorKind> {
-        match self.parse_response(buf) {
-            Ok(_) => return Ok(()),
-            Err(e) => return Err(e),
-        };
+        self.parse_response(buf)?;
+        Ok(())
     }
 
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as u16
@@ -270,13 +287,11 @@ impl ModbusRequest {
         let mut pos = frame_start + 3;
         while pos < frame_end - 1 {
             let value = u16::from_be_bytes([buf[pos], buf[pos + 1]]);
-            if result.get_len() >= self.count as usize {
+            if result.len() >= self.count as usize {
                 break;
             }
-            if result.add(value).is_err() {
-                return Err(ErrorKind::OOB);
-            }
-            pos = pos + 2;
+            result.push(value)?;
+            pos += 2;
         }
         Ok(())
     }
@@ -286,19 +301,13 @@ impl ModbusRequest {
     ///
     /// The input buffer SHOULD be cut to actual response length
     #[cfg(not(feature = "nostd"))]
-    pub fn parse_string(
-        &self,
-        buf: &[u8],
-        result: &mut String,
-    ) -> Result<(), ErrorKind> {
+    pub fn parse_string(&self, buf: &[u8], result: &mut String) -> Result<(), ErrorKind> {
         let (frame_start, frame_end) = match self.parse_response(buf) {
             Ok(v) => v,
             Err(e) => return Err(e),
         };
-        let val = &buf[frame_start + 3 .. frame_end];
-        let vl = val.iter()
-            .position(|&c| c == b'\0')
-            .unwrap_or(val.len());
+        let val = &buf[frame_start + 3..frame_end];
+        let vl = val.iter().position(|&c| c == b'\0').unwrap_or(val.len());
         *result = match std::str::from_utf8(&val[..vl]) {
             Ok(v) => v.to_string(),
             Err(_) => return Err(ErrorKind::Utf8Error),
@@ -319,81 +328,80 @@ impl ModbusRequest {
             Ok(v) => v,
             Err(e) => return Err(e),
         };
-        for pos in frame_start + 3..frame_end {
-            let b = buf[pos];
+        for b in buf.iter().take(frame_end).skip(frame_start + 3) {
             for i in 0..8 {
-                if result.get_len() >= self.count as usize {
+                if result.len() >= self.count as usize {
                     break;
                 }
-                if result.add(b >> i & 1 == 1).is_err() {
-                    return Err(ErrorKind::OOB);
-                }
+                result.push(b >> i & 1 == 1)?;
             }
         }
         Ok(())
     }
 
     fn generate<V: VectorTrait<u8>>(&self, data: &[u8], request: &mut V) -> Result<(), ErrorKind> {
-        request.clear_all();
+        request.clear();
         if self.proto == ModbusProto::TcpUdp {
-            if request.add_bulk(&self.tr_id.to_be_bytes()).is_err() {
-                return Err(ErrorKind::OOB);
-            }
-            if request.add_bulk(&[0u8, 0, 0, 0]).is_err() {
-                return Err(ErrorKind::OOB);
-            }
+            request.extend(&self.tr_id.to_be_bytes())?;
+            request.extend(&[0u8, 0, 0, 0])?;
         }
-        if request.add_bulk(&[self.unit_id, self.func]).is_err() {
-            return Err(ErrorKind::OOB);
-        }
-        if request.add_bulk(&self.reg.to_be_bytes()).is_err() {
-            return Err(ErrorKind::OOB);
-        }
+        request.extend(&[self.unit_id, self.func])?;
+        request.extend(&self.reg.to_be_bytes())?;
         match self.func {
             MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
-                if request.add_bulk(&self.count.to_be_bytes()).is_err() {
-                    return Err(ErrorKind::OOB);
-                }
+                request.extend(&self.count.to_be_bytes())?;
             }
             MODBUS_SET_COIL | MODBUS_SET_HOLDING => {
                 for v in data {
-                    if request.add(*v).is_err() {
-                        return Err(ErrorKind::OOB);
-                    }
+                    request.push(*v)?;
                 }
             }
             MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
-                if request.add_bulk(&self.count.to_be_bytes()).is_err() {
+                request.extend(&self.count.to_be_bytes())?;
+                let l = data.len();
+                if l > u8::MAX as usize {
                     return Err(ErrorKind::OOB);
                 }
-                if request.add(data.len() as u8).is_err() {
-                    return Err(ErrorKind::OOB);
-                }
+                #[allow(clippy::cast_possible_truncation)]
+                request.push(l as u8)?;
                 for v in data {
-                    if request.add(*v).is_err() {
-                        return Err(ErrorKind::OOB);
-                    }
+                    request.push(*v)?;
                 }
             }
             _ => unimplemented!(),
         };
         match self.proto {
             ModbusProto::TcpUdp => {
-                let len = ((request.get_len() as u16) - 6).to_be_bytes();
-                request.replace(4, len[0]);
-                request.replace(5, len[1]);
+                let mut l = request.len();
+                if l < 6 {
+                    return Err(ErrorKind::OOB);
+                }
+                l -= 6;
+                if l > u16::MAX as usize {
+                    return Err(ErrorKind::OOB);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                let len_buf = (l as u16).to_be_bytes();
+                request.replace(4, len_buf[0]);
+                request.replace(5, len_buf[1]);
             }
             ModbusProto::Rtu => {
-                let crc = calc_crc16(request.get_slice(), request.get_len() as u8);
-                if request.add_bulk(&crc.to_le_bytes()).is_err() {
+                let l = request.len();
+                if l > u8::MAX as usize {
                     return Err(ErrorKind::OOB);
                 }
+                #[allow(clippy::cast_possible_truncation)]
+                let crc = calc_crc16(request.as_slice(), l as u8);
+                request.extend(&crc.to_le_bytes())?;
             }
             ModbusProto::Ascii => {
-                let lrc = calc_lrc(request.get_slice(), request.get_len() as u8);
-                if request.add(lrc).is_err() {
+                let l = request.len();
+                if l > u8::MAX as usize {
                     return Err(ErrorKind::OOB);
                 }
+                #[allow(clippy::cast_possible_truncation)]
+                let lrc = calc_lrc(request.as_slice(), l as u8);
+                request.push(lrc)?;
             }
         };
         Ok(())
