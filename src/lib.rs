@@ -214,6 +214,10 @@
 //! standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
 //! used. In nostd mode, only FixedVec is supported.
 //! 
+//! Also supported:
+//! 
+//! * [heapless::Vec](https://crates.io/crates/heapless) with "heapless" feature
+//! 
 //! ## Modbus client
 //! 
 //! Modbus client is designed with the same principles as the server: the crate
