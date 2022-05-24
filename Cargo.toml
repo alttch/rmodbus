@@ -1,6 +1,6 @@
 [package]
 name = "rmodbus"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Sergei S. <div@altertech.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -23,7 +23,7 @@ path = "src/lib.rs"
 [dependencies]
 ieee754 = "0.2.6"
 fixedvec = "0.2.4"
-heapless = "0.7.13"
+heapless = { version = "0.7.13", optional = true }
 
 [features]
 nostd = []

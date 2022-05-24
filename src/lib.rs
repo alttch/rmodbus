@@ -422,8 +422,10 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
 }
 
+#[cfg(feature = "heapless")]
 use heapless::Vec as HeaplessVec;
 
+#[cfg(feature = "heapless")]
 impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
     #[inline]
     fn push(&mut self, value: T) -> Result<(), ErrorKind> {
