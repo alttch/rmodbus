@@ -23,6 +23,7 @@ path = "src/lib.rs"
 [dependencies]
 ieee754 = "0.2.6"
 fixedvec = "0.2.4"
+heapless = "0.7.13"
 
 [features]
 nostd = []

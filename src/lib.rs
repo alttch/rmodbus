@@ -422,6 +422,47 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     }
 }
 
+use heapless::Vec as HeaplessVec;
+
+impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
+    #[inline]
+    fn push(&mut self, value: T) -> Result<(), ErrorKind> {
+        HeaplessVec::push(self, value).map_err(|_| ErrorKind::OOB)
+    }
+    #[inline]
+    fn extend(&mut self, values: &[T]) -> Result<(), ErrorKind> {
+        self.extend_from_slice(values).map_err(|_| ErrorKind::OOB)
+    }
+    #[inline]
+    fn len(&self) -> usize {
+        <[T]>::len(self)
+    }
+    #[inline]
+    fn is_empty(&self) -> bool {
+        HeaplessVec::is_empty(self)
+    }
+    #[inline]
+    fn clear(&mut self) {
+        HeaplessVec::clear(self);
+    }
+    fn cut_end(&mut self, len_to_cut: usize, value: T) {
+        let len = self.len();
+        if len_to_cut >= len {
+            self.clear();
+        } else {
+            self.resize(len - len_to_cut, value).unwrap();
+        }
+    }
+    #[inline]
+    fn as_slice(&self) -> &[T] {
+        HeaplessVec::as_slice(self)
+    }
+    #[inline]
+    fn replace(&mut self, index: usize, value: T) {
+        self[index] = value;
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum ErrorKind {
     OOB,
