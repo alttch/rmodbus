@@ -147,7 +147,7 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ErrorKind {
     OOB,
     OOBContext,
