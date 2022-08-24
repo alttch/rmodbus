@@ -147,7 +147,7 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ErrorKind {
     OOB,
     OOBContext,
@@ -186,36 +186,9 @@ impl ErrorKind {
     }
 }
 
-#[cfg(not(feature = "nostd"))]
-impl std::fmt::Display for ErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let msg: &str = match self {
-            ErrorKind::OOB => "OOB",
-            ErrorKind::OOBContext => "OOBContext",
-            ErrorKind::FrameBroken => "FrameBroken",
-            ErrorKind::FrameCRCError => "FrameCRCError",
-            ErrorKind::IllegalFunction => "IllegalFunction",
-            ErrorKind::IllegalDataAddress => "IllegalDataAddress",
-            ErrorKind::IllegalDataValue => "IllegalDataValue",
-            ErrorKind::SlaveDeviceFailure => "SlaveDeviceFailure",
-            ErrorKind::Acknowledge => "Acknowledge",
-            ErrorKind::SlaveDeviceBusy => "SlaveDeviceBusy",
-            ErrorKind::NegativeAcknowledge => "NegativeAcknowledge",
-            ErrorKind::MemoryParityError => "MemoryParityError",
-            ErrorKind::GatewayPathUnavailable => "GatewayPathUnavailable",
-            ErrorKind::GatewayTargetFailed => "GatewayTargetFailed",
-            ErrorKind::CommunicationError => "CommunicationError",
-            ErrorKind::UnknownError => "UnknownError",
-            ErrorKind::Utf8Error => "Utf8Error",
-        };
-        write!(f, "{}", msg)
-    } // fn fmt
-} // impl std::fmt::Display
-
-#[cfg(not(feature = "nostd"))]
-impl std::error::Error for ErrorKind {
-    fn description(&self) -> &str {
-        match self {
             ErrorKind::OOB => "OUT OF BUFFER",
             ErrorKind::OOBContext => "OUT OF BUFFER IN CONTEXT",
             ErrorKind::FrameBroken => "FRAME BROKEN",
@@ -237,9 +210,13 @@ impl std::error::Error for ErrorKind {
             }
             ErrorKind::UnknownError => "UNKNOWN MODBUS ERROR",
             ErrorKind::Utf8Error => "UTF8 CONVERTION ERROR",
-        }
-    } // fn description
-} // impl std::error::Error
+        };
+        write!(f, "{}", msg)
+    }
+}
+
+#[cfg(not(feature = "nostd"))]
+impl std::error::Error for ErrorKind {}
 
 pub const MODBUS_GET_COILS: u8 = 1;
 pub const MODBUS_GET_DISCRETES: u8 = 2;
