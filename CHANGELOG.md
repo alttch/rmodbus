@@ -1,5 +1,15 @@
 ## Changelog
 
+### Unreleased
+
+* Moved modbus constants into a `consts` module.
+* Reworked the crate dependency and cargo-feature structure.  Features are now
+  additive only.  Instead of the `nostd` feature, you now have to opt-out of
+  the `std` feature by specifying `default-features = false`.  Similarly,
+  instead of the `smallcontext` feature, there is now a `fullcontext` feature
+  which is also enabled by default.
+* Crate structure cleanup.
+
 ### v0.6
 
 * `guess_request_frame_len` function now supports TCP (and perhaps UDP)
