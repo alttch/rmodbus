@@ -284,35 +284,3 @@ fn main() {
     }
 }
 ```
-
-## Changelog
-
-### v0.6
-
-* guess\_request\_frame\_len function now supports TCP (and perhaps UDP)
-
-* huge code refactoring, fixed and formatted for the nowadays Rust standards
-
-* majority of functions correctly check overflows and report errors instead of
-  invalid values/panics
-
-### v0.5
-
-* Common functions and structures moved to main crate module
-
-* Modbus client
-
-### v0.4
-
-* Modbus context is no longer created automatically and no mutex guard is
-  provided by default. Use ModbusContext::new() to create context object and
-  then use it as you wish - protect with any kind of Mutex, with RwLock or just
-  put into UnsafeCell.
-
-* Context SDK changes: all functions moved inside context, removed unnecessary
-  ones, function args optimized.
-
-* FixedVec support included by default, both in std and nostd.
-
-* Added support for 64-bit integers
-
