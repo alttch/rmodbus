@@ -1,3 +1,5 @@
+use fixedvec::alloc_stack;
+
 use crate::client::*;
 use crate::server::context::*;
 use crate::server::*;

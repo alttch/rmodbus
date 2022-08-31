@@ -5,11 +5,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-#[cfg(test)]
-#[allow(unused_imports)]
-#[macro_use]
-extern crate fixedvec;
-
 pub mod client;
 pub mod consts;
 pub mod server;

@@ -5,10 +5,13 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, Vector
 
 /// Modbus frame processor
 ///
-/// ```rust, no_run
+/// ```no_run
+/// # #[cfg(feature = "fixedvec")]
+/// # mod with_fixedvec {
 /// use rmodbus::{ModbusFrameBuf, ModbusProto, server::{ModbusFrame, context::ModbusContext}};
 /// use fixedvec::{FixedVec, alloc_stack}; // for std use regular std::vec::Vec
 ///
+/// # fn code() {
 /// let mut ctx = ModbusContext::new();
 ///
 /// let unit_id = 1;
@@ -44,6 +47,7 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, Vector
 ///         }
 ///     }
 /// }
+/// # } }
 /// ```
 
 macro_rules! tcp_response_set_data_len {

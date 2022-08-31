@@ -53,8 +53,10 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
     }
 }
 
+#[cfg(any(feature = "fixedvec", test))]
 use fixedvec::FixedVec;
 
+#[cfg(any(feature = "fixedvec", test))]
 impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
     #[inline]
     fn push(&mut self, value: T) -> Result<(), ErrorKind> {
