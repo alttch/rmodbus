@@ -26,9 +26,9 @@ fixedvec = { version = "0.2.4", optional = true }
 heapless = { version = "0.7.13", optional = true }
 
 [features]
-default = ["std"]
+default = ["std", "fullcontext"]
 std = []
-smallcontext = []
+fullcontext = []
 
 [dev-dependencies]
 rand = "0.7.3"
