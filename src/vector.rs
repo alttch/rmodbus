@@ -11,7 +11,7 @@ pub trait VectorTrait<T: Copy> {
     fn replace(&mut self, index: usize, value: T);
 }
 
-#[cfg(not(feature = "nostd"))]
+#[cfg(feature = "std")]
 impl<T: Copy> VectorTrait<T> for Vec<T> {
     #[inline]
     fn push(&mut self, value: T) -> Result<(), ErrorKind> {

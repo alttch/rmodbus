@@ -66,5 +66,5 @@ impl core::fmt::Display for ErrorKind {
     }
 }
 
-#[cfg(not(feature = "nostd"))]
+#[cfg(feature = "std")]
 impl std::error::Error for ErrorKind {}

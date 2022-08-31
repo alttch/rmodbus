@@ -1,5 +1,5 @@
-#[cfg(not(feature = "nostd"))]
+#[cfg(feature = "std")]
 mod test_std;
 
-#[cfg(feature = "nostd")]
+#[cfg(not(feature = "std"))]
 mod test_nostd;
