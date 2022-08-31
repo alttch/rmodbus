@@ -1,13 +1,8 @@
 #[path = "context.rs"]
 pub mod context;
 
-use crate::{
-    calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait,
-    MODBUS_ERROR_ILLEGAL_DATA_ADDRESS, MODBUS_ERROR_ILLEGAL_DATA_VALUE,
-    MODBUS_ERROR_ILLEGAL_FUNCTION, MODBUS_GET_COILS, MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS,
-    MODBUS_GET_INPUTS, MODBUS_SET_COIL, MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING,
-    MODBUS_SET_HOLDINGS_BULK,
-};
+use crate::consts::*;
+use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
 
 /// Modbus frame processor
 ///

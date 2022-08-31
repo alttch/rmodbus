@@ -218,15 +218,6 @@ impl core::fmt::Display for ErrorKind {
 #[cfg(not(feature = "nostd"))]
 impl std::error::Error for ErrorKind {}
 
-pub const MODBUS_GET_COILS: u8 = 1;
-pub const MODBUS_GET_DISCRETES: u8 = 2;
-pub const MODBUS_GET_HOLDINGS: u8 = 3;
-pub const MODBUS_GET_INPUTS: u8 = 4;
-pub const MODBUS_SET_COIL: u8 = 5;
-pub const MODBUS_SET_HOLDING: u8 = 6;
-pub const MODBUS_SET_COILS_BULK: u8 = 15;
-pub const MODBUS_SET_HOLDINGS_BULK: u8 = 16;
-
 /// Modbus protocol selection for frame processing
 ///
 /// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
@@ -243,10 +234,6 @@ pub enum ModbusProto {
 /// As max length of Modbus frame + headers is always 256 bytes or less, the frame buffer is a
 /// fixed [u8; 256] array.
 pub type ModbusFrameBuf = [u8; 256];
-
-pub const MODBUS_ERROR_ILLEGAL_FUNCTION: u8 = 1;
-pub const MODBUS_ERROR_ILLEGAL_DATA_ADDRESS: u8 = 2;
-pub const MODBUS_ERROR_ILLEGAL_DATA_VALUE: u8 = 3;
 
 /// Parse ASCII Modbus frame
 ///
@@ -458,6 +445,8 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
         Ok(len as u8)
     }
 }
+
+pub mod consts;
 
 #[path = "server.rs"]
 pub mod server;
