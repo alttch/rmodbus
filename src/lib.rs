@@ -10,6 +10,10 @@ extern crate lazy_static;
 #[macro_use]
 extern crate fixedvec;
 
+pub mod consts;
+pub mod server;
+pub mod client;
+
 pub trait VectorTrait<T: Copy> {
     fn push(&mut self, value: T) -> Result<(), ErrorKind>;
     fn extend(&mut self, other: &[T]) -> Result<(), ErrorKind>;
@@ -445,14 +449,6 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
         Ok(len as u8)
     }
 }
-
-pub mod consts;
-
-#[path = "server.rs"]
-pub mod server;
-
-#[path = "client.rs"]
-pub mod client;
 
 #[cfg(test)]
 #[cfg(not(feature = "nostd"))]

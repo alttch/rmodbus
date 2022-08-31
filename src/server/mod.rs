@@ -1,4 +1,3 @@
-#[path = "context.rs"]
 pub mod context;
 
 use crate::consts::*;
