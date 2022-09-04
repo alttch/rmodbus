@@ -25,7 +25,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features std
+          args: -- --test-threads=1 --nocapture
 
   build_nostd:
     name: Compile (no_std)
@@ -41,11 +41,11 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Run cargo build
+      - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --features nostd,heapless
+          command: test
+          args: --no-default-features --features heapless,fixedvec -- --test-threads=1 --nocapture
 
   rustfmt:
     name: Rustfmt

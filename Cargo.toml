@@ -22,19 +22,20 @@ path = "src/lib.rs"
 
 [dependencies]
 ieee754 = "0.2.6"
-fixedvec = "0.2.4"
+fixedvec = { version = "0.2.4", optional = true }
 heapless = { version = "0.7.13", optional = true }
 
 [features]
-nostd = []
+default = ["std", "fullcontext"]
 std = []
-smallcontext = []
+fullcontext = []
 
 [dev-dependencies]
 rand = "0.7.3"
 crc16 = "0.4.0"
 serial = "0.4.0"
 lazy_static = { version = "1.4.0", features=["spin_no_std"], default-features = false }
+fixedvec = "0.2.4"
 spin = "0.5.2"
 
 [[example]]

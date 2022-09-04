@@ -3,10 +3,10 @@ use ieee754::Ieee754;
 
 // TODO variable length when const_generics become stable
 
-#[cfg(not(feature = "smallcontext"))]
+#[cfg(feature = "fullcontext")]
 pub const CONTEXT_SIZE: usize = 10_000; // divisible by 8 w/o remainder
 
-#[cfg(feature = "smallcontext")]
+#[cfg(not(feature = "fullcontext"))]
 pub const CONTEXT_SIZE: usize = 1_000;
 
 /// Contains standard Modbus register contexts

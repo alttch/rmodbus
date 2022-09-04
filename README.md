@@ -1,8 +1,13 @@
-# rmodbus - Modbus for Rust
+<h2>
+  rmodbus - Modbus for Rust
+  <a href="https://crates.io/crates/rmodbus"><img alt="crates.io page" src="https://img.shields.io/crates/v/rmodbus.svg"></img></a>
+  <a href="https://docs.rs/rmodbus"><img alt="docs.rs page" src="https://docs.rs/rmodbus/badge.svg"></img></a>
+  <a href="https://github.com/alttch/rmodbus/actions/workflows/ci.yml">
+    <img alt="GitHub Actions CI" src="https://github.com/alttch/rmodbus/actions/workflows/ci.yml/badge.svg"></img>
+  </a>
+</h2>
 
 A framework to build fast and reliable Modbus-powered applications.
-
-Cargo crate: <https://crates.io/crates/rmodbus>
 
 ## What is rmodbus
 
@@ -13,17 +18,11 @@ request/response codec, plus context manager.
 ## Why yet another Modbus lib?
 
 * rmodbus is transport- and protocol-independent
-
-* rmodbus is platform independent (**no\_std is fully supported!**)
-
+* rmodbus is platform independent (**`no_std` is fully supported!**)
 * can be easily used in blocking and async (non-blocking) applications
-
 * tuned for speed and reliability
-
 * provides a set of tools to easily work with Modbus context
-
 * supports client/server frame processing for Modbus TCP/UDP, RTU and ASCII
-
 * server context can be easily managed, imported and exported
 
 ## So no server is included?
@@ -100,18 +99,16 @@ repository](https://github.com/alttch/rmodbus).
 Launch the examples as:
 
 ```shell
-cargo run --example app --features std
-cargo run --example tcpserver --features std
+cargo run --example app
+cargo run --example tcpserver
 ```
 
 ## Modbus context
 
 The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
 registers and 10k+10k coils are usually more than enough. This takes about
-43Kbytes of RAM, but if you need to reduce context size, download the library
-source and change *CONTEXT_SIZE* constant in "context.rs". There is also a
-"smallcontext", features, which makes context 10x more compact by reducing
-number of each register type and is cool for embedded apps.
+59Kbytes of RAM. You can also opt-out of the `fullcontext` feature, to make the
+context 10x more compact (6Kbytes) by reducing number of each register type.
 
 rmodbus server context is thread-safe, easy to use and has a lot of functions.
 
@@ -186,37 +183,35 @@ fn save(fname: &str, ctx: &ModbusContext) -> Result<(), std::io::Error> {
 To let the above program communicate with outer world, Modbus server must be up
 and running in the separate thread, asynchronously or whatever is preferred.
 
-## no\_std
+## `no_std`
 
-rmodbus supports no\_std mode. Most of the library code is written the way to
-support both std and no\_std.
+rmodbus supports `no_std` mode. Most of the library code is written the way to
+support both `std` and `no_std`.
 
-Set the dependency as:
+For `no_std`, set the dependency as:
 
 ```toml
-rmodbus = { version = "*", features = ["nostd"] }
+rmodbus = { version = "*", default-features = false, features = ["fullcontext"] }
 ```
 
 ## Small context
 
-Default Modbus context has 10000 registers of each type, which requires 42500
+The full Modbus context has 10000 registers of each type, which requires 60000
 bytes total. For systems with small RAM amount it is possible to reduce the
-context size to the 1000 registers of each type (4250 bytes) with the following
-feature:
+context size to 1000 registers of each type (6000 bytes) by not enabling the
+`fullcontext` feature:
 
 ```toml
-rmodbus = { version = "*", features = ["nostd", "smallcontext"] }
+rmodbus = { version = "*", default-features = false }
 ```
 
 ## Vectors
 
-Some of rmodbus functions use vectors to store result. In std mode, either
-standard std::vec::Vec or [FixedVec](https://crates.io/crates/fixedvec) can be
-used. In nostd mode, only FixedVec is supported.
+Some of rmodbus functions use vectors to store result.  Different vector types can be used:
 
-Also supported:
-
-* [heapless::Vec](https://crates.io/crates/heapless) with "heapless" feature
+- When the `std` feature is enabled (default), `std::vec::Vec` can be used.
+- With the `fixedvec` feature, [`fixedvec::FixedVec`](https://crates.io/crates/fixedvec) can be used.
+- With the `heapless` feature, [`heapless::Vec`](https://crates.io/crates/fixedvec) can be used.
 
 ## Modbus client
 
@@ -289,35 +284,3 @@ fn main() {
     }
 }
 ```
-
-## Changelog
-
-### v0.6
-
-* guess\_request\_frame\_len function now supports TCP (and perhaps UDP)
-
-* huge code refactoring, fixed and formatted for the nowadays Rust standards
-
-* majority of functions correctly check overflows and report errors instead of
-  invalid values/panics
-
-### v0.5
-
-* Common functions and structures moved to main crate module
-
-* Modbus client
-
-### v0.4
-
-* Modbus context is no longer created automatically and no mutex guard is
-  provided by default. Use ModbusContext::new() to create context object and
-  then use it as you wish - protect with any kind of Mutex, with RwLock or just
-  put into UnsafeCell.
-
-* Context SDK changes: all functions moved inside context, removed unnecessary
-  ones, function args optimized.
-
-* FixedVec support included by default, both in std and nostd.
-
-* Added support for 64-bit integers
-

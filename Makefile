@@ -5,13 +5,10 @@ all: test
 test: test-std test-nostd test-nostd-smallcontext
 
 test-std:
-	cargo test -- --test-threads=1 --nocapture
+	cargo test --all-features -- --test-threads=1 --nocapture
 
 test-nostd:
-	cargo test --features nostd -- --test-threads=1 --nocapture
-
-test-nostd-smallcontext:
-	cargo test --features "nostd smallcontext" -- --test-threads=1 --nocapture
+	cargo test --no-default-features -- --test-threads=1 --nocapture
 
 tag:
 	git tag -a v${VERSION} -m v${VERSION}

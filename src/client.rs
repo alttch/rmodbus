@@ -1,8 +1,5 @@
-use crate::{
-    calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait, MODBUS_GET_COILS,
-    MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS, MODBUS_GET_INPUTS, MODBUS_SET_COIL,
-    MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING, MODBUS_SET_HOLDINGS_BULK,
-};
+use crate::consts::*;
+use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
 
 /// Modbus client generator/processor
 ///
@@ -300,7 +297,7 @@ impl ModbusRequest {
     /// (getting holdings, inputs)
     ///
     /// The input buffer SHOULD be cut to actual response length
-    #[cfg(not(feature = "nostd"))]
+    #[cfg(feature = "std")]
     pub fn parse_string(&self, buf: &[u8], result: &mut String) -> Result<(), ErrorKind> {
         let (frame_start, frame_end) = match self.parse_response(buf) {
             Ok(v) => v,
