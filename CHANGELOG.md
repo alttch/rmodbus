@@ -1,6 +1,6 @@
 ## Changelog
 
-### Unreleased
+### v0.6.3
 
 * Moved modbus constants into a `consts` module.
 * Reworked the crate dependency and cargo-feature structure.  Features are now
