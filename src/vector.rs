@@ -1,5 +1,6 @@
 use crate::ErrorKind;
 
+#[allow(clippy::module_name_repetitions)]
 pub trait VectorTrait<T: Copy> {
     fn push(&mut self, value: T) -> Result<(), ErrorKind>;
     fn extend(&mut self, other: &[T]) -> Result<(), ErrorKind>;

@@ -1,3 +1,4 @@
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ErrorKind {
     OOB,
