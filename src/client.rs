@@ -1,4 +1,7 @@
-use crate::consts::*;
+use crate::consts::{
+    MODBUS_GET_COILS, MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS, MODBUS_GET_INPUTS,
+    MODBUS_SET_COIL, MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING, MODBUS_SET_HOLDINGS_BULK,
+};
 use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
 
 /// Modbus client generator/processor
