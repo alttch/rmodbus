@@ -15,6 +15,9 @@ rmodbus is not a yet another Modbus client/server. rmodbus is a set of tools to
 quickly build Modbus-powered applications. Consider rmodbus is a
 request/response codec, plus context manager.
 
+rmodbus is a part of [EVA ICS v4](https://www.eva-ics.com/) industrial
+automation stack.
+
 ## Why yet another Modbus lib?
 
 * rmodbus is transport- and protocol-independent
