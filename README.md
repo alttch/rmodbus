@@ -110,8 +110,7 @@ cargo run --example tcpserver
 
 The rule is simple: one standard Modbus context per application. 10k+10k 16-bit
 registers and 10k+10k coils are usually more than enough. This takes about
-59Kbytes of RAM. You can also opt-out of the `fullcontext` feature, to make the
-context 10x more compact (6Kbytes) by reducing number of each register type.
+59Kbytes of RAM.
 
 rmodbus server context is thread-safe, easy to use and has a lot of functions.
 
@@ -216,7 +215,7 @@ support both `std` and `no_std`.
 For `no_std`, set the dependency as:
 
 ```toml
-rmodbus = { version = "*", default-features = false, features = ["fullcontext"] }
+rmodbus = { version = "*", default-features = false }
 ```
 
 ## Small context
