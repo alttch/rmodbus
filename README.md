@@ -230,9 +230,9 @@ use rmodbus::server::context::ModbusContextSmall;
 
 ## Custom-sized context
 
-Starting from the version 0.7, it is allowed to define context of any size,
-using generic constants. The generic constants order is: coils, discretes,
-inputs, holdings.
+Starting from the version 0.7 it is allowed to define context of any size using
+generic constants. The generic constants order is: coils, discretes, inputs,
+holdings.
 
 E.g. let us define a context for 128 coils, 16 discretes, 0 inputs and 100
 holdings:
