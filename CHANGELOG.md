@@ -1,5 +1,12 @@
 ## Changelog
 
+### v0.7.0
+
+* ModbusContext has become a struct with custom context sizes with generic
+  constants
+* Use ModbusContextSmall for small contexts and ModbusContextFull for big ones
+* Removed built-in dump/restore methods (use serde, bincode or custom ones)
+
 ### v0.6.3
 
 * Moved modbus constants into a `consts` module.

@@ -1,16 +1,13 @@
-use fixedvec::alloc_stack;
-
 use crate::client::*;
-use crate::server::context::*;
+use crate::server::context::{ModbusContextSmall, SMALL_CONTEXT_SIZE as CONTEXT_SIZE};
 use crate::server::*;
 use crate::*;
-
+use fixedvec::alloc_stack;
 use fixedvec::FixedVec;
-use rand::Rng;
 use spin::RwLock;
 
 lazy_static! {
-    pub static ref CTX: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
+    pub static ref CTX: RwLock<ModbusContextSmall> = RwLock::new(ModbusContextSmall::new());
 }
 
 #[test]
@@ -161,70 +158,6 @@ fn test_nostd_get_set_bools_as_u8() {
     ctx.get_coils_bulk(0, data.len() as u16, &mut result)
         .unwrap();
     assert_eq!(result, data);
-}
-
-#[test]
-fn test_nostd_dump_restore() {
-    let mut ctx = CTX.write();
-    let mut rng = rand::thread_rng();
-    let mut coils_mem = alloc_stack!([bool; CONTEXT_SIZE]);
-    let mut discretes_mem = alloc_stack!([bool; CONTEXT_SIZE]);
-    let mut inputs_mem = alloc_stack!([u16; CONTEXT_SIZE]);
-    let mut holdings_mem = alloc_stack!([u16; CONTEXT_SIZE]);
-    let mut mycoils = FixedVec::new(&mut coils_mem);
-    let mut mydiscretes = FixedVec::new(&mut discretes_mem);
-    let mut myinputs = FixedVec::new(&mut inputs_mem);
-    let mut myholdings = FixedVec::new(&mut holdings_mem);
-    for _ in 0..CONTEXT_SIZE {
-        mycoils.push(rng.gen()).unwrap();
-        mydiscretes.push(rng.gen()).unwrap();
-        myholdings.push(rng.gen()).unwrap();
-        myinputs.push(rng.gen()).unwrap();
-    }
-    ctx.clear_all();
-    ctx.set_coils_bulk(0, &mycoils.as_slice()).unwrap();
-    ctx.set_discretes_bulk(0, &mydiscretes.as_slice()).unwrap();
-    ctx.set_holdings_bulk(0, &myholdings.as_slice()).unwrap();
-    ctx.set_inputs_bulk(0, &myinputs.as_slice()).unwrap();
-    let mut dump_mem = alloc_stack!([u8; CONTEXT_SIZE * 17 / 4]);
-    let mut dump = FixedVec::new(&mut dump_mem);
-    for i in 0..CONTEXT_SIZE * 17 / 4 {
-        dump.push(ctx.get_cell(i as u16).unwrap()).unwrap();
-    }
-    ctx.clear_all();
-    let mut offset = 0;
-    for value in &dump {
-        ctx.set_cell(offset, *value).unwrap();
-        offset = offset + 1;
-    }
-    let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
-    let mut result = FixedVec::new(&mut result_mem);
-    ctx.get_coils_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, mycoils);
-    result.clear();
-    ctx.get_discretes_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, mydiscretes);
-    result.clear();
-
-    let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
-    let mut result = FixedVec::new(&mut result_mem);
-    ctx.get_inputs_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, myinputs);
-    result.clear();
-    ctx.get_holdings_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, myholdings);
-    result.clear();
-
-    let mut dump2_mem = alloc_stack!([u8; CONTEXT_SIZE * 17 / 4]);
-    let mut dump2 = FixedVec::new(&mut dump2_mem);
-    for value in ctx.iter() {
-        dump2.push(value).unwrap();
-    }
-    assert_eq!(dump, dump2);
 }
 
 fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {

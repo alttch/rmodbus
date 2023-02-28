@@ -2,7 +2,7 @@ VERSION=$(shell grep ^version Cargo.toml|cut -d\" -f2)
 
 all: test
 
-test: test-std test-nostd test-nostd-smallcontext
+test: test-std test-nostd
 
 test-std:
 	cargo test --all-features -- --test-threads=1 --nocapture

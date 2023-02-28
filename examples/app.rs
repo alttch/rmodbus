@@ -1,7 +1,8 @@
+use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 
-use rmodbus::server::context::ModbusContext;
+use rmodbus::server::context::ModbusContextFull;
 
 #[path = "servers/tcp.rs"]
 mod srv;
@@ -44,37 +45,21 @@ fn looping() {
     }
 }
 
-fn save(fname: &str, ctx: &ModbusContext) -> Result<(), std::io::Error> {
-    let mut file = match File::create(fname) {
-        Ok(v) => v,
-        Err(e) => return Err(e),
-    };
-    for i in ctx.iter() {
-        match file.write(&[i]) {
-            Ok(_) => {}
-            Err(e) => return Err(e),
-        }
-    }
-    match file.sync_all() {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    }
-    return Ok(());
+fn save(fname: &str, ctx: &ModbusContextFull) -> Result<(), Box<dyn Error>> {
+    let config = bincode::config::standard();
+    let mut file = File::create(fname)?;
+    file.write(&bincode::encode_to_vec(ctx, config)?)?;
+    file.sync_all()?;
+    Ok(())
 }
 
-fn load(fname: &str, ctx: &mut ModbusContext) -> Result<(), std::io::Error> {
-    let mut file = match File::open(fname) {
-        Ok(v) => v,
-        Err(e) => return Err(e),
-    };
+fn load(fname: &str, ctx: &mut ModbusContextFull) -> Result<(), Box<dyn Error>> {
+    let config = bincode::config::standard();
+    let mut file = File::open(fname)?;
     let mut data: Vec<u8> = Vec::new();
-    match file.read_to_end(&mut data) {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    }
-    let mut writer = ctx.create_writer();
-    writer.write_bulk(data.as_slice()).unwrap();
-    return Ok(());
+    file.read_to_end(&mut data)?;
+    (*ctx, _) = bincode::decode_from_slice(&data, config)?;
+    Ok(())
 }
 
 fn main() {

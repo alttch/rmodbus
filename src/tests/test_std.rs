@@ -1,15 +1,12 @@
 use crate::client::*;
-use crate::server::context::*;
+use crate::server::context::{ModbusContextFull, FULL_CONTEXT_SIZE as CONTEXT_SIZE};
 use crate::server::*;
 use crate::*;
-
 use crc16::*;
-use rand::Rng;
-
 use std::sync::RwLock;
 
 lazy_static! {
-    pub static ref CTX: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
+    pub static ref CTX: RwLock<ModbusContextFull> = RwLock::new(ModbusContextFull::new());
 }
 
 #[test]
@@ -368,76 +365,6 @@ fn test_std_get_set_bools_as_u8() {
     ctx.get_coils_bulk(0, data.len() as u16, &mut result)
         .unwrap();
     assert_eq!(result, data);
-}
-
-#[test]
-fn test_std_dump_restore() {
-    let mut rng = rand::thread_rng();
-    let mut mycoils: Vec<bool> = Vec::new();
-    let mut mydiscretes: Vec<bool> = Vec::new();
-    let mut myholdings: Vec<u16> = Vec::new();
-    let mut myinputs: Vec<u16> = Vec::new();
-    for _ in 0..CONTEXT_SIZE {
-        mycoils.push(rng.gen());
-        mydiscretes.push(rng.gen());
-        myholdings.push(rng.gen());
-        myinputs.push(rng.gen());
-    }
-    let mut ctx = CTX.write().unwrap();
-    ctx.clear_all();
-    ctx.set_coils_bulk(0, &mycoils).unwrap();
-    ctx.set_discretes_bulk(0, &mydiscretes).unwrap();
-    ctx.set_holdings_bulk(0, &myholdings).unwrap();
-    ctx.set_inputs_bulk(0, &myinputs).unwrap();
-    let mut dump: Vec<u8> = Vec::new();
-    {
-        for i in 0..CONTEXT_SIZE * 17 / 4 {
-            dump.push(ctx.get_cell(i as u16).unwrap());
-        }
-    }
-    ctx.clear_all();
-    let mut offset = 0;
-    for value in &dump {
-        ctx.set_cell(offset, *value).unwrap();
-        offset = offset + 1;
-    }
-    let mut result = Vec::new();
-    ctx.get_coils_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, mycoils);
-    result.clear();
-    ctx.get_discretes_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, mydiscretes);
-    result.clear();
-
-    let mut result = Vec::new();
-    ctx.get_inputs_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, myinputs);
-    result.clear();
-    ctx.get_holdings_bulk(0, CONTEXT_SIZE as u16, &mut result)
-        .unwrap();
-    assert_eq!(result, myholdings);
-    result.clear();
-
-    let mut dump2: Vec<u8> = Vec::new();
-    for value in ctx.iter() {
-        dump2.push(value);
-    }
-    assert_eq!(dump, dump2);
-    ctx.clear_all();
-    let mut writer = ctx.create_writer();
-    for data in dump.chunks(500) {
-        writer.write_bulk(&data).unwrap();
-    }
-
-    let mut dump2: Vec<u8> = Vec::new();
-    for value in ctx.iter() {
-        dump2.push(value);
-    }
-
-    assert_eq!(dump, dump2);
 }
 
 fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
@@ -957,7 +884,7 @@ fn test_std_frame_fc16() {
 
 #[test]
 fn test_modbus_ascii() {
-    let ctx = ModbusContext::new();
+    let ctx = ModbusContextFull::new();
     let mut result = Vec::new();
     let mut ascii_result = Vec::new();
     let request = [

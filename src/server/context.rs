@@ -1,27 +1,39 @@
 use super::super::{ErrorKind, VectorTrait};
+#[cfg(feature = "with_bincode")]
+use bincode::{Decode, Encode};
 use ieee754::Ieee754;
+#[cfg(feature = "with_serde")]
+use serde::{Deserialize, Serialize};
 
-// TODO variable length when const_generics become stable
+pub const SMALL_CONTEXT_SIZE: usize = 1_000;
+pub const FULL_CONTEXT_SIZE: usize = 10_000;
 
-#[cfg(feature = "fullcontext")]
-pub const CONTEXT_SIZE: usize = 10_000; // divisible by 8 w/o remainder
-
-#[cfg(not(feature = "fullcontext"))]
-pub const CONTEXT_SIZE: usize = 1_000;
+/// Small context (1000) registers per type
+pub type ModbusContextSmall =
+    ModbusContext<SMALL_CONTEXT_SIZE, SMALL_CONTEXT_SIZE, SMALL_CONTEXT_SIZE, SMALL_CONTEXT_SIZE>;
+/// Full context (10000) registers per type
+pub type ModbusContextFull =
+    ModbusContext<FULL_CONTEXT_SIZE, FULL_CONTEXT_SIZE, FULL_CONTEXT_SIZE, FULL_CONTEXT_SIZE>;
 
 /// Contains standard Modbus register contexts
 #[allow(clippy::module_name_repetitions)]
-pub struct ModbusContext {
-    pub coils: [bool; CONTEXT_SIZE],
-    pub discretes: [bool; CONTEXT_SIZE],
-    pub inputs: [u16; CONTEXT_SIZE],
-    pub holdings: [u16; CONTEXT_SIZE],
+#[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
+pub struct ModbusContext<const C: usize, const D: usize, const I: usize, const H: usize> {
+    #[cfg_attr(feature = "with_serde", serde(with = "serde_arrays"))]
+    pub coils: [bool; C],
+    #[cfg_attr(feature = "with_serde", serde(with = "serde_arrays"))]
+    pub discretes: [bool; D],
+    #[cfg_attr(feature = "with_serde", serde(with = "serde_arrays"))]
+    pub inputs: [u16; I],
+    #[cfg_attr(feature = "with_serde", serde(with = "serde_arrays"))]
+    pub holdings: [u16; H],
 }
 
 macro_rules! get_regs_as_u8 {
-    ($reg_context:expr, $reg:expr, $count:expr, $result:expr) => {{
+    ($reg_context:expr, $reg:expr, $count:expr, $result:expr, $ctx_size: expr) => {{
         let reg_to = $reg as usize + $count as usize;
-        if reg_to > CONTEXT_SIZE {
+        if reg_to > $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             for c in $reg as usize..reg_to {
@@ -34,9 +46,9 @@ macro_rules! get_regs_as_u8 {
 }
 
 macro_rules! get_bools_as_u8 {
-    ($reg_context:expr, $reg:expr, $count:expr, $result:expr) => {{
+    ($reg_context:expr, $reg:expr, $count:expr, $result:expr, $ctx_size: expr) => {{
         let reg_to = $reg as usize + $count as usize;
-        if reg_to > CONTEXT_SIZE {
+        if reg_to > $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             let mut creg = $reg as usize;
@@ -59,9 +71,9 @@ macro_rules! get_bools_as_u8 {
 }
 
 macro_rules! set_regs_from_u8 {
-    ($reg_context:expr, $reg:expr, $values:expr) => {{
+    ($reg_context:expr, $reg:expr, $values:expr, $ctx_size: expr) => {{
         let len = $values.len();
-        if $reg as usize + len / 2 > CONTEXT_SIZE {
+        if $reg as usize + len / 2 > $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             let mut i = 0;
@@ -83,9 +95,9 @@ macro_rules! set_regs_from_u8 {
 }
 
 macro_rules! set_bools_from_u8 {
-    ($reg_context:expr, $reg:expr, $count:expr, $values:expr) => {{
+    ($reg_context:expr, $reg:expr, $count:expr, $values:expr, $ctx_size: expr) => {{
         let reg_to = $reg as usize + $count as usize;
-        if reg_to > CONTEXT_SIZE {
+        if reg_to > $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             let mut creg = $reg as usize;
@@ -114,9 +126,9 @@ macro_rules! set_bools_from_u8 {
 }
 
 macro_rules! get_bulk {
-    ($reg_context:expr, $reg:expr, $count:expr, $result:expr) => {{
+    ($reg_context:expr, $reg:expr, $count:expr, $result:expr, $ctx_size: expr) => {{
         let reg_to = $reg as usize + $count as usize;
-        if reg_to > CONTEXT_SIZE {
+        if reg_to > $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             $result.extend(&$reg_context[$reg as usize..reg_to])?;
@@ -126,8 +138,8 @@ macro_rules! get_bulk {
 }
 
 macro_rules! set_bulk {
-    ($reg_context:expr, $reg:expr, $values:expr) => {
-        if $reg as usize + $values.len() > CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $values:expr, $ctx_size: expr) => {
+        if $reg as usize + $values.len() > $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             for (i, value) in $values.iter().enumerate() {
@@ -139,8 +151,8 @@ macro_rules! set_bulk {
 }
 
 macro_rules! get {
-    ($reg_context:expr, $reg:expr) => {
-        if $reg as usize >= CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $ctx_size: expr) => {
+        if $reg as usize >= $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             Ok($reg_context[$reg as usize])
@@ -149,8 +161,8 @@ macro_rules! get {
 }
 
 macro_rules! set {
-    ($reg_context:expr, $reg:expr, $value:expr) => {
-        if $reg as usize >= CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $value:expr, $ctx_size: expr) => {
+        if $reg as usize >= $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             $reg_context[$reg as usize] = $value;
@@ -160,8 +172,8 @@ macro_rules! set {
 }
 
 macro_rules! get_u32 {
-    ($reg_context:expr, $reg:expr) => {
-        if $reg as usize + 1 >= CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $ctx_size: expr) => {
+        if $reg as usize + 1 >= $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             Ok((($reg_context[$reg as usize] as u32) << 16)
@@ -171,8 +183,8 @@ macro_rules! get_u32 {
 }
 
 macro_rules! set_u32 {
-    ($reg_context:expr, $reg:expr, $value:expr) => {
-        if $reg as usize + 1 >= CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $value:expr, $ctx_size: expr) => {
+        if $reg as usize + 1 >= $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             $reg_context[$reg as usize] = ($value >> 16) as u16;
@@ -183,8 +195,8 @@ macro_rules! set_u32 {
 }
 
 macro_rules! get_u64 {
-    ($reg_context:expr, $reg:expr) => {
-        if $reg as usize + 3 >= CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $ctx_size: expr) => {
+        if $reg as usize + 3 >= $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             Ok((($reg_context[$reg as usize] as u64) << 48)
@@ -196,8 +208,8 @@ macro_rules! get_u64 {
 }
 
 macro_rules! set_u64 {
-    ($reg_context:expr, $reg:expr, $value:expr) => {
-        if $reg as usize + 3 >= CONTEXT_SIZE {
+    ($reg_context:expr, $reg:expr, $value:expr, $ctx_size: expr) => {
+        if $reg as usize + 3 >= $ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             $reg_context[$reg as usize] = ($value >> 48) as u16;
@@ -209,84 +221,66 @@ macro_rules! set_u64 {
     };
 }
 
-impl Default for ModbusContext {
+impl<const C: usize, const D: usize, const I: usize, const H: usize> Default
+    for ModbusContext<C, D, I, H>
+{
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ModbusContext {
+impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusContext<C, D, I, H> {
+    /// Define a custom-sized context
+    ///
+    /// The generic constants order is: coils, discretes, inputs, holdings
+    ///
+    /// E.g. let us define a context for 128 coils, 16 discretes, 0 inputs and 100 holdings:
+    ///
+    /// ```
+    /// use rmodbus::server::context::ModbusContext;
+    ///
+    /// let context = ModbusContext::<128, 16, 0, 100>::new();
+    /// ```
     #[inline]
     pub fn new() -> Self {
         Self {
-            coils: [false; CONTEXT_SIZE],
-            discretes: [false; CONTEXT_SIZE],
-            inputs: [0; CONTEXT_SIZE],
-            holdings: [0; CONTEXT_SIZE],
+            coils: [false; C],
+            discretes: [false; D],
+            inputs: [0; I],
+            holdings: [0; H],
         }
     }
 
     pub fn clear_all(&mut self) {
-        for i in 0..CONTEXT_SIZE {
-            self.coils[i] = false;
-            self.discretes[i] = false;
-            self.inputs[i] = 0;
-            self.holdings[i] = 0;
-        }
+        self.clear_coils();
+        self.clear_discretes();
+        self.clear_inputs();
+        self.clear_holdings();
     }
 
     pub fn clear_coils(&mut self) {
-        for i in 0..CONTEXT_SIZE {
+        for i in 0..C {
             self.coils[i] = false;
         }
     }
 
     pub fn clear_discretes(&mut self) {
-        for i in 0..CONTEXT_SIZE {
+        for i in 0..D {
             self.discretes[i] = false;
         }
     }
 
     pub fn clear_inputs(&mut self) {
-        for i in 0..CONTEXT_SIZE {
+        for i in 0..I {
             self.inputs[i] = 0;
         }
     }
 
     pub fn clear_holdings(&mut self) {
-        for i in 0..CONTEXT_SIZE {
+        for i in 0..H {
             self.holdings[i] = 0;
         }
-    }
-
-    /// Create context iterator
-    ///
-    /// Iterate Modbus context as u8
-    ///
-    /// Useful for dump creation. To restore dump back, use "set_cell"
-    /// or "create_writer"
-    ///```
-    ///use rmodbus::server::context::*;
-    ///
-    ///let mut ctx = ModbusContext::new();
-    ///
-    ///for value in ctx.iter() {
-    ///    // store value somewhere
-    ///}
-    #[inline]
-    pub fn iter(&self) -> ModbusContextIterator {
-        ModbusContextIterator { curr: 0, ctx: self }
-    }
-
-    /// Iterate Modbus context as u8
-    ///
-    /// Useful for dump creation. To restore dump back, use "set_context_cell"
-    /// or ModbusContextWriter::new()
-    ///
-    #[inline]
-    pub fn create_writer(&mut self) -> ModbusContextWriter {
-        ModbusContextWriter { curr: 0, ctx: self }
     }
 
     /// Get inputs as Vec<u8>
@@ -298,7 +292,7 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_regs_as_u8!(self.inputs, reg, count, result)
+        get_regs_as_u8!(self.inputs, reg, count, result, I)
     }
 
     /// Get holdings as Vec<u8>
@@ -310,17 +304,17 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_regs_as_u8!(self.holdings, reg, count, result)
+        get_regs_as_u8!(self.holdings, reg, count, result, H)
     }
 
     /// Set inputs from &Vec<u8>
     pub fn set_inputs_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_regs_from_u8!(self.inputs, reg, values)
+        set_regs_from_u8!(self.inputs, reg, values, I)
     }
 
     /// Set holdings from &Vec<u8>
     pub fn set_holdings_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_regs_from_u8!(self.holdings, reg, values)
+        set_regs_from_u8!(self.holdings, reg, values, H)
     }
 
     /// Get coils as Vec<u8>
@@ -332,7 +326,7 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bools_as_u8!(self.coils, reg, count, result)
+        get_bools_as_u8!(self.coils, reg, count, result, C)
     }
 
     /// Get discretes as Vec<u8>
@@ -344,7 +338,7 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bools_as_u8!(self.discretes, reg, count, result)
+        get_bools_as_u8!(self.discretes, reg, count, result, D)
     }
 
     /// Set coils from &Vec<u8>
@@ -357,7 +351,7 @@ impl ModbusContext {
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind> {
-        set_bools_from_u8!(self.coils, reg, count, values)
+        set_bools_from_u8!(self.coils, reg, count, values, C)
     }
 
     /// Set discretes from &Vec<u8>
@@ -370,7 +364,7 @@ impl ModbusContext {
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind> {
-        set_bools_from_u8!(self.discretes, reg, count, values)
+        set_bools_from_u8!(self.discretes, reg, count, values, D)
     }
 
     /// Bulk get coils
@@ -382,7 +376,7 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bulk!(self.coils, reg, count, result)
+        get_bulk!(self.coils, reg, count, result, C)
     }
 
     /// Bulk get discretes
@@ -394,7 +388,7 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bulk!(self.discretes, reg, count, result)
+        get_bulk!(self.discretes, reg, count, result, D)
     }
 
     /// Bulk get inputs
@@ -406,7 +400,7 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bulk!(self.inputs, reg, count, result)
+        get_bulk!(self.inputs, reg, count, result, I)
     }
 
     /// Bulk get holdings
@@ -418,123 +412,123 @@ impl ModbusContext {
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bulk!(self.holdings, reg, count, result)
+        get_bulk!(self.holdings, reg, count, result, H)
     }
 
     /// Bulk set coils
     pub fn set_coils_bulk(&mut self, reg: u16, values: &[bool]) -> Result<(), ErrorKind> {
-        set_bulk!(self.coils, reg, values)
+        set_bulk!(self.coils, reg, values, C)
     }
 
     /// Bulk set discretes
     pub fn set_discretes_bulk(&mut self, reg: u16, values: &[bool]) -> Result<(), ErrorKind> {
-        set_bulk!(self.discretes, reg, values)
+        set_bulk!(self.discretes, reg, values, D)
     }
 
     /// Bulk set inputs
     pub fn set_inputs_bulk(&mut self, reg: u16, values: &[u16]) -> Result<(), ErrorKind> {
-        set_bulk!(self.inputs, reg, values)
+        set_bulk!(self.inputs, reg, values, I)
     }
 
     /// Bulk set holdings
     pub fn set_holdings_bulk(&mut self, reg: u16, values: &[u16]) -> Result<(), ErrorKind> {
-        set_bulk!(self.holdings, reg, values)
+        set_bulk!(self.holdings, reg, values, H)
     }
 
     /// Get a single coil
     pub fn get_coil(&self, reg: u16) -> Result<bool, ErrorKind> {
-        get!(self.coils, reg)
+        get!(self.coils, reg, C)
     }
 
     /// Get a single discrete
     pub fn get_discrete(&self, reg: u16) -> Result<bool, ErrorKind> {
-        get!(self.discretes, reg)
+        get!(self.discretes, reg, D)
     }
 
     /// Get a single input
     pub fn get_input(&self, reg: u16) -> Result<u16, ErrorKind> {
-        get!(self.inputs, reg)
+        get!(self.inputs, reg, I)
     }
 
     /// Get a single holding
     pub fn get_holding(&self, reg: u16) -> Result<u16, ErrorKind> {
-        get!(self.holdings, reg)
+        get!(self.holdings, reg, H)
     }
 
     /// Set a single coil
     pub fn set_coil(&mut self, reg: u16, value: bool) -> Result<(), ErrorKind> {
-        set!(self.coils, reg, value)
+        set!(self.coils, reg, value, C)
     }
 
     /// Set a single discrete
     pub fn set_discrete(&mut self, reg: u16, value: bool) -> Result<(), ErrorKind> {
-        set!(self.discretes, reg, value)
+        set!(self.discretes, reg, value, D)
     }
 
     /// Set a single input
     pub fn set_input(&mut self, reg: u16, value: u16) -> Result<(), ErrorKind> {
-        set!(self.inputs, reg, value)
+        set!(self.inputs, reg, value, I)
     }
 
     /// Set a single holding
     pub fn set_holding(&mut self, reg: u16, value: u16) -> Result<(), ErrorKind> {
-        set!(self.holdings, reg, value)
+        set!(self.holdings, reg, value, H)
     }
 
     /// Get two inputs as u32
     ///
     /// Returns 32-bit value (big-endian)
     pub fn get_inputs_as_u32(&self, reg: u16) -> Result<u32, ErrorKind> {
-        get_u32!(self.inputs, reg)
+        get_u32!(self.inputs, reg, I)
     }
 
     /// Get two holdings as u32
     ///
     /// Returns 32-bit value (big-endian)
     pub fn get_holdings_as_u32(&self, reg: u16) -> Result<u32, ErrorKind> {
-        get_u32!(self.holdings, reg)
+        get_u32!(self.holdings, reg, H)
     }
 
     /// Set two inputs from u32
     ///
     /// Uses 32-bit value to set two registers (big-endian)
     pub fn set_inputs_from_u32(&mut self, reg: u16, value: u32) -> Result<(), ErrorKind> {
-        set_u32!(self.inputs, reg, value)
+        set_u32!(self.inputs, reg, value, I)
     }
 
     /// Set two holdings from u32
     ///
     /// Uses 32-bit value to set two registers (big-endian)
     pub fn set_holdings_from_u32(&mut self, reg: u16, value: u32) -> Result<(), ErrorKind> {
-        set_u32!(self.holdings, reg, value)
+        set_u32!(self.holdings, reg, value, H)
     }
 
     /// Get four inputs as u64
     ///
     /// Returns 64-bit value (big-endian)
     pub fn get_inputs_as_u64(&self, reg: u16) -> Result<u64, ErrorKind> {
-        get_u64!(self.inputs, reg)
+        get_u64!(self.inputs, reg, I)
     }
 
     /// Get four holdings as u64
     ///
     /// Returns 64-bit value (big-endian)
     pub fn get_holdings_as_u64(&self, reg: u16) -> Result<u64, ErrorKind> {
-        get_u64!(self.holdings, reg)
+        get_u64!(self.holdings, reg, H)
     }
 
     /// Set four inputs from u64
     ///
     /// Uses 64-bit value to set four registers (big-endian)
     pub fn set_inputs_from_u64(&mut self, reg: u16, value: u64) -> Result<(), ErrorKind> {
-        set_u64!(self.inputs, reg, value)
+        set_u64!(self.inputs, reg, value, I)
     }
 
     /// Set four holdings from u64
     ///
     /// Uses 64-bit value to set four registers (big-endian)
     pub fn set_holdings_from_u64(&mut self, reg: u16, value: u64) -> Result<(), ErrorKind> {
-        set_u64!(self.holdings, reg, value)
+        set_u64!(self.holdings, reg, value, H)
     }
 
     /// Get two input registers as IEEE754 32-bit float
@@ -559,180 +553,5 @@ impl ModbusContext {
     #[inline]
     pub fn set_holdings_from_f32(&mut self, reg: u16, value: f32) -> Result<(), ErrorKind> {
         self.set_holdings_from_u32(reg, value.bits())
-    }
-
-    /// Get context cell as u8 byte
-    ///
-    /// 16-bit registers are returned as big-endians
-    ///
-    /// Offset, for CONTEXT_SIZE = 10000:
-    ///
-    /// * 0 - 1249: coils as u8
-    /// * 1250 - 2499: discretes as u8
-    /// * 2500 - 22499: inputs as u8
-    /// * 22500 - 42499: holdings as u8
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn get_cell(&self, offset: u16) -> Result<u8, ErrorKind> {
-        let bool_ctx_size: usize = CONTEXT_SIZE >> 3;
-        let u16_ctx_size: usize = CONTEXT_SIZE << 1;
-        if offset < bool_ctx_size as u16 {
-            Ok(get_b_u8(offset * 8, &self.coils))
-        } else if offset < bool_ctx_size as u16 * 2 {
-            Ok(get_b_u8(
-                (offset - bool_ctx_size as u16) * 8,
-                &self.discretes,
-            ))
-        } else if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 {
-            Ok(get_w_u8(
-                (offset - bool_ctx_size as u16 * 2) / 2,
-                offset % 2 == 0,
-                &self.inputs,
-            ))
-        } else if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 * 2 {
-            Ok(get_w_u8(
-                (offset - (bool_ctx_size as u16 * 2 + u16_ctx_size as u16)) / 2,
-                offset % 2 == 0,
-                &self.holdings,
-            ))
-        } else {
-            Err(ErrorKind::OOBContext)
-        }
-    }
-
-    /// Set context cell as u8 byte
-    ///
-    /// 16-bit registers are returned as big-endians
-    ///
-    /// Offset, for CONTEXT_SIZE = 10000:
-    ///
-    /// * 0 - 1249: coils as u8
-    /// * 1250 - 2499: discretes as u8
-    /// * 2500 - 22499: inputs as u8
-    /// * 22500- 42499: holdings as u8
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn set_cell(&mut self, offset: u16, value: u8) -> Result<(), ErrorKind> {
-        let bool_ctx_size: usize = CONTEXT_SIZE >> 3;
-        let u16_ctx_size: usize = CONTEXT_SIZE << 1;
-        if offset < bool_ctx_size as u16 {
-            set_b_u8(offset * 8, value, &mut self.coils);
-            Ok(())
-        } else if offset < bool_ctx_size as u16 * 2 {
-            set_b_u8(
-                (offset - bool_ctx_size as u16) * 8,
-                value,
-                &mut self.discretes,
-            );
-            Ok(())
-        } else if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 {
-            set_w_u8(
-                (offset - bool_ctx_size as u16 * 2) / 2,
-                offset % 2 == 0,
-                value,
-                &mut self.inputs,
-            );
-            Ok(())
-        } else if offset < bool_ctx_size as u16 * 2 + u16_ctx_size as u16 * 2 {
-            set_w_u8(
-                (offset - (bool_ctx_size as u16 * 2 + u16_ctx_size as u16)) / 2,
-                offset % 2 == 0,
-                value,
-                &mut self.holdings,
-            );
-            Ok(())
-        } else {
-            Err(ErrorKind::OOBContext)
-        }
-    }
-}
-
-//
-// import / export
-//
-fn get_b_u8(reg_start: u16, reg_context: &[bool]) -> u8 {
-    let mut cbyte = 0;
-    for i in 0..8 {
-        if reg_context[reg_start as usize + i] {
-            cbyte |= 1 << i;
-        }
-    }
-    cbyte
-}
-
-fn set_b_u8(reg_start: u16, value: u8, reg_context: &mut [bool]) {
-    let mut b = value;
-    for i in 0..8 {
-        reg_context[reg_start as usize + i] = b & 1_u8 == 1;
-        b >>= 1;
-    }
-}
-
-#[allow(clippy::cast_possible_truncation)]
-fn get_w_u8(reg_start: u16, higher: bool, reg_context: &[u16]) -> u8 {
-    if higher {
-        (reg_context[reg_start as usize] >> 8) as u8
-    } else {
-        reg_context[(reg_start as usize)] as u8
-    }
-}
-
-fn set_w_u8(reg_start: u16, higher: bool, value: u8, reg_context: &mut [u16]) {
-    if higher {
-        reg_context[reg_start as usize] =
-            reg_context[reg_start as usize] & 0x00ff | (u16::from(value)) << 8;
-    } else {
-        reg_context[reg_start as usize] =
-            reg_context[reg_start as usize] & 0xff00 | (u16::from(value));
-    }
-}
-
-/// A tool to write dumped data back to context
-///
-/// Can write bytes and chunks (&[u8] slices)
-pub struct ModbusContextWriter<'a> {
-    curr: u16,
-    ctx: &'a mut ModbusContext,
-}
-
-impl<'a> ModbusContextWriter<'a> {
-    pub fn new(start_offset: u16, ctx: &'a mut ModbusContext) -> Self {
-        Self {
-            curr: start_offset,
-            ctx,
-        }
-    }
-    pub fn write(&mut self, value: u8) -> Result<(), ErrorKind> {
-        let result = self.ctx.set_cell(self.curr, value);
-        if result.is_ok() {
-            self.curr += 1;
-        }
-        result
-    }
-
-    pub fn set_pos(&mut self, offset: u16) {
-        self.curr = offset;
-    }
-
-    pub fn write_bulk(&mut self, values: &[u8]) -> Result<(), ErrorKind> {
-        for v in values {
-            self.write(*v)?;
-        }
-        Ok(())
-    }
-}
-
-pub struct ModbusContextIterator<'a> {
-    curr: u16,
-    ctx: &'a ModbusContext,
-}
-
-impl<'a> Iterator for ModbusContextIterator<'a> {
-    type Item = u8;
-    fn next(&mut self) -> Option<u8> {
-        if let Ok(v) = self.ctx.get_cell(self.curr) {
-            self.curr += 1;
-            Some(v)
-        } else {
-            None
-        }
     }
 }

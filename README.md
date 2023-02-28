@@ -46,12 +46,12 @@ use lazy_static::lazy_static;
 use std::sync::RwLock;
 
 use rmodbus::{
-    server::{context::ModbusContext, ModbusFrame},
+    server::{context::ModbusContextFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
 lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
+    pub static ref CONTEXT: RwLock<ModbusContextFull> = RwLock::new(ModbusContextFull::new());
 }
 
 pub fn tcpserver(unit: u8, listen: &str) {
@@ -124,10 +124,17 @@ when required and only for a short period time.
 A simple PLC example:
 
 ```rust,ignore
+use std::error::Error;
 use std::fs::File;
-use std::io::{Write};
+use std::io::{Read, Write};
 
-use rmodbus::server::context::ModbusContext;
+use rmodbus::server::context::ModbusContextFull;
+
+#[path = "servers/tcp.rs"]
+mod srv;
+
+// put 1 to holding register 1500 to save current context to /tmp/plc1.dat
+// if the file exists, context will be loaded at the next start
 
 fn looping() {
     println!("Loop started");
@@ -164,22 +171,37 @@ fn looping() {
     }
 }
 
-fn save(fname: &str, ctx: &ModbusContext) -> Result<(), std::io::Error> {
-    let mut file = match File::create(fname) {
-        Ok(v) => v,
-        Err(e) => return Err(e),
-    };
-    for i in ctx.iter() {
-        match file.write(&[i]) {
-            Ok(_) => {}
-            Err(e) => return Err(e),
-        }
+fn save(fname: &str, ctx: &ModbusContextFull) -> Result<(), Box<dyn Error>> {
+    let config = bincode::config::standard();
+    let mut file = File::create(fname)?;
+    file.write(&bincode::encode_to_vec(ctx, config)?)?;
+    file.sync_all()?;
+    Ok(())
+}
+
+fn load(fname: &str, ctx: &mut ModbusContextFull) -> Result<(), Box<dyn Error>> {
+    let config = bincode::config::standard();
+    let mut file = File::open(fname)?;
+    let mut data: Vec<u8> = Vec::new();
+    file.read_to_end(&mut data)?;
+    (*ctx, _) = bincode::decode_from_slice(&data, config)?;
+    Ok(())
+}
+
+fn main() {
+    // read context
+    let unit_id = 1;
+    {
+        let mut ctx = srv::CONTEXT.write().unwrap();
+        let _ = load(&"/tmp/plc1.dat", &mut ctx).map_err(|_| {
+            eprintln!("warning: no saved context");
+        });
     }
-    match file.sync_all() {
-        Ok(_) => {}
-        Err(e) => return Err(e),
-    }
-    return Ok(());
+    use std::thread;
+    thread::spawn(move || {
+        srv::tcpserver(unit_id, "localhost:5502");
+    });
+    looping();
 }
 ```
 
@@ -200,12 +222,26 @@ rmodbus = { version = "*", default-features = false, features = ["fullcontext"] 
 ## Small context
 
 The full Modbus context has 10000 registers of each type, which requires 60000
-bytes total. For systems with small RAM amount it is possible to reduce the
-context size to 1000 registers of each type (6000 bytes) by not enabling the
-`fullcontext` feature:
+bytes total. For systems with small RAM amount there is a pre-defined small
+context with 1000 registers:
 
-```toml
-rmodbus = { version = "*", default-features = false }
+```rust
+use rmodbus::server::context::ModbusContextSmall;
+```
+
+## Custom-sized context
+
+Starting from the version 0.7, it is allowed to define context of any size,
+using generic constants. The generic constants order is: coils, discretes,
+inputs, holdings.
+
+E.g. let us define a context for 128 coils, 16 discretes, 0 inputs and 100
+holdings:
+
+```rust
+use rmodbus::server::context::ModbusContext;
+
+let context = ModbusContext::<128, 16, 0, 100>::new();
 ```
 
 ## Vectors

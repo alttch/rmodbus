@@ -13,11 +13,11 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, Vector
 /// ```no_run
 /// # #[cfg(feature = "fixedvec")]
 /// # mod with_fixedvec {
-/// use rmodbus::{ModbusFrameBuf, ModbusProto, server::{ModbusFrame, context::ModbusContext}};
+/// use rmodbus::{ModbusFrameBuf, ModbusProto, server::{ModbusFrame, context::ModbusContextFull}};
 /// use fixedvec::{FixedVec, alloc_stack}; // for std use regular std::vec::Vec
 ///
 /// # fn code() {
-/// let mut ctx = ModbusContext::new();
+/// let mut ctx = ModbusContextFull::new();
 ///
 /// let unit_id = 1;
 /// loop {
@@ -146,7 +146,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
     }
     /// Process write functions
-    pub fn process_write(&mut self, ctx: &mut context::ModbusContext) -> Result<(), ErrorKind> {
+    pub fn process_write<const C: usize, const D: usize, const I: usize, const H: usize>(
+        &mut self,
+        ctx: &mut context::ModbusContext<C, D, I, H>,
+    ) -> Result<(), ErrorKind> {
         match self.func {
             MODBUS_SET_COIL => {
                 // func 5
@@ -217,7 +220,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
     }
     /// Process read functions
-    pub fn process_read(&mut self, ctx: &context::ModbusContext) -> Result<(), ErrorKind> {
+    pub fn process_read<const C: usize, const D: usize, const I: usize, const H: usize>(
+        &mut self,
+        ctx: &context::ModbusContext<C, D, I, H>,
+    ) -> Result<(), ErrorKind> {
         match self.func {
             MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
                 // funcs 1 - 2
@@ -293,7 +299,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             //let tr_id = u16::from_be_bytes([self.buf[0], self.buf[1]]);
             let proto_id = u16::from_be_bytes([self.buf[2], self.buf[3]]);
             let length = u16::from_be_bytes([self.buf[4], self.buf[5]]);
-            if proto_id != 0 || length < 6 || length > 250 {
+            if proto_id != 0 || !(6..=250).contains(&length) {
                 return Err(ErrorKind::FrameBroken);
             }
             self.frame_start = 6;

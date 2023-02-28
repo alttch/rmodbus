@@ -57,7 +57,7 @@ pub fn parse_ascii_frame(
     frame_buf: &mut ModbusFrameBuf,
     frame_pos: u8,
 ) -> Result<u8, ErrorKind> {
-    let mut data_pos = if data[0] == 58 { 1 } else { 0 };
+    let mut data_pos = usize::from(data[0] == 58);
     let mut cpos = frame_pos;
     while data_pos < data_len {
         if cpos == 255 {

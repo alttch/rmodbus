@@ -8,12 +8,12 @@ use std::sync::RwLock;
 
 use rmodbus::{
     generate_ascii_frame, guess_request_frame_len, parse_ascii_frame,
-    server::{context::ModbusContext, ModbusFrame},
+    server::{context::ModbusContextFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
 lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusContext> = RwLock::new(ModbusContext::new());
+    pub static ref CONTEXT: RwLock<ModbusContextFull> = RwLock::new(ModbusContextFull::new());
 }
 
 pub fn asciiserver(unit: u8, port: &str) {
