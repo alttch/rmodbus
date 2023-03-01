@@ -283,7 +283,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         }
     }
 
-    /// Get inputs as Vec<u8>
+    /// Get inputs as Vec of u8
     ///
     /// Note: Vec is always appended
     pub fn get_inputs_as_u8<V: VectorTrait<u8>>(
@@ -295,7 +295,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         get_regs_as_u8!(self.inputs, reg, count, result, I)
     }
 
-    /// Get holdings as Vec<u8>
+    /// Get holdings as Vec of u8
     ///
     /// Note: Vec is always appended
     pub fn get_holdings_as_u8<V: VectorTrait<u8>>(
@@ -307,17 +307,17 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         get_regs_as_u8!(self.holdings, reg, count, result, H)
     }
 
-    /// Set inputs from &Vec<u8>
+    /// Set inputs from Vec of u8
     pub fn set_inputs_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
         set_regs_from_u8!(self.inputs, reg, values, I)
     }
 
-    /// Set holdings from &Vec<u8>
+    /// Set holdings from Vec of u8
     pub fn set_holdings_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
         set_regs_from_u8!(self.holdings, reg, values, H)
     }
 
-    /// Get coils as Vec<u8>
+    /// Get coils as Vec of u8
     ///
     /// Note: Vec is always appended
     pub fn get_coils_as_u8<V: VectorTrait<u8>>(
@@ -329,7 +329,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         get_bools_as_u8!(self.coils, reg, count, result, C)
     }
 
-    /// Get discretes as Vec<u8>
+    /// Get discretes as Vec of u8
     ///
     /// Note: Vec is always appended
     pub fn get_discretes_as_u8<V: VectorTrait<u8>>(
@@ -341,7 +341,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         get_bools_as_u8!(self.discretes, reg, count, result, D)
     }
 
-    /// Set coils from &Vec<u8>
+    /// Set coils from Vec of u8
     ///
     /// As coils are packed in u8, parameter *count* specifies how many coils are actually needed
     /// to set, extra bits are ignored
@@ -354,7 +354,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         set_bools_from_u8!(self.coils, reg, count, values, C)
     }
 
-    /// Set discretes from &Vec<u8>
+    /// Set discretes from Vec of u8
     ///
     /// As discretes are packed in u8, parameter *count* specifies how many coils are actually
     /// needed to set, extra bits are ignored
