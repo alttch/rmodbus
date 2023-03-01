@@ -322,4 +322,11 @@ fn main() {
     }
 }
 ```
+## About the authors
 
+[Bohemia Automation](https://www.bohemia-automation.com) /
+[Altertech](https://www.altertech.com) is a group of companies with 15+ years
+of experience in the enterprise automation and industrial IoT. Our setups
+include power plants, factories and urban infrastructure. Largest of them have
+1M+ sensors and controlled devices and the bar raises higher and higher every
+day.
