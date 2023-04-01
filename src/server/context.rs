@@ -243,7 +243,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
     /// let context = ModbusContext::<128, 16, 0, 100>::new();
     /// ```
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             coils: [false; C],
             discretes: [false; D],
