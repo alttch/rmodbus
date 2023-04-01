@@ -17,7 +17,7 @@ tag:
 doc:
 	cargo doc
 
-pub: doc test publish-cargo-crate
+pub: doc test publish-cargo-crate tag
 
 publish-cargo-crate:
 	cargo publish
