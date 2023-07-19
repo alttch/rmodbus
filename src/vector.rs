@@ -12,7 +12,13 @@ pub trait VectorTrait<T: Copy> {
     fn replace(&mut self, index: usize, value: T);
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(not(feature = "std"), not(feature = "heapless"), not(feature = "fixedvec")))]
+extern crate alloc;
+#[cfg(all(not(feature = "std"), not(feature = "heapless"), not(feature = "fixedvec")))]
+use alloc::vec::Vec;
+
+#[cfg(all(not(feature = "heapless"), not(feature = "fixedvec")))]
+//#[cfg(feature = "std")]
 impl<T: Copy> VectorTrait<T> for Vec<T> {
     #[inline]
     fn push(&mut self, value: T) -> Result<(), ErrorKind> {
@@ -139,3 +145,5 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
         self[index] = value;
     }
 }
+
+
