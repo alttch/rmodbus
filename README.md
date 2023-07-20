@@ -249,7 +249,7 @@ Some of rmodbus functions use vectors to store result.  Different vector types c
 
 - When the `std` feature is enabled (default), `std::vec::Vec` can be used.
 - With the `fixedvec` feature, [`fixedvec::FixedVec`](https://crates.io/crates/fixedvec) can be used.
-- With the `heapless` feature, [`heapless::Vec`](https://crates.io/crates/fixedvec) can be used.
+- With the `heapless` feature, [`heapless::Vec`](https://crates.io/crates/heapless) can be used.
 
 ## Modbus client
 
