@@ -405,7 +405,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 if !broadcast {
                     self.response_required = true;
                 }
-                if bytes > 242 {
+                if bytes > 246 {
                     self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
                     return Ok(());
                 }
