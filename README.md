@@ -251,6 +251,8 @@ Some of rmodbus functions use vectors to store result.  Different vector types c
 - With the `fixedvec` feature, [`fixedvec::FixedVec`](https://crates.io/crates/fixedvec) can be used.
 - With the `heapless` feature, [`heapless::Vec`](https://crates.io/crates/heapless) can be used.
 
+- when the `alloc` feature is enable, Rust core allocation `alloc::vec::Vec` can be used in no-std mode. e.g `cargo build --no-default-features --features alloc` will build in no-std mode, and support using core allocation `alloc::vec::Vec`. when `std` feature is enabled, `alloc` feature will be ignored.
+
 ## Modbus client
 
 Modbus client is designed with the same principles as the server: the crate
