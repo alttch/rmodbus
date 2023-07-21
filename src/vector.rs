@@ -146,5 +146,3 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
         self[index] = value;
     }
 }
-
-
