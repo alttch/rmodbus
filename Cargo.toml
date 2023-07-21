@@ -33,6 +33,10 @@ default = ["std"]
 std = []
 with_serde = ["serde", "serde_arrays"]
 with_bincode = ["bincode"]
+# Provide impls for types in the Rust core allocation and collections library
+# including String, Box<T>, Vec<T>, and Cow<T>. This is a subset of std but may
+# be enabled without depending on all of std.
+alloc = []
 
 [dev-dependencies]
 rand = "0.7.3"
