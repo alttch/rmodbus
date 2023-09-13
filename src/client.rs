@@ -280,10 +280,7 @@ impl ModbusRequest {
         buf: &[u8],
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        let (frame_start, frame_end) = match self.parse_response(buf) {
-            Ok(v) => v,
-            Err(e) => return Err(e),
-        };
+        let (frame_start, frame_end) = self.parse_response(buf)?;
         let mut pos = frame_start + 3;
         while pos < frame_end - 1 {
             let value = u16::from_be_bytes([buf[pos], buf[pos + 1]]);
@@ -302,10 +299,7 @@ impl ModbusRequest {
     /// The input buffer SHOULD be cut to actual response length
     #[cfg(feature = "std")]
     pub fn parse_string(&self, buf: &[u8], result: &mut String) -> Result<(), ErrorKind> {
-        let (frame_start, frame_end) = match self.parse_response(buf) {
-            Ok(v) => v,
-            Err(e) => return Err(e),
-        };
+        let (frame_start, frame_end) = self.parse_response(buf)?;
         let val = &buf[frame_start + 3..frame_end];
         let vl = val.iter().position(|&c| c == b'\0').unwrap_or(val.len());
         *result = match std::str::from_utf8(&val[..vl]) {
@@ -313,6 +307,16 @@ impl ModbusRequest {
             Err(_) => return Err(ErrorKind::Utf8Error),
         };
         Ok(())
+    }
+
+    /// Parse response, make sure there's no Modbus error inside
+    /// Returns a raw data slice
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn try_to_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&[u8], ErrorKind> {
+        let (frame_start, frame_end) = self.parse_response(buf)?;
+        let val = &buf[frame_start + 3..frame_end];
+        Ok(val)
     }
 
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as bools
@@ -324,10 +328,7 @@ impl ModbusRequest {
         buf: &[u8],
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        let (frame_start, frame_end) = match self.parse_response(buf) {
-            Ok(v) => v,
-            Err(e) => return Err(e),
-        };
+        let (frame_start, frame_end) = self.parse_response(buf)?;
         for b in buf.iter().take(frame_end).skip(frame_start + 3) {
             for i in 0..8 {
                 if result.len() >= self.count as usize {
