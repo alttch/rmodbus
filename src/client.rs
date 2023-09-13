@@ -313,7 +313,7 @@ impl ModbusRequest {
     /// Returns a raw data slice
     ///
     /// The input buffer SHOULD be cut to actual response length
-    pub fn try_to_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&[u8], ErrorKind> {
+    pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&[u8], ErrorKind> {
         let (frame_start, frame_end) = self.parse_response(buf)?;
         let val = &buf[frame_start + 3..frame_end];
         Ok(val)
