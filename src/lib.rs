@@ -181,7 +181,7 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
     let func = f[1];
     let len: usize = if func < 0x80 {
         match func {
-            1 | 2 | 3 | 4 => (f[2] as usize + 3) * multiplier + extra,
+            1..=4 => (f[2] as usize + 3) * multiplier + extra,
             5 | 6 | 15 | 16 => 6 * multiplier + extra,
             _ => {
                 return Err(ErrorKind::FrameBroken);
