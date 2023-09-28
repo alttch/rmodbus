@@ -6,25 +6,43 @@ use ieee754::Ieee754;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
+/// A read-only context
+///
+/// Allows read access to all stored values.
 pub trait Context {
+    /// Get coils as Vec of u8
+    ///
+    /// Note: Vec is always appended
     fn get_coils_as_u8(
         &self,
         reg: u16,
         count: u16,
         buf: &mut impl VectorTrait<u8>,
     ) -> Result<(), ErrorKind>;
+
+    /// Get discretes as Vec of u8
+    ///
+    /// Note: Vec is always appended
     fn get_discretes_as_u8(
         &self,
         reg: u16,
         count: u16,
         buf: &mut impl VectorTrait<u8>,
     ) -> Result<(), ErrorKind>;
+
+    /// Get inputs as Vec of u8
+    ///
+    /// Note: Vec is always appended
     fn get_inputs_as_u8(
         &self,
         reg: u16,
         count: u16,
         buf: &mut impl VectorTrait<u8>,
     ) -> Result<(), ErrorKind>;
+
+    /// Get holdings as Vec of u8
+    ///
+    /// Note: Vec is always appended
     fn get_holdings_as_u8(
         &self,
         reg: u16,
@@ -114,10 +132,23 @@ where
     }
 }
 
+/// A writable context
+///
+/// This allows write access to a context. As it is a super trait to [Context] read access is also available.
 pub trait MutContext: Context {
+    /// Set a single coil
     fn set_coil(&mut self, reg: u16, val: bool) -> Result<(), ErrorKind>;
+
+    /// Set coils from Vec of u8
+    ///
+    /// As coils are packed in u8, parameter *count* specifies how many coils are actually needed
+    /// to set, extra bits are ignored
     fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind>;
+
+    /// Set a single holding
     fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind>;
+
+    /// Set holdings from Vec of u8
     fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind>;
 }
 
