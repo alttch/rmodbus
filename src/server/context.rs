@@ -1,10 +1,10 @@
 use super::super::{ErrorKind, VectorTrait};
 #[cfg(feature = "with_bincode")]
 use bincode::{Decode, Encode};
+use core::ops::{Deref, DerefMut};
 use ieee754::Ieee754;
 #[cfg(feature = "with_serde")]
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
 
 /// A read-only context
 ///
