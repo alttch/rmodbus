@@ -7,6 +7,7 @@ use crate::consts::{
     MODBUS_SET_HOLDINGS_BULK,
 };
 use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
+use context::{Context, MutContext};
 
 /// Modbus frame processor
 ///
@@ -146,10 +147,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
     }
     /// Process write functions
-    pub fn process_write<const C: usize, const D: usize, const I: usize, const H: usize>(
-        &mut self,
-        ctx: &mut context::ModbusContext<C, D, I, H>,
-    ) -> Result<(), ErrorKind> {
+    pub fn process_write<Ctx: MutContext>(&mut self, ctx: &mut Ctx) -> Result<(), ErrorKind> {
         match self.func {
             MODBUS_SET_COIL => {
                 // func 5
@@ -220,10 +218,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
     }
     /// Process read functions
-    pub fn process_read<const C: usize, const D: usize, const I: usize, const H: usize>(
-        &mut self,
-        ctx: &context::ModbusContext<C, D, I, H>,
-    ) -> Result<(), ErrorKind> {
+    pub fn process_read<Ctx: Context>(&mut self, ctx: &Ctx) -> Result<(), ErrorKind> {
         match self.func {
             MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
                 // funcs 1 - 2

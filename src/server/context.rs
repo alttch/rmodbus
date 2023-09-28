@@ -4,6 +4,163 @@ use bincode::{Decode, Encode};
 use ieee754::Ieee754;
 #[cfg(feature = "with_serde")]
 use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
+
+pub trait Context {
+    fn get_coils_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind>;
+    fn get_discretes_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind>;
+    fn get_inputs_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind>;
+    fn get_holdings_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind>;
+}
+
+impl<const C: usize, const D: usize, const I: usize, const H: usize> Context
+    for ModbusContext<C, D, I, H>
+{
+    fn get_coils_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.get_coils_as_u8(reg, count, buf)
+    }
+
+    fn get_discretes_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.get_discretes_as_u8(reg, count, buf)
+    }
+
+    fn get_inputs_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.get_inputs_as_u8(reg, count, buf)
+    }
+
+    fn get_holdings_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.get_holdings_as_u8(reg, count, buf)
+    }
+}
+
+impl<const C: usize, const D: usize, const I: usize, const H: usize, T> Context for T
+where
+    T: Deref<Target = ModbusContext<C, D, I, H>>,
+{
+    fn get_coils_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.deref().get_coils_as_u8(reg, count, buf)
+    }
+
+    fn get_holdings_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.deref().get_holdings_as_u8(reg, count, buf)
+    }
+
+    fn get_inputs_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.deref().get_inputs_as_u8(reg, count, buf)
+    }
+
+    fn get_discretes_as_u8(
+        &self,
+        reg: u16,
+        count: u16,
+        buf: &mut impl VectorTrait<u8>,
+    ) -> Result<(), ErrorKind> {
+        self.deref().get_discretes_as_u8(reg, count, buf)
+    }
+}
+
+pub trait MutContext: Context {
+    fn set_coil(&mut self, reg: u16, val: bool) -> Result<(), ErrorKind>;
+    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind>;
+    fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind>;
+    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind>;
+}
+
+impl<const C: usize, const D: usize, const I: usize, const H: usize> MutContext
+    for ModbusContext<C, D, I, H>
+{
+    fn set_coil(&mut self, reg: u16, val: bool) -> Result<(), ErrorKind> {
+        self.set_coil(reg, val)
+    }
+
+    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind> {
+        self.set_coils_from_u8(reg, count, buf)
+    }
+
+    fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind> {
+        self.set_holding(reg, val)
+    }
+
+    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind> {
+        self.set_holdings_from_u8(reg, buf)
+    }
+}
+
+impl<const C: usize, const D: usize, const I: usize, const H: usize, T> MutContext for T
+where
+    T: DerefMut<Target = ModbusContext<C, D, I, H>>,
+{
+    fn set_coil(&mut self, reg: u16, val: bool) -> Result<(), ErrorKind> {
+        self.deref_mut().set_coil(reg, val)
+    }
+
+    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind> {
+        self.deref_mut().set_coils_from_u8(reg, count, buf)
+    }
+
+    fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind> {
+        self.deref_mut().set_holding(reg, val)
+    }
+
+    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind> {
+        self.deref_mut().set_holdings_from_u8(reg, buf)
+    }
+}
 
 pub const SMALL_CONTEXT_SIZE: usize = 1_000;
 pub const FULL_CONTEXT_SIZE: usize = 10_000;
