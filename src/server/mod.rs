@@ -1,4 +1,5 @@
 pub mod context;
+pub mod observer;
 
 use crate::consts::{
     MODBUS_ERROR_ILLEGAL_DATA_ADDRESS, MODBUS_ERROR_ILLEGAL_DATA_VALUE,
