@@ -84,6 +84,14 @@ where
     ) -> Result<(), ErrorKind> {
         self.ctx.get_holdings_as_u8(reg, count, buf)
     }
+
+    fn coil_len(&self) -> u16 {
+        self.ctx.coil_len()
+    }
+
+    fn holdings_len(&self) -> u16 {
+        self.ctx.holdings_len()
+    }
 }
 
 impl<Ctx, FnPreWrite, FnPostWrite> MutContext for ContextObserver<Ctx, FnPreWrite, FnPostWrite>

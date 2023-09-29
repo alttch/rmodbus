@@ -49,6 +49,8 @@ pub trait Context {
         count: u16,
         buf: &mut impl VectorTrait<u8>,
     ) -> Result<(), ErrorKind>;
+    fn coil_len(&self) -> u16;
+    fn holdings_len(&self) -> u16;
 }
 
 impl<const C: usize, const D: usize, const I: usize, const H: usize> Context
@@ -89,6 +91,16 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> Context
     ) -> Result<(), ErrorKind> {
         self.get_holdings_as_u8(reg, count, buf)
     }
+
+    fn coil_len(&self) -> u16 {
+        assert!(C <= usize::from(u16::MAX));
+        C as u16
+    }
+
+    fn holdings_len(&self) -> u16 {
+        assert!(H <= usize::from(u16::MAX));
+        H as u16
+    }
 }
 
 impl<const C: usize, const D: usize, const I: usize, const H: usize, T> Context for T
@@ -104,13 +116,13 @@ where
         self.deref().get_coils_as_u8(reg, count, buf)
     }
 
-    fn get_holdings_as_u8(
+    fn get_discretes_as_u8(
         &self,
         reg: u16,
         count: u16,
         buf: &mut impl VectorTrait<u8>,
     ) -> Result<(), ErrorKind> {
-        self.deref().get_holdings_as_u8(reg, count, buf)
+        self.deref().get_discretes_as_u8(reg, count, buf)
     }
 
     fn get_inputs_as_u8(
@@ -122,13 +134,21 @@ where
         self.deref().get_inputs_as_u8(reg, count, buf)
     }
 
-    fn get_discretes_as_u8(
+    fn get_holdings_as_u8(
         &self,
         reg: u16,
         count: u16,
         buf: &mut impl VectorTrait<u8>,
     ) -> Result<(), ErrorKind> {
-        self.deref().get_discretes_as_u8(reg, count, buf)
+        self.deref().get_holdings_as_u8(reg, count, buf)
+    }
+
+    fn coil_len(&self) -> u16 {
+        self.deref().coil_len()
+    }
+
+    fn holdings_len(&self) -> u16 {
+        self.deref().holdings_len()
     }
 }
 
@@ -143,13 +163,19 @@ pub trait MutContext: Context {
     ///
     /// As coils are packed in u8, parameter *count* specifies how many coils are actually needed
     /// to set, extra bits are ignored
-    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind>;
+    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind> {
+        let coil_len = self.coil_len();
+        set_bools_from_u8(|r, v| self.set_coil(r, v), reg, count, buf, coil_len)
+    }
 
     /// Set a single holding
     fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind>;
 
     /// Set holdings from Vec of u8
-    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind>;
+    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind> {
+        let holdings_len = self.holdings_len();
+        set_regs_from_u8(|r, v| self.set_holding(r, v), reg, buf, holdings_len)
+    }
 }
 
 impl<const C: usize, const D: usize, const I: usize, const H: usize> MutContext
@@ -159,16 +185,8 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> MutContext
         self.set_coil(reg, val)
     }
 
-    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind> {
-        self.set_coils_from_u8(reg, count, buf)
-    }
-
     fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind> {
         self.set_holding(reg, val)
-    }
-
-    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind> {
-        self.set_holdings_from_u8(reg, buf)
     }
 }
 
@@ -180,16 +198,8 @@ where
         self.deref_mut().set_coil(reg, val)
     }
 
-    fn set_coils_from_u8(&mut self, reg: u16, count: u16, buf: &[u8]) -> Result<(), ErrorKind> {
-        self.deref_mut().set_coils_from_u8(reg, count, buf)
-    }
-
     fn set_holding(&mut self, reg: u16, val: u16) -> Result<(), ErrorKind> {
         self.deref_mut().set_holding(reg, val)
-    }
-
-    fn set_holdings_from_u8(&mut self, reg: u16, buf: &[u8]) -> Result<(), ErrorKind> {
-        self.deref_mut().set_holdings_from_u8(reg, buf)
     }
 }
 
@@ -259,72 +269,69 @@ macro_rules! get_bools_as_u8 {
 }
 
 fn set_regs_from_u8(
-    mut set_func: impl FnMut(usize, u16),
+    mut set_func: impl FnMut(u16, u16) -> Result<(), ErrorKind>,
     reg: u16,
     values: &[u8],
-    ctx_size: usize,
+    ctx_size: u16,
 ) -> Result<(), ErrorKind> {
-    {
-        let len = values.len();
-        if reg as usize + len / 2 > ctx_size {
-            Err(ErrorKind::OOBContext)
-        } else {
-            let mut i = 0;
-            let mut creg = reg as usize;
-            while i < len {
-                set_func(
-                    creg,
-                    u16::from_be_bytes([
-                        values[i],
-                        match i + 1 < len {
-                            true => values[i + 1],
-                            false => return Err(ErrorKind::OOB),
-                        },
-                    ]),
-                );
-                i += 2;
-                creg += 1;
-            }
-            Ok(())
-        }
+    let len = values.len();
+    if reg as usize + len / 2 > usize::from(ctx_size) {
+        return Err(ErrorKind::OOBContext);
     }
+
+    let mut i = 0;
+    let mut creg = reg;
+    while i < len {
+        set_func(
+            creg,
+            u16::from_be_bytes([
+                values[i],
+                match i + 1 < len {
+                    true => values[i + 1],
+                    false => return Err(ErrorKind::OOB),
+                },
+            ]),
+        )?;
+        i += 2;
+        creg += 1;
+    }
+    Ok(())
 }
 
 fn set_bools_from_u8(
-    mut set_func: impl FnMut(usize, bool),
+    mut set_func: impl FnMut(u16, bool) -> Result<(), ErrorKind>,
     reg: u16,
     count: u16,
     values: &[u8],
-    ctx_size: usize,
+    ctx_size: u16,
 ) -> Result<(), ErrorKind> {
-    {
-        let reg_to = reg as usize + count as usize;
-        if reg_to > ctx_size {
-            Err(ErrorKind::OOBContext)
-        } else {
-            let mut creg = reg as usize;
-            let mut cbyte = 0;
-            let mut cnt = 0;
-            let len = values.len();
-            while creg < reg_to && cnt < count {
-                if cbyte >= len {
-                    return Err(ErrorKind::OOB);
-                }
-                let mut b: u8 = values[cbyte];
-                for _ in 0..8 {
-                    set_func(creg, b & 1 == 1);
-                    b >>= 1;
-                    creg += 1;
-                    cnt += 1;
-                    if cnt == count || creg == reg_to {
-                        break;
-                    }
-                }
-                cbyte += 1;
-            }
-            Ok(())
+    let reg_to = match reg.checked_add(count) {
+        None => return Err(ErrorKind::OOBContext),
+        Some(reg_to) if reg_to > ctx_size => return Err(ErrorKind::OOBContext),
+        Some(reg_to) => reg_to,
+    };
+
+    let mut creg = reg;
+    let mut cbyte = 0;
+    let mut cnt = 0;
+    let len = values.len();
+    while creg < reg_to && cnt < count {
+        if cbyte >= len {
+            return Err(ErrorKind::OOB);
         }
+        let mut b: u8 = values[cbyte];
+        for _ in 0..8 {
+            set_func(creg, b & 1 == 1)?;
+            b >>= 1;
+            creg += 1;
+            cnt += 1;
+            if cnt == count || creg == reg_to {
+                break;
+            }
+        }
+        cbyte += 1;
     }
+    Ok(())
 }
 
 macro_rules! get_bulk {
@@ -511,12 +518,12 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
 
     /// Set inputs from Vec of u8
     pub fn set_inputs_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_regs_from_u8(|reg, val| self.inputs[reg] = val, reg, values, I)
+        set_regs_from_u8(|reg, val| self.set_input(reg, val), reg, values, I as u16)
     }
 
     /// Set holdings from Vec of u8
     pub fn set_holdings_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_regs_from_u8(|reg, val| self.holdings[reg] = val, reg, values, H)
+        set_regs_from_u8(|reg, val| self.set_holding(reg, val), reg, values, H as u16)
     }
 
     /// Get coils as Vec of u8
@@ -553,7 +560,14 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind> {
-        set_bools_from_u8(|reg, val| self.coils[reg] = val, reg, count, values, C)
+        set_bools_from_u8(
+            |reg, val| self.set_coil(reg, val),
+            reg,
+            count,
+            values,
+            C.try_into()
+                .expect("There are only u16::MAX addressable coils"),
+        )
     }
 
     /// Set discretes from Vec of u8
@@ -566,7 +580,14 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind> {
-        set_bools_from_u8(|reg, val| self.discretes[reg] = val, reg, count, values, D)
+        set_bools_from_u8(
+            |reg, val| self.set_discrete(reg, val),
+            reg,
+            count,
+            values,
+            D.try_into()
+                .expect("There are only u16::MAX addressable discretes"),
+        )
     }
 
     /// Bulk get coils
