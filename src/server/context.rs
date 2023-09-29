@@ -258,51 +258,65 @@ macro_rules! get_bools_as_u8 {
     }};
 }
 
-macro_rules! set_regs_from_u8 {
-    ($reg_context:expr, $reg:expr, $values:expr, $ctx_size: expr) => {{
-        let len = $values.len();
-        if $reg as usize + len / 2 > $ctx_size {
+fn set_regs_from_u8(
+    mut set_func: impl FnMut(usize, u16),
+    reg: u16,
+    values: &[u8],
+    ctx_size: usize,
+) -> Result<(), ErrorKind> {
+    {
+        let len = values.len();
+        if reg as usize + len / 2 > ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
             let mut i = 0;
-            let mut creg = $reg as usize;
+            let mut creg = reg as usize;
             while i < len {
-                $reg_context[creg] = u16::from_be_bytes([
-                    $values[i],
-                    match i + 1 < len {
-                        true => $values[i + 1],
-                        false => return Err(ErrorKind::OOB),
-                    },
-                ]);
+                set_func(
+                    creg,
+                    u16::from_be_bytes([
+                        values[i],
+                        match i + 1 < len {
+                            true => values[i + 1],
+                            false => return Err(ErrorKind::OOB),
+                        },
+                    ]),
+                );
                 i += 2;
                 creg += 1;
             }
             Ok(())
         }
-    }};
+    }
 }
 
-macro_rules! set_bools_from_u8 {
-    ($reg_context:expr, $reg:expr, $count:expr, $values:expr, $ctx_size: expr) => {{
-        let reg_to = $reg as usize + $count as usize;
-        if reg_to > $ctx_size {
+fn set_bools_from_u8(
+    mut set_func: impl FnMut(usize, bool),
+    reg: u16,
+    count: u16,
+    values: &[u8],
+    ctx_size: usize,
+) -> Result<(), ErrorKind> {
+    {
+        let reg_to = reg as usize + count as usize;
+        if reg_to > ctx_size {
             Err(ErrorKind::OOBContext)
         } else {
-            let mut creg = $reg as usize;
+            let mut creg = reg as usize;
             let mut cbyte = 0;
             let mut cnt = 0;
-            let len = $values.len();
-            while creg < reg_to && cnt < $count {
+            let len = values.len();
+            while creg < reg_to && cnt < count {
                 if cbyte >= len {
                     return Err(ErrorKind::OOB);
                 }
-                let mut b: u8 = $values[cbyte];
+                let mut b: u8 = values[cbyte];
                 for _ in 0..8 {
-                    $reg_context[creg] = b & 1 == 1;
+                    set_func(creg, b & 1 == 1);
                     b >>= 1;
                     creg += 1;
                     cnt += 1;
-                    if cnt == $count || creg == reg_to {
+                    if cnt == count || creg == reg_to {
                         break;
                     }
                 }
@@ -310,7 +324,7 @@ macro_rules! set_bools_from_u8 {
             }
             Ok(())
         }
-    }};
+    }
 }
 
 macro_rules! get_bulk {
@@ -497,12 +511,12 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
 
     /// Set inputs from Vec of u8
     pub fn set_inputs_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_regs_from_u8!(self.inputs, reg, values, I)
+        set_regs_from_u8(|reg, val| self.inputs[reg] = val, reg, values, I)
     }
 
     /// Set holdings from Vec of u8
     pub fn set_holdings_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_regs_from_u8!(self.holdings, reg, values, H)
+        set_regs_from_u8(|reg, val| self.holdings[reg] = val, reg, values, H)
     }
 
     /// Get coils as Vec of u8
@@ -539,7 +553,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind> {
-        set_bools_from_u8!(self.coils, reg, count, values, C)
+        set_bools_from_u8(|reg, val| self.coils[reg] = val, reg, count, values, C)
     }
 
     /// Set discretes from Vec of u8
@@ -552,7 +566,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind> {
-        set_bools_from_u8!(self.discretes, reg, count, values, D)
+        set_bools_from_u8(|reg, val| self.discretes[reg] = val, reg, count, values, D)
     }
 
     /// Bulk get coils
