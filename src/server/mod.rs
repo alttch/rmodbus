@@ -432,7 +432,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
     }
 
-    /// Retrieve which fields of a [`ModbusContext`] will be changed by applying this frame
+    /// Retrieve which fields of a [`ModbusContext`](`context::ModbusContext`) will be changed by applying this frame
     ///
     /// Returns None if no fields will be changed.
     pub fn changes(&self) -> Option<Changes> {
