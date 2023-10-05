@@ -36,7 +36,7 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, Vector
 ///             // isn't required
 ///             let result = match frame.readonly {
 ///                 true => frame.process_read(&ctx),
-///                 false => frame.process_write(&mut ctx)
+///                 false => frame.process_write(&mut ctx).map(|_| ())
 ///             };
 ///             if result.is_err() {
 ///                 // fn error is returned at this point only if there's no space in the response
@@ -61,6 +61,13 @@ macro_rules! tcp_response_set_data_len {
             $self.response.extend(&($len as u16).to_be_bytes())?;
         }
     };
+}
+
+/// Indicates which fields of the [`ModbusContext`] where changed during the call to [`ModbusFrame::process_write`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Changes {
+    Coils { reg: u16, count: u16 },
+    Holdings { reg: u16, count: u16 },
 }
 
 pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
@@ -149,7 +156,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     pub fn process_write<const C: usize, const D: usize, const I: usize, const H: usize>(
         &mut self,
         ctx: &mut context::ModbusContext<C, D, I, H>,
-    ) -> Result<(), ErrorKind> {
+    ) -> Result<Option<Changes>, ErrorKind> {
         match self.func {
             MODBUS_SET_COIL => {
                 // func 5
@@ -162,17 +169,22 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     0x0000 => false,
                     _ => {
                         self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
-                        return Ok(());
+                        return Ok(None);
                     }
                 };
                 if ctx.set_coil(self.reg, val).is_err() {
                     self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
-                    return Ok(());
+                    return Ok(None);
                 }
                 tcp_response_set_data_len!(self, 6);
                 // 6b unit, func, reg, val
                 self.response
-                    .extend(&self.buf[self.frame_start..self.frame_start + 6])
+                    .extend(&self.buf[self.frame_start..self.frame_start + 6])?;
+
+                Ok(Some(Changes::Coils {
+                    reg: self.reg,
+                    count: 1,
+                }))
             }
             MODBUS_SET_HOLDING => {
                 // func 6
@@ -183,12 +195,17 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 ]);
                 if ctx.set_holding(self.reg, val).is_err() {
                     self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
-                    return Ok(());
+                    return Ok(None);
                 }
                 tcp_response_set_data_len!(self, 6);
                 // 6b unit, func, reg, val
                 self.response
-                    .extend(&self.buf[self.frame_start..self.frame_start + 6])
+                    .extend(&self.buf[self.frame_start..self.frame_start + 6])?;
+
+                Ok(Some(Changes::Holdings {
+                    reg: self.reg,
+                    count: 1,
+                }))
             }
             MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
                 // funcs 15 & 16
@@ -200,23 +217,36 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                         self.count,
                         &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
                     )
+                    .map(|_| {
+                        Some(Changes::Coils {
+                            reg: self.reg,
+                            count: self.count,
+                        })
+                    })
                 } else {
                     ctx.set_holdings_from_u8(
                         self.reg,
                         &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
                     )
+                    .map(|_| {
+                        Some(Changes::Holdings {
+                            reg: self.reg,
+                            count: u16::from(bytes / 2),
+                        })
+                    })
                 };
                 if result.is_ok() {
                     tcp_response_set_data_len!(self, 6);
                     // 6b unit, f, reg, cnt
                     self.response
-                        .extend(&self.buf[self.frame_start..self.frame_start + 6])
+                        .extend(&self.buf[self.frame_start..self.frame_start + 6])?;
+                    result
                 } else {
                     self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
-                    Ok(())
+                    Ok(None)
                 }
             }
-            _ => Ok(()),
+            _ => Ok(None),
         }
     }
     /// Process read functions
