@@ -431,4 +431,27 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             }
         }
     }
+
+    /// Retrieve which fields of a [`ModbusContext`](`context::ModbusContext`) will be changed by applying this frame
+    ///
+    /// Returns None if no fields will be changed.
+    pub fn changes(&self) -> Option<Changes> {
+        let reg = self.reg;
+        let count = self.count;
+
+        Some(match self.func {
+            MODBUS_SET_COIL => Changes::Coils { reg, count: 1 },
+            MODBUS_SET_COILS_BULK => Changes::Coils { reg, count },
+            MODBUS_SET_HOLDING => Changes::Holdings { reg, count: 1 },
+            MODBUS_SET_HOLDINGS_BULK => Changes::Holdings { reg, count },
+            _ => return None,
+        })
+    }
+}
+
+/// See [`ModbusFrame::changes`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Changes {
+    Coils { reg: u16, count: u16 },
+    Holdings { reg: u16, count: u16 },
 }
