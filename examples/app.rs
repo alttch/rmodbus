@@ -58,7 +58,8 @@ fn load(fname: &str, ctx: &mut ModbusContextFull) -> Result<(), Box<dyn Error>> 
     let mut file = File::open(fname)?;
     let mut data: Vec<u8> = Vec::new();
     file.read_to_end(&mut data)?;
-    (*ctx, _) = bincode::decode_from_slice(&data, config)?;
+    let (bctx, _): (Box<ModbusContextFull>, usize) = bincode::decode_from_slice(&data, config)?;
+    *ctx = *bctx;
     Ok(())
 }
 
