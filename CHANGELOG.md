@@ -1,5 +1,12 @@
 ## Changelog
 
+### v0.8.0
+
+* Events system (experimental)
+
+* ModbusFrameBuf is no longer mandatory. The crate functions accept frames of
+  any length (u8-slices).
+
 ### v0.7.0
 
 * ModbusContext has become a struct with custom context sizes with generic
