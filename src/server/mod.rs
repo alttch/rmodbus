@@ -6,7 +6,7 @@ use crate::consts::{
     MODBUS_GET_INPUTS, MODBUS_SET_COIL, MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING,
     MODBUS_SET_HOLDINGS_BULK,
 };
-use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
+use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusProto, VectorTrait};
 
 /// Modbus frame processor
 ///
@@ -65,7 +65,7 @@ macro_rules! tcp_response_set_data_len {
 
 pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     pub unit_id: u8,
-    buf: &'a ModbusFrameBuf,
+    buf: &'a [u8],
     pub response: &'a mut V,
     pub proto: ModbusProto,
     /// after parse: is processing required
@@ -87,12 +87,7 @@ pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
 }
 
 impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
-    pub fn new(
-        unit_id: u8,
-        buf: &'a ModbusFrameBuf,
-        proto: ModbusProto,
-        response: &'a mut V,
-    ) -> Self {
+    pub fn new(unit_id: u8, buf: &'a [u8], proto: ModbusProto, response: &'a mut V) -> Self {
         response.clear();
         Self {
             unit_id,
