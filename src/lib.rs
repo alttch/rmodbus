@@ -24,6 +24,7 @@ mod tests;
 /// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
 /// * for **Rtu**, frame checksums are verified / added to replies
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ModbusProto {
     Rtu,
     Ascii,

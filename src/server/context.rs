@@ -19,6 +19,7 @@ pub type ModbusContextFull =
 #[allow(clippy::module_name_repetitions)]
 #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ModbusContext<const C: usize, const D: usize, const I: usize, const H: usize> {
     #[cfg_attr(feature = "with_serde", serde(with = "serde_arrays"))]
     pub coils: [bool; C],

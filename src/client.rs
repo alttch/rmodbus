@@ -7,6 +7,7 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, Vector
 /// Modbus client generator/processor
 ///
 /// One object can be used for multiple calls
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ModbusRequest {
     /// transaction id, (TCP/UDP only), default: 1. To change, set the value manually
     pub tr_id: u16,
