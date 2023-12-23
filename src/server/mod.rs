@@ -63,6 +63,7 @@ macro_rules! tcp_response_set_data_len {
     };
 }
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     pub unit_id: u8,
     buf: &'a [u8],

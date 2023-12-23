@@ -17,7 +17,7 @@ features = []
 features = []
 
 [lib]
-name ="rmodbus"
+name = "rmodbus"
 path = "src/lib.rs"
 
 [dependencies]
@@ -27,6 +27,7 @@ heapless = { version = "0.8.0", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 serde_arrays = { version = "0.1.0", optional = true }
 bincode = { version = "2.0.0-rc.2", optional = true }
+defmt = { version = "0.3.0", optional = true }
 
 [features]
 default = ["std"]
@@ -37,12 +38,15 @@ with_bincode = ["bincode"]
 # including String, Box<T>, Vec<T>, and Cow<T>. This is a subset of std but may
 # be enabled without depending on all of std.
 alloc = []
+defmt = ["dep:defmt"]
 
 [dev-dependencies]
 rand = "0.7.3"
 crc16 = "0.4.0"
 serial = "0.4.0"
-lazy_static = { version = "1.4.0", features=["spin_no_std"], default-features = false }
+lazy_static = { version = "1.4.0", features = [
+    "spin_no_std",
+], default-features = false }
 fixedvec = "0.2.4"
 spin = "0.5.2"
 
