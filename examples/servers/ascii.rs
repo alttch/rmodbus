@@ -8,12 +8,12 @@ use std::sync::RwLock;
 
 use rmodbus::{
     generate_ascii_frame, guess_request_frame_len, parse_ascii_frame,
-    server::{context::ModbusContextFull, ModbusFrame},
+    server::{context::ModbusContext, storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
 lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusContextFull> = RwLock::new(ModbusContextFull::new());
+    pub static ref CONTEXT: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
 }
 
 pub fn asciiserver(unit: u8, port: &str) {
@@ -53,8 +53,8 @@ pub fn asciiserver(unit: u8, port: &str) {
             }
             if frame.processing_required {
                 let result = match frame.readonly {
-                    true => frame.process_read(&CONTEXT.read().unwrap()),
-                    false => frame.process_write(&mut CONTEXT.write().unwrap()),
+                    true => frame.process_read(&*CONTEXT.read().unwrap()),
+                    false => frame.process_write(&mut *CONTEXT.write().unwrap()),
                 };
                 if result.is_err() {
                     println!("frame processing error");

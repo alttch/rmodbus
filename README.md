@@ -128,7 +128,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 
-use rmodbus::server::context::ModbusContextFull;
+use rmodbus::server::{storage::ModbusStorageFull, context::ModbusContext};
 
 #[path = "servers/tcp.rs"]
 mod srv;
@@ -219,19 +219,19 @@ For `no_std`, set the dependency as:
 rmodbus = { version = "*", default-features = false }
 ```
 
-## Small context
+## Small storage
 
-The full Modbus context has 10000 registers of each type, which requires 60000
+The full Modbus storage has 10000 registers of each type, which requires 60000
 bytes total. For systems with small RAM amount there is a pre-defined small
-context with 1000 registers:
+storage with 1000 registers:
 
 ```rust
-use rmodbus::server::context::ModbusContextSmall;
+use rmodbus::server::{storage::ModbusStorageSmall, context::ModbusContext};
 ```
 
-## Custom-sized context
+## Custom-sized storage
 
-Starting from the version 0.7 it is allowed to define context of any size using
+Starting from the version 0.7 it is allowed to define storage of any size using
 generic constants. The generic constants order is: coils, discretes, inputs,
 holdings.
 
@@ -239,11 +239,16 @@ E.g. let us define a context for 128 coils, 16 discretes, 0 inputs and 100
 holdings:
 
 ```rust
-use rmodbus::server::context::ModbusContext;
+use rmodbus::server::{storage::ModbusStorage, context::ModbusContext};
 
-let context = ModbusContext::<128, 16, 0, 100>::new();
+let context = ModbusStorage::<128, 16, 0, 100>::new();
 ```
 
+## Custom server implementation
+
+Starting from the version 0.9 it is allowed to provide custom server implementation 
+by implementing `use rmodbus::server::context::ModbusContext` on custom struct.
+For sample implementation have a look at `src/server/storage.rs`
 ## Vectors
 
 Some of rmodbus functions use vectors to store result.  Different vector types can be used:

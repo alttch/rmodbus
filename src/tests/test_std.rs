@@ -1,39 +1,40 @@
 use crate::client::*;
-use crate::server::context::{ModbusContextFull, FULL_CONTEXT_SIZE as CONTEXT_SIZE};
+use crate::server::context::ModbusContext;
+use crate::server::storage::{ModbusStorageFull, FULL_STORAGE_SIZE as STORAGE_SIZE};
 use crate::server::*;
 use crate::*;
 use crc16::*;
 use std::sync::RwLock;
 
 lazy_static! {
-    pub static ref CTX: RwLock<ModbusContextFull> = RwLock::new(ModbusContextFull::new());
+    pub static ref CTX: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
 }
 
 #[test]
 fn test_std_read_coils_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_coils_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
+    match ctx.get_coils_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
         Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
         Err(_) => assert!(true),
     }
-    match ctx.get_coils_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
+    match ctx.get_coils_bulk(STORAGE_SIZE as u16, 1, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_coils_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_coils_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
         .unwrap();
-    match ctx.get_coils_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
+    match ctx.get_coils_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_coil((CONTEXT_SIZE - 1) as u16).unwrap();
-    match ctx.get_coil(CONTEXT_SIZE as u16) {
+    ctx.get_coil((STORAGE_SIZE - 1) as u16).unwrap();
+    match ctx.get_coil(STORAGE_SIZE as u16) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
-    ctx.set_coil((CONTEXT_SIZE - 1) as u16, true).unwrap();
-    match ctx.set_coil(CONTEXT_SIZE as u16, true) {
+    ctx.set_coil((STORAGE_SIZE - 1) as u16, true).unwrap();
+    match ctx.set_coil(STORAGE_SIZE as u16, true) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
@@ -67,27 +68,27 @@ fn test_std_coil_get_set_bulk() {
 fn test_std_read_discretes_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_discretes_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
+    match ctx.get_discretes_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
         Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
         Err(_) => assert!(true),
     }
-    match ctx.get_discretes_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
+    match ctx.get_discretes_bulk(STORAGE_SIZE as u16, 1, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_discretes_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_discretes_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
         .unwrap();
-    match ctx.get_discretes_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
+    match ctx.get_discretes_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_discrete((CONTEXT_SIZE - 1) as u16).unwrap();
-    match ctx.get_discrete(CONTEXT_SIZE as u16) {
+    ctx.get_discrete((STORAGE_SIZE - 1) as u16).unwrap();
+    match ctx.get_discrete(STORAGE_SIZE as u16) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
-    ctx.set_discrete((CONTEXT_SIZE - 1) as u16, true).unwrap();
-    match ctx.set_discrete(CONTEXT_SIZE as u16, true) {
+    ctx.set_discrete((STORAGE_SIZE - 1) as u16, true).unwrap();
+    match ctx.set_discrete(STORAGE_SIZE as u16, true) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
@@ -121,41 +122,41 @@ fn test_std_discrete_get_set_bulk() {
 fn test_std_read_inputs_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_inputs_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
+    match ctx.get_inputs_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
         Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
         Err(_) => assert!(true),
     }
-    match ctx.get_inputs_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
+    match ctx.get_inputs_bulk(STORAGE_SIZE as u16, 1, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_inputs_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_inputs_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
         .unwrap();
-    match ctx.get_inputs_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
+    match ctx.get_inputs_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_input((CONTEXT_SIZE - 1) as u16).unwrap();
-    match ctx.get_input(CONTEXT_SIZE as u16) {
+    ctx.get_input((STORAGE_SIZE - 1) as u16).unwrap();
+    match ctx.get_input(STORAGE_SIZE as u16) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
-    ctx.set_input((CONTEXT_SIZE - 1) as u16, 0x55).unwrap();
-    match ctx.set_input(CONTEXT_SIZE as u16, 0x55) {
+    ctx.set_input((STORAGE_SIZE - 1) as u16, 0x55).unwrap();
+    match ctx.set_input(STORAGE_SIZE as u16, 0x55) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
-    match ctx.set_inputs_from_u32((CONTEXT_SIZE - 1) as u16, 0x55) {
+    match ctx.set_inputs_from_u32((STORAGE_SIZE - 1) as u16, 0x55) {
         Ok(_) => assert!(false, "oob failed MAX u32"),
         Err(_) => assert!(true),
     }
-    ctx.set_inputs_from_u32((CONTEXT_SIZE - 2) as u16, 0x9999)
+    ctx.set_inputs_from_u32((STORAGE_SIZE - 2) as u16, 0x9999)
         .unwrap();
-    match ctx.set_inputs_from_u64((CONTEXT_SIZE - 3) as u16, 0x55) {
+    match ctx.set_inputs_from_u64((STORAGE_SIZE - 3) as u16, 0x55) {
         Ok(_) => assert!(false, "oob failed MAX u64"),
         Err(_) => assert!(true),
     }
-    ctx.set_inputs_from_u64((CONTEXT_SIZE - 4) as u16, 0x9999)
+    ctx.set_inputs_from_u64((STORAGE_SIZE - 4) as u16, 0x9999)
         .unwrap();
 }
 
@@ -200,41 +201,41 @@ fn test_std_get_set_inputs() {
 fn test_std_read_holdings_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_holdings_bulk(0, CONTEXT_SIZE as u16 + 1, &mut result) {
+    match ctx.get_holdings_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
         Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
         Err(_) => assert!(true),
     }
-    match ctx.get_holdings_bulk(CONTEXT_SIZE as u16, 1, &mut result) {
+    match ctx.get_holdings_bulk(STORAGE_SIZE as u16, 1, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_holdings_bulk((CONTEXT_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_holdings_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
         .unwrap();
-    match ctx.get_holdings_bulk(CONTEXT_SIZE as u16 - 1, 2, &mut result) {
+    match ctx.get_holdings_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
         Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
         Err(_) => assert!(true),
     }
-    ctx.get_holding((CONTEXT_SIZE - 1) as u16).unwrap();
-    match ctx.get_holding(CONTEXT_SIZE as u16) {
+    ctx.get_holding((STORAGE_SIZE - 1) as u16).unwrap();
+    match ctx.get_holding(STORAGE_SIZE as u16) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
-    ctx.set_holding((CONTEXT_SIZE - 1) as u16, 0x55).unwrap();
-    match ctx.set_holding(CONTEXT_SIZE as u16, 0x55) {
+    ctx.set_holding((STORAGE_SIZE - 1) as u16, 0x55).unwrap();
+    match ctx.set_holding(STORAGE_SIZE as u16, 0x55) {
         Ok(_) => assert!(false, "oob failed MAX"),
         Err(_) => assert!(true),
     }
-    match ctx.set_holdings_from_u32((CONTEXT_SIZE - 1) as u16, 0x55) {
+    match ctx.set_holdings_from_u32((STORAGE_SIZE - 1) as u16, 0x55) {
         Ok(_) => assert!(false, "oob failed MAX u32"),
         Err(_) => assert!(true),
     }
-    ctx.set_holdings_from_u32((CONTEXT_SIZE - 2) as u16, 0x9999)
+    ctx.set_holdings_from_u32((STORAGE_SIZE - 2) as u16, 0x9999)
         .unwrap();
-    match ctx.set_holdings_from_u64((CONTEXT_SIZE - 3) as u16, 0x55) {
+    match ctx.set_holdings_from_u64((STORAGE_SIZE - 3) as u16, 0x55) {
         Ok(_) => assert!(false, "oob failed MAX u64"),
         Err(_) => assert!(true),
     }
-    ctx.set_holdings_from_u64((CONTEXT_SIZE - 4) as u16, 0x9999)
+    ctx.set_holdings_from_u64((STORAGE_SIZE - 4) as u16, 0x9999)
         .unwrap();
 }
 
@@ -440,7 +441,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.count, 5);
     assert_eq!(frame.reg, 5);
     assert_eq!(frame.error, 0);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -454,7 +455,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.count, 5);
     assert_eq!(frame.reg, 5);
     assert_eq!(frame.error, 0);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -497,7 +498,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.response_required, true);
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -507,7 +508,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.response_required, true);
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -554,7 +555,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, true);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     assert_eq!(
         result.as_slice(),
@@ -576,7 +577,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, true);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
@@ -586,7 +587,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, true);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // read inputs
@@ -600,7 +601,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, true);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     assert_eq!(
         result.as_slice(),
@@ -623,7 +624,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -635,7 +636,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -648,7 +649,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     assert_eq!(ctx.get_coil(5).unwrap(), true);
     let request = [0, 5, 0, 0x7, 0xff, 0];
@@ -659,7 +660,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     assert_eq!(ctx.get_coil(7).unwrap(), true);
     // write coil invalid data
@@ -672,7 +673,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 3);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -686,7 +687,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -697,7 +698,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // write holding
@@ -710,7 +711,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -722,7 +723,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -736,7 +737,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -747,7 +748,7 @@ fn test_std_frame_fc05_fc06() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -768,7 +769,7 @@ fn test_std_frame_fc15() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -785,7 +786,7 @@ fn test_std_frame_fc15() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -799,7 +800,7 @@ fn test_std_frame_fc15() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -810,7 +811,7 @@ fn test_std_frame_fc15() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -834,7 +835,7 @@ fn test_std_frame_fc16() {
     assert_eq!(frame.response_required, true);
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -849,7 +850,7 @@ fn test_std_frame_fc16() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -865,7 +866,7 @@ fn test_std_frame_fc16() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -876,7 +877,7 @@ fn test_std_frame_fc16() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, false);
-    frame.process_write(&mut ctx).unwrap();
+    frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -884,7 +885,7 @@ fn test_std_frame_fc16() {
 
 #[test]
 fn test_modbus_ascii() {
-    let ctx = ModbusContextFull::new();
+    let ctx = ModbusStorageFull::new();
     let mut result = Vec::new();
     let mut ascii_result = Vec::new();
     let request = [
@@ -947,7 +948,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
@@ -980,7 +981,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, true);
-        frame.process_read(&mut ctx).unwrap();
+        frame.process_read(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1017,7 +1018,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, true);
-        frame.process_read(&mut ctx).unwrap();
+        frame.process_read(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1050,7 +1051,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
@@ -1080,7 +1081,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 2);
         frame.finalize_response().unwrap();
         assert_eq!(
@@ -1114,7 +1115,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
@@ -1147,7 +1148,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, true);
-        frame.process_read(&mut ctx).unwrap();
+        frame.process_read(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1180,7 +1181,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
@@ -1210,7 +1211,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, true);
-        frame.process_read(&mut ctx).unwrap();
+        frame.process_read(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = String::new();
@@ -1247,7 +1248,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, true);
-        frame.process_read(&mut ctx).unwrap();
+        frame.process_read(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1280,7 +1281,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
@@ -1311,7 +1312,7 @@ fn test_std_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 2);
         frame.finalize_response().unwrap();
         assert_eq!(
