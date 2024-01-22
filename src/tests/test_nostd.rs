@@ -1,5 +1,6 @@
 use crate::client::*;
-use crate::server::context::{ModbusContextSmall, SMALL_CONTEXT_SIZE as CONTEXT_SIZE};
+use crate::server::context::ModbusContext;
+use crate::server::storage::{ModbusStorageSmall, SMALL_STORAGE_SIZE as STORAGE_SIZE};
 use crate::server::*;
 use crate::*;
 use fixedvec::alloc_stack;
@@ -7,15 +8,15 @@ use fixedvec::FixedVec;
 use spin::RwLock;
 
 lazy_static! {
-    pub static ref CTX: RwLock<ModbusContextSmall> = RwLock::new(ModbusContextSmall::new());
+    pub static ref CTX: RwLock<ModbusStorageSmall> = RwLock::new(ModbusStorageSmall::new());
 }
 
 #[test]
 fn test_nostd_coil_get_set_bulk() {
     let mut ctx = CTX.write();
-    let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+    let mut data_mem = alloc_stack!([bool; STORAGE_SIZE]);
     let mut data = FixedVec::new(&mut data_mem);
-    let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+    let mut result_mem = alloc_stack!([bool; STORAGE_SIZE]);
     let mut result = FixedVec::new(&mut result_mem);
     data.push_all(&[true; 2]).unwrap();
     ctx.set_coils_bulk(5, &data.as_slice()).unwrap();
@@ -34,9 +35,9 @@ fn test_nostd_coil_get_set_bulk() {
 #[test]
 fn test_nostd_get_holding_set_bulk() {
     let mut ctx = CTX.write();
-    let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+    let mut data_mem = alloc_stack!([u16; STORAGE_SIZE]);
     let mut data = FixedVec::new(&mut data_mem);
-    let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+    let mut result_mem = alloc_stack!([u16; STORAGE_SIZE]);
     let mut result = FixedVec::new(&mut result_mem);
 
     ctx.clear_holdings();
@@ -58,13 +59,13 @@ fn test_nostd_get_holding_set_bulk() {
 #[test]
 fn test_nostd_get_bools_as_u8() {
     let mut ctx = CTX.write();
-    let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+    let mut data_mem = alloc_stack!([bool; STORAGE_SIZE]);
     let mut data = FixedVec::new(&mut data_mem);
     ctx.clear_coils();
     data.push_all(&[true, true, true, true, true, true, false, false])
         .unwrap();
     ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
-    let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE / 8]);
+    let mut result_mem = alloc_stack!([u8; STORAGE_SIZE / 8]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_coils_as_u8(0, 6, &mut result).unwrap();
     assert_eq!(*result.get(0).unwrap(), 0b00111111);
@@ -76,7 +77,7 @@ fn test_nostd_get_bools_as_u8() {
     data.push_all(&[true, true, false, true, true, true, true, true])
         .unwrap();
     ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
-    let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE / 8]);
+    let mut result_mem = alloc_stack!([u8; STORAGE_SIZE / 8]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_coils_as_u8(0, 6, &mut result).unwrap();
     assert_eq!(*result.get(0).unwrap(), 0b00111011);
@@ -92,7 +93,7 @@ fn test_nostd_get_bools_as_u8() {
     ])
     .unwrap();
     ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
-    let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE / 8]);
+    let mut result_mem = alloc_stack!([u8; STORAGE_SIZE / 8]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_coils_as_u8(0, 22, &mut result).unwrap();
     assert_eq!(*result.get(0).unwrap(), 0b11111011);
@@ -104,12 +105,12 @@ fn test_nostd_get_bools_as_u8() {
 fn test_nostd_get_set_regs_as_u8() {
     let mut ctx = CTX.write();
     ctx.clear_holdings();
-    let mut data_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+    let mut data_mem = alloc_stack!([u16; STORAGE_SIZE]);
     let mut data = FixedVec::new(&mut data_mem);
     data.push_all(&[2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9])
         .unwrap();
     ctx.set_holdings_bulk(0, &data.as_slice()).unwrap();
-    let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE]);
+    let mut result_mem = alloc_stack!([u8; STORAGE_SIZE]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_holdings_as_u8(0, data.len() as u16, &mut result)
         .unwrap();
@@ -119,7 +120,7 @@ fn test_nostd_get_set_regs_as_u8() {
         ctx.set_holding(i, 0).unwrap();
     }
     ctx.set_holdings_from_u8(0, &result.as_slice()).unwrap();
-    let mut result_mem = alloc_stack!([u16; CONTEXT_SIZE]);
+    let mut result_mem = alloc_stack!([u16; STORAGE_SIZE]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_holdings_bulk(0, data.len() as u16, &mut result)
         .unwrap();
@@ -130,7 +131,7 @@ fn test_nostd_get_set_regs_as_u8() {
 fn test_nostd_get_set_bools_as_u8() {
     let mut ctx = CTX.write();
     ctx.clear_coils();
-    let mut data_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+    let mut data_mem = alloc_stack!([bool; STORAGE_SIZE]);
     let mut data = FixedVec::new(&mut data_mem);
     data.push_all(&[
         true, true, true, false, true, true, true, true, true, false, false, false, false, false,
@@ -140,13 +141,13 @@ fn test_nostd_get_set_bools_as_u8() {
     ctx.set_coil(data.len() as u16, true).unwrap();
     ctx.set_coil(data.len() as u16 + 1, false).unwrap();
     ctx.set_coil(data.len() as u16 + 2, true).unwrap();
-    let mut result_mem = alloc_stack!([u8; CONTEXT_SIZE]);
+    let mut result_mem = alloc_stack!([u8; STORAGE_SIZE]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_coils_as_u8(0, data.len() as u16, &mut result)
         .unwrap();
     ctx.set_coils_from_u8(0, data.len() as u16, &result.as_slice())
         .unwrap();
-    let mut result_mem = alloc_stack!([bool; CONTEXT_SIZE]);
+    let mut result_mem = alloc_stack!([bool; STORAGE_SIZE]);
     let mut result = FixedVec::new(&mut result_mem);
     ctx.get_coils_bulk(0, data.len() as u16, &mut result)
         .unwrap();
@@ -194,7 +195,7 @@ fn test_nostd_frame() {
     assert_eq!(frame.processing_required, true);
     assert_eq!(frame.error, 0);
     assert_eq!(frame.readonly, true);
-    frame.process_read(&ctx).unwrap();
+    frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -206,7 +207,7 @@ fn test_nostd_frame() {
         match frame.parse() {
             Ok(_) => {
                 if i > 3 {
-                    match frame.process_read(&ctx) {
+                    match frame.process_read(&*ctx) {
                         Ok(_) => panic!("{:x?}", result),
                         Err(e) => match e {
                             ErrorKind::OOB => {}
@@ -265,7 +266,7 @@ fn test_nostd_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, false);
-        frame.process_write(&mut ctx).unwrap();
+        frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response.as_slice()).unwrap();
@@ -302,7 +303,7 @@ fn test_nostd_client() {
         assert_eq!(frame.processing_required, true);
         assert_eq!(frame.error, 0);
         assert_eq!(frame.readonly, true);
-        frame.process_read(&mut ctx).unwrap();
+        frame.process_read(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result_mem = alloc_stack!([bool; 256]);
