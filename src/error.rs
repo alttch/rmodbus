@@ -19,6 +19,8 @@ pub enum ErrorKind {
     CommunicationError,
     UnknownError,
     Utf8Error,
+    ReadCallOnWriteFrame,
+    WriteCallOnReadFrame,
 }
 
 impl ErrorKind {
@@ -35,6 +37,43 @@ impl ErrorKind {
             0x09 => ErrorKind::GatewayPathUnavailable,
             0x10 => ErrorKind::GatewayTargetFailed,
             _ => ErrorKind::UnknownError,
+        }
+    }
+
+    pub fn is_modbus_error(&self) -> bool
+    {
+        use ErrorKind::*;
+
+        match self {
+            IllegalFunction |
+            IllegalDataAddress |
+            IllegalDataValue |
+            SlaveDeviceFailure |
+            Acknowledge |
+            SlaveDeviceBusy |
+            NegativeAcknowledge |
+            MemoryParityError |
+            GatewayPathUnavailable |
+            GatewayTargetFailed => true,
+            _ => false
+        }
+    }
+
+    pub fn to_modbus_error(&self) -> Result<u8, ErrorKind> {
+        use ErrorKind::*;
+
+        match self {
+            IllegalFunction => Ok(1),
+            IllegalDataAddress => Ok(2),
+            IllegalDataValue => Ok(3),
+            SlaveDeviceFailure => Ok(4),
+            Acknowledge => Ok(5),
+            SlaveDeviceBusy => Ok(6),
+            NegativeAcknowledge => Ok(7),
+            MemoryParityError => Ok(8),
+            GatewayPathUnavailable => Ok(9),
+            GatewayTargetFailed => Ok(10),
+            _ => Err(self.clone())
         }
     }
 }
@@ -63,6 +102,8 @@ impl core::fmt::Display for ErrorKind {
             }
             ErrorKind::UnknownError => "UNKNOWN MODBUS ERROR",
             ErrorKind::Utf8Error => "UTF8 CONVERTION ERROR",
+            ErrorKind::ReadCallOnWriteFrame => "FRAME DESCRIBING WRITE HAD FUNCTION CALLED FOR FRAMES DESCRIBING READ",
+            ErrorKind::WriteCallOnReadFrame => "FRAME DESCRIBING READ HAD FUNCTION CALLED FOR FRAMES DESCRIBING WRITE",
         };
         write!(f, "{}", msg)
     }

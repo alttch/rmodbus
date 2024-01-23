@@ -443,6 +443,25 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             _ => return None,
         })
     }
+
+    /// If the error field on the [`ModbusFrame`] isn't already set this function will set it and
+    /// resize the response buffer to what's expected by [`ModbusFrame::finalize_response`]
+    pub fn set_modbus_error_if_unset(&mut self, err: &ErrorKind) {
+        if self.error == 0 && err.is_modbus_error() {
+            // leave 0 bytes for RTU/ASCII, leave 4 bytes for TCP/UDP (Transaction ID and Protocol ID)
+            let len_leave_before_finalize =
+                if self.proto == ModbusProto::TcpUdp {
+                    4
+                } else {
+                    0
+                };
+
+            self.response.resize(len_leave_before_finalize, 0);
+            self.error = err
+                .to_modbus_error()
+                .expect("the outer if statement checks for this");
+        }
+    }
 }
 
 /// See [`ModbusFrame::changes`]
