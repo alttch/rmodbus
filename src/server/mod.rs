@@ -111,10 +111,13 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             match self.proto {
                 ModbusProto::TcpUdp => {
                     self.response
+                        // write 2b length 1b unit ID, 1b function code and 1b error
+                        // 2b transaction ID and 2b protocol ID were already written by .parse()
                         .extend(&[0, 3, self.unit_id, self.func + 0x80, self.error])?;
                 }
                 ModbusProto::Rtu | ModbusProto::Ascii => {
                     self.response
+                        // write 1b unit ID, 1b function code and 1b error
                         .extend(&[self.unit_id, self.func + 0x80, self.error])?;
                 }
             }
@@ -212,6 +215,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
+            MODBUS_GET_HOLDINGS
+            | MODBUS_GET_INPUTS
+            | MODBUS_GET_COILS
+            | MODBUS_GET_DISCRETES => {
+                return Err(ErrorKind::ReadCallOnWriteFrame);
+            }
             _ => Ok(()),
         }
     }
@@ -284,6 +293,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 } else {
                     Ok(())
                 }
+            }
+            MODBUS_SET_COIL
+            | MODBUS_SET_HOLDING
+            | MODBUS_SET_COILS_BULK
+            | MODBUS_SET_HOLDINGS_BULK => {
+                return Err(ErrorKind::WriteCallOnReadFrame);
             }
             _ => Ok(()),
         }
@@ -383,6 +398,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 if !broadcast {
                     self.response_required = true;
                 }
+                self.count = 1;
                 self.processing_required = true;
                 self.readonly = false;
                 self.reg = u16::from_be_bytes([
@@ -400,6 +416,19 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 }
                 if !broadcast {
                     self.response_required = true;
+                }
+                self.count = u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]);
+                let max_count = if self.func == MODBUS_SET_COILS_BULK {
+                    1968
+                } else {
+                    123
+                };
+                if self.count > max_count {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    return Ok(());
                 }
                 if bytes > 246 {
                     self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
