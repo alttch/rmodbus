@@ -1,11 +1,8 @@
 pub mod context;
 
-use crate::consts::{
-    MODBUS_ERROR_ILLEGAL_DATA_ADDRESS, MODBUS_ERROR_ILLEGAL_DATA_VALUE,
-    MODBUS_ERROR_ILLEGAL_FUNCTION, MODBUS_GET_COILS, MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS,
-    MODBUS_GET_INPUTS, MODBUS_SET_COIL, MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING,
-    MODBUS_SET_HOLDINGS_BULK,
-};
+use std::slice;
+
+use crate::consts::*;
 use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusProto, VectorTrait};
 
 /// Modbus frame processor
@@ -111,10 +108,13 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             match self.proto {
                 ModbusProto::TcpUdp => {
                     self.response
+                        // write 2b length 1b unit ID, 1b function code and 1b error
+                        // 2b transaction ID and 2b protocol ID were already written by .parse()
                         .extend(&[0, 3, self.unit_id, self.func + 0x80, self.error])?;
                 }
                 ModbusProto::Rtu | ModbusProto::Ascii => {
                     self.response
+                        // write 1b unit ID, 1b function code and 1b error
                         .extend(&[self.unit_id, self.func + 0x80, self.error])?;
                 }
             }
@@ -126,7 +126,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     return Err(ErrorKind::OOB);
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                let crc = calc_crc16(self.response.as_slice(), len as u8);
+                    let crc = calc_crc16(self.response.as_slice(), len as u8);
                 self.response.extend(&crc.to_le_bytes())
             }
             ModbusProto::Ascii => {
@@ -135,7 +135,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     return Err(ErrorKind::OOB);
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                let lrc = calc_lrc(self.response.as_slice(), len as u8);
+                    let lrc = calc_lrc(self.response.as_slice(), len as u8);
                 self.response.push(lrc)
             }
             ModbusProto::TcpUdp => Ok(()),
@@ -212,9 +212,145 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
+            MODBUS_GET_HOLDINGS
+            | MODBUS_GET_INPUTS
+            | MODBUS_GET_COILS
+            | MODBUS_GET_DISCRETES => {
+                return Err(ErrorKind::ReadCallOnWriteFrame);
+            }
             _ => Ok(()),
         }
     }
+    /// Construct [`Write`] struct describing the requested write.
+    ///
+    /// If you use this to process the requested write yourself (so not calling
+    /// [`process_write`](ModbusFrame::process_write) with a
+    /// [`ModbusContext`](context::ModbusContext)) don't forget to call
+    /// [`process_external_write`](ModbusFrame::process_external_write), these two calls together
+    /// replace the call to [`process_write`](ModbusFrame::process_write).
+    pub fn get_external_write(&mut self) -> Result<Write, ErrorKind> {
+        match self.func {
+            MODBUS_SET_COIL => {
+                // func 5
+                // write single coil
+                let val = match u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]) {
+                    0xff00 => Write::Bits(WriteBits {
+                        address: self.reg,
+                        count: 1,
+                        data: slice::from_ref(&1u8),
+                    }),
+                    0x0000 => Write::Bits(WriteBits {
+                        address: self.reg,
+                        count: 1,
+                        data: slice::from_ref(&0u8),
+                    }),
+                    _ => {
+                        self.set_modbus_error_if_unset(&ErrorKind::IllegalDataValue);
+                        return Err(ErrorKind::IllegalDataValue);
+                    }
+                };
+
+                return Ok(val);
+            }
+            MODBUS_SET_HOLDING => {
+                // func 6
+                // write single register
+
+                let write = Write::Words(WriteWords {
+                    address: self.reg,
+                    count: 1,
+                    data: &self.buf[self.frame_start + 4..self.frame_start + 6],
+                });
+
+                return Ok(write);
+            }
+            MODBUS_SET_COILS_BULK => {
+                // funcs 15 & 16
+                // write multiple coils / registers
+                let bytes = self.buf[self.frame_start + 6];
+                let data_start = self.frame_start + 7;
+
+                let write = Write::Bits(WriteBits {
+                    address: self.reg,
+                    count: self.count,
+                    data: &self.buf[data_start..data_start + bytes as usize],
+                });
+
+                return Ok(write);
+            }
+            MODBUS_SET_HOLDINGS_BULK => {
+                // funcs 15 & 16
+                // write multiple coils / registers
+                let bytes = self.buf[self.frame_start + 6];
+                let data_start = self.frame_start + 7;
+
+                let write = Write::Words(WriteWords {
+                    address: self.reg,
+                    count: self.count,
+                    data: &self.buf[data_start..data_start + bytes as usize],
+                });
+
+                return Ok(write);
+            }
+            MODBUS_GET_HOLDINGS
+            | MODBUS_GET_INPUTS
+            | MODBUS_GET_COILS
+            | MODBUS_GET_DISCRETES => {
+                return Err(ErrorKind::ReadCallOnWriteFrame);
+            }
+            _ => {
+                self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction);
+                return Err(ErrorKind::IllegalFunction);
+            }
+        }
+    }
+    /// See [get_external_write](ModbusFrame::get_external_write)
+    pub fn process_external_write(
+        &mut self,
+        write_result: Result<(), ErrorKind>,
+    ) -> Result<(), ErrorKind> {
+        match write_result {
+            Ok(_) => {
+                match self.func {
+                    MODBUS_SET_COIL
+                    | MODBUS_SET_HOLDING
+                    | MODBUS_SET_COILS_BULK
+                    | MODBUS_SET_HOLDINGS_BULK => {
+                        // funcs 5 & 6
+                        // write single coil / register
+                        // funcs 15 & 16
+                        // write multiple coils / registers
+
+                        tcp_response_set_data_len!(self, 6);
+                        // 6b unit, func, reg, val
+                        self.response
+                            .extend(&self.buf[self.frame_start..self.frame_start + 6])
+                    }
+                    MODBUS_GET_HOLDINGS
+                    | MODBUS_GET_INPUTS
+                    | MODBUS_GET_COILS
+                    | MODBUS_GET_DISCRETES => {
+                        return Err(ErrorKind::ReadCallOnWriteFrame);
+                    }
+                    _ => {
+                        self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction);
+                        return Err(ErrorKind::IllegalFunction);
+                    }
+                }
+            }
+            Err(e) if e.is_modbus_error() => {
+                self.set_modbus_error_if_unset(&e);
+                return Ok(());
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
+    }
+
     /// Process read functions
     pub fn process_read<const C: usize, const D: usize, const I: usize, const H: usize>(
         &mut self,
@@ -285,9 +421,129 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
+            MODBUS_SET_COIL
+            | MODBUS_SET_HOLDING
+            | MODBUS_SET_COILS_BULK
+            | MODBUS_SET_HOLDINGS_BULK => {
+                return Err(ErrorKind::WriteCallOnReadFrame);
+            }
             _ => Ok(()),
         }
     }
+
+    /// Construct [`Read`] struct describing the requested read.
+    ///
+    /// If you use this to process the requested read yourself (so not calling
+    /// [`process_read`](ModbusFrame::process_read) with a
+    /// [`ModbusContext`](context::ModbusContext)) don't forget to call
+    /// [`process_external_read`](ModbusFrame::process_external_read), these two calls together
+    /// replace the call to [`process_read`](ModbusFrame::process_read).
+    pub fn get_external_read(&mut self) -> Result<Read, ErrorKind> {
+        match self.func {
+            MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+                // funcs 1 - 2
+                // read coils / discretes
+                let mut data_len = self.count >> 3;
+                if self.count % 8 != 0 {
+                    data_len += 1;
+                }
+                tcp_response_set_data_len!(self, data_len + 3);
+                // 2b unit and func
+                self.response
+                    .extend(&self.buf[self.frame_start..self.frame_start + 2])?;
+                if data_len > u16::from(u8::MAX) {
+                    return Err(ErrorKind::OOB);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                // 1b data len
+                self.response.push(data_len as u8)?;
+
+                // extend with data_len so we can get the extra space as &mut slice for Read struct
+                let current_length = self.response.len();
+                let new_length = current_length + data_len as usize;
+                self.response.resize(new_length, 0u8);
+
+                return Ok(Read::Bits(ReadBits {
+                    address: self.reg,
+                    count: self.count,
+                    buf: &mut self.response.as_mut_slice()[current_length..new_length],
+                }));
+            }
+            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+                // funcs 3 - 4
+                // read holdings / inputs
+                let data_len = self.count << 1;
+                tcp_response_set_data_len!(self, data_len + 3);
+                // 2b unit and func
+                self.response
+                    .extend(&self.buf[self.frame_start..self.frame_start + 2])?;
+                if data_len > u16::from(u8::MAX) {
+                    return Err(ErrorKind::OOB);
+                }
+                #[allow(clippy::cast_possible_truncation)]
+                // 1b data len
+                self.response.push(data_len as u8)?;
+
+                // extend with data_len so we can get the extra space as &mut slice for Read struct
+                let current_length = self.response.len();
+                let new_length = current_length + data_len as usize;
+                self.response.resize(new_length, 0u8);
+
+                return Ok(Read::Words(ReadWords {
+                    address: self.reg,
+                    count: self.count,
+                    buf: &mut self.response.as_mut_slice()[current_length..new_length],
+                }));
+            }
+            MODBUS_SET_COIL
+            | MODBUS_SET_HOLDING
+            | MODBUS_SET_COILS_BULK
+            | MODBUS_SET_HOLDINGS_BULK => {
+                return Err(ErrorKind::WriteCallOnReadFrame);
+            }
+            _ => {
+                self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction);
+                return Err(ErrorKind::IllegalFunction);
+            }
+        }
+    }
+
+    /// see [get_external_read](ModbusFrame::get_external_read)
+    pub fn process_external_read(
+        &mut self,
+        read_result: Result<(), ErrorKind>,
+    ) -> Result<(), ErrorKind> {
+        match read_result {
+            Ok(_) => {
+                match self.func {
+                    MODBUS_GET_COILS
+                    | MODBUS_GET_DISCRETES
+                    | MODBUS_GET_HOLDINGS
+                    | MODBUS_GET_INPUTS => {
+                        return Ok(());
+                    }
+                    MODBUS_SET_COIL
+                    | MODBUS_SET_HOLDING
+                    | MODBUS_SET_COILS_BULK
+                    | MODBUS_SET_HOLDINGS_BULK => {
+                        return Err(ErrorKind::WriteCallOnReadFrame);
+                    }
+                    _ => {
+                        self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction);
+                        return Ok(());
+                    }
+                };
+            }
+            Err(e) if e.is_modbus_error() => {
+                self.set_modbus_error_if_unset(&e);
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+    }
+
     /// Parse frame buffer
     #[allow(clippy::too_many_lines)]
     pub fn parse(&mut self) -> Result<(), ErrorKind> {
@@ -383,6 +639,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 if !broadcast {
                     self.response_required = true;
                 }
+                self.count = 1;
                 self.processing_required = true;
                 self.readonly = false;
                 self.reg = u16::from_be_bytes([
@@ -400,6 +657,19 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 }
                 if !broadcast {
                     self.response_required = true;
+                }
+                self.count = u16::from_be_bytes([
+                    self.buf[self.frame_start + 4],
+                    self.buf[self.frame_start + 5],
+                ]);
+                let max_count = if self.func == MODBUS_SET_COILS_BULK {
+                    1968
+                } else {
+                    123
+                };
+                if self.count > max_count {
+                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    return Ok(());
                 }
                 if bytes > 246 {
                     self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
@@ -443,6 +713,25 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             _ => return None,
         })
     }
+
+    /// If the error field on the [`ModbusFrame`] isn't already set this function will set it and
+    /// resize the response buffer to what's expected by [`ModbusFrame::finalize_response`]
+    pub fn set_modbus_error_if_unset(&mut self, err: &ErrorKind) {
+        if self.error == 0 && err.is_modbus_error() {
+            // leave 0 bytes for RTU/ASCII, leave 4 bytes for TCP/UDP (Transaction ID and Protocol ID)
+            let len_leave_before_finalize =
+                if self.proto == ModbusProto::TcpUdp {
+                    4
+                } else {
+                    0
+                };
+
+            self.response.resize(len_leave_before_finalize, 0);
+            self.error = err
+                .to_modbus_error()
+                .expect("the outer if statement checks for this");
+        }
+    }
 }
 
 /// See [`ModbusFrame::changes`]
@@ -450,4 +739,53 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 pub enum Changes {
     Coils { reg: u16, count: u16 },
     Holdings { reg: u16, count: u16 },
+}
+
+/// See [`get_external_write`](ModbusFrame::get_external_write)
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct WriteBits<'a> {
+    pub address: u16,
+    pub count: u16,
+    pub data: &'a [u8],
+}
+
+/// See [`get_external_write`](ModbusFrame::get_external_write)
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct WriteWords<'a> {
+    pub address: u16,
+    pub count: u16,
+    pub data: &'a [u8],
+}
+
+/// See [`get_external_write`](ModbusFrame::get_external_write)
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Write<'a> {
+    Bits(WriteBits<'a>),
+    Words(WriteWords<'a>),
+}
+
+/// See [`get_external_read`](ModbusFrame::get_external_read)
+#[derive(Debug, Eq, PartialEq)]
+pub struct ReadBits<'a>
+{
+    pub address: u16,
+    pub count: u16,
+    pub buf: &'a mut [u8],
+}
+
+/// See [`get_external_read`](ModbusFrame::get_external_read)
+#[derive(Debug, Eq, PartialEq)]
+pub struct ReadWords<'a>
+{
+    pub address: u16,
+    pub count: u16,
+    pub buf: &'a mut [u8],
+}
+
+/// See [`get_external_read`](ModbusFrame::get_external_read)
+#[derive(Debug, Eq, PartialEq)]
+pub enum Read<'a>
+{
+    Bits(ReadBits<'a>),
+    Words(ReadWords<'a>),
 }
