@@ -127,7 +127,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     return Err(ErrorKind::OOB);
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                    let crc = calc_crc16(self.response.as_slice(), len as u8);
+                let crc = calc_crc16(self.response.as_slice(), len as u8);
                 self.response.extend(&crc.to_le_bytes())
             }
             ModbusProto::Ascii => {
@@ -136,7 +136,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     return Err(ErrorKind::OOB);
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                    let lrc = calc_lrc(self.response.as_slice(), len as u8);
+                let lrc = calc_lrc(self.response.as_slice(), len as u8);
                 self.response.push(lrc)
             }
             ModbusProto::TcpUdp => Ok(()),
@@ -213,10 +213,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
-            MODBUS_GET_HOLDINGS
-            | MODBUS_GET_INPUTS
-            | MODBUS_GET_COILS
-            | MODBUS_GET_DISCRETES => {
+            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS | MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
                 return Err(ErrorKind::ReadCallOnWriteFrame);
             }
             _ => Ok(()),
@@ -296,10 +293,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 
                 return Ok(write);
             }
-            MODBUS_GET_HOLDINGS
-            | MODBUS_GET_INPUTS
-            | MODBUS_GET_COILS
-            | MODBUS_GET_DISCRETES => {
+            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS | MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
                 return Err(ErrorKind::ReadCallOnWriteFrame);
             }
             _ => {
@@ -330,9 +324,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                         self.response
                             .extend(&self.buf[self.frame_start..self.frame_start + 6])
                     }
-                    MODBUS_GET_HOLDINGS
-                    | MODBUS_GET_INPUTS
-                    | MODBUS_GET_COILS
+                    MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS | MODBUS_GET_COILS
                     | MODBUS_GET_DISCRETES => {
                         return Err(ErrorKind::ReadCallOnWriteFrame);
                     }
@@ -346,9 +338,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 self.set_modbus_error_if_unset(&e);
                 return Ok(());
             }
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -514,9 +504,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         match read_result {
             Ok(_) => {
                 match self.func {
-                    MODBUS_GET_COILS
-                    | MODBUS_GET_DISCRETES
-                    | MODBUS_GET_HOLDINGS
+                    MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS
                     | MODBUS_GET_INPUTS => {
                         return Ok(());
                     }
@@ -717,12 +705,11 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     pub fn set_modbus_error_if_unset(&mut self, err: &ErrorKind) {
         if self.error == 0 && err.is_modbus_error() {
             // leave 0 bytes for RTU/ASCII, leave 4 bytes for TCP/UDP (Transaction ID and Protocol ID)
-            let len_leave_before_finalize =
-                if self.proto == ModbusProto::TcpUdp {
-                    4
-                } else {
-                    0
-                };
+            let len_leave_before_finalize = if self.proto == ModbusProto::TcpUdp {
+                4
+            } else {
+                0
+            };
 
             self.response.resize(len_leave_before_finalize, 0);
             self.error = err
@@ -764,8 +751,7 @@ pub enum Write<'a> {
 
 /// See [`get_external_read`](ModbusFrame::get_external_read)
 #[derive(Debug, Eq, PartialEq)]
-pub struct ReadBits<'a>
-{
+pub struct ReadBits<'a> {
     pub address: u16,
     pub count: u16,
     pub buf: &'a mut [u8],
@@ -773,8 +759,7 @@ pub struct ReadBits<'a>
 
 /// See [`get_external_read`](ModbusFrame::get_external_read)
 #[derive(Debug, Eq, PartialEq)]
-pub struct ReadWords<'a>
-{
+pub struct ReadWords<'a> {
     pub address: u16,
     pub count: u16,
     pub buf: &'a mut [u8],
@@ -782,8 +767,7 @@ pub struct ReadWords<'a>
 
 /// See [`get_external_read`](ModbusFrame::get_external_read)
 #[derive(Debug, Eq, PartialEq)]
-pub enum Read<'a>
-{
+pub enum Read<'a> {
     Bits(ReadBits<'a>),
     Words(ReadWords<'a>),
 }

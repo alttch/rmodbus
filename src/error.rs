@@ -40,22 +40,21 @@ impl ErrorKind {
         }
     }
 
-    pub fn is_modbus_error(&self) -> bool
-    {
+    pub fn is_modbus_error(&self) -> bool {
         use ErrorKind::*;
 
         match self {
-            IllegalFunction |
-            IllegalDataAddress |
-            IllegalDataValue |
-            SlaveDeviceFailure |
-            Acknowledge |
-            SlaveDeviceBusy |
-            NegativeAcknowledge |
-            MemoryParityError |
-            GatewayPathUnavailable |
-            GatewayTargetFailed => true,
-            _ => false
+            IllegalFunction
+            | IllegalDataAddress
+            | IllegalDataValue
+            | SlaveDeviceFailure
+            | Acknowledge
+            | SlaveDeviceBusy
+            | NegativeAcknowledge
+            | MemoryParityError
+            | GatewayPathUnavailable
+            | GatewayTargetFailed => true,
+            _ => false,
         }
     }
 
@@ -73,7 +72,7 @@ impl ErrorKind {
             MemoryParityError => Ok(8),
             GatewayPathUnavailable => Ok(9),
             GatewayTargetFailed => Ok(10),
-            _ => Err(self.clone())
+            _ => Err(self.clone()),
         }
     }
 }
@@ -102,8 +101,12 @@ impl core::fmt::Display for ErrorKind {
             }
             ErrorKind::UnknownError => "UNKNOWN MODBUS ERROR",
             ErrorKind::Utf8Error => "UTF8 CONVERTION ERROR",
-            ErrorKind::ReadCallOnWriteFrame => "FRAME DESCRIBING WRITE HAD FUNCTION CALLED FOR FRAMES DESCRIBING READ",
-            ErrorKind::WriteCallOnReadFrame => "FRAME DESCRIBING READ HAD FUNCTION CALLED FOR FRAMES DESCRIBING WRITE",
+            ErrorKind::ReadCallOnWriteFrame => {
+                "FRAME DESCRIBING WRITE HAD FUNCTION CALLED FOR FRAMES DESCRIBING READ"
+            }
+            ErrorKind::WriteCallOnReadFrame => {
+                "FRAME DESCRIBING READ HAD FUNCTION CALLED FOR FRAMES DESCRIBING WRITE"
+            }
         };
         write!(f, "{}", msg)
     }
