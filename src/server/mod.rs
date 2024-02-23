@@ -1,4 +1,5 @@
 pub mod context;
+pub mod storage;
 
 use std::slice;
 
@@ -10,11 +11,11 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusProto, VectorTrait};
 /// ```no_run
 /// # #[cfg(feature = "fixedvec")]
 /// # mod with_fixedvec {
-/// use rmodbus::{ModbusFrameBuf, ModbusProto, server::{ModbusFrame, context::ModbusContextFull}};
+/// use rmodbus::{ModbusFrameBuf, ModbusProto, server::{ModbusFrame, storage::ModbusStorageFull, context::ModbusContext}};
 /// use fixedvec::{FixedVec, alloc_stack}; // for std use regular std::vec::Vec
 ///
 /// # fn code() {
-/// let mut ctx = ModbusContextFull::new();
+/// let mut ctx = ModbusStorageFull::new();
 ///
 /// let unit_id = 1;
 /// loop {
@@ -142,9 +143,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         }
     }
     /// Process write functions
-    pub fn process_write<const C: usize, const D: usize, const I: usize, const H: usize>(
+    pub fn process_write<C: context::ModbusContext>(
         &mut self,
-        ctx: &mut context::ModbusContext<C, D, I, H>,
+        ctx: &mut C,
     ) -> Result<(), ErrorKind> {
         match self.func {
             MODBUS_SET_COIL => {
@@ -352,10 +353,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     }
 
     /// Process read functions
-    pub fn process_read<const C: usize, const D: usize, const I: usize, const H: usize>(
-        &mut self,
-        ctx: &context::ModbusContext<C, D, I, H>,
-    ) -> Result<(), ErrorKind> {
+    pub fn process_read<C: context::ModbusContext>(&mut self, ctx: &C) -> Result<(), ErrorKind> {
         match self.func {
             MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
                 // funcs 1 - 2
