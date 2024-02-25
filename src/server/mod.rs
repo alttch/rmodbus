@@ -1,6 +1,7 @@
 pub mod context;
 pub mod storage;
 
+#[cfg(feature = "std")]
 use std::slice;
 
 use crate::consts::*;
@@ -226,6 +227,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// [`ModbusContext`](context::ModbusContext)) don't forget to call
     /// [`process_external_write`](ModbusFrame::process_external_write), these two calls together
     /// replace the call to [`process_write`](ModbusFrame::process_write).
+    #[cfg(feature = "std")]
     pub fn get_external_write(&mut self) -> Result<Write, ErrorKind> {
         match self.func {
             MODBUS_SET_COIL => {
