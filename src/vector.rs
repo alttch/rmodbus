@@ -10,7 +10,7 @@ pub trait VectorTrait<T: Copy> {
     fn cut_end(&mut self, len_to_cut: usize, value: T);
     fn as_slice(&self) -> &[T];
     fn as_mut_slice(&mut self) -> &mut [T];
-    fn resize(&mut self, new_len: usize, value: T);
+    fn resize(&mut self, new_len: usize, value: T) -> Result<(), ErrorKind>;
     fn replace(&mut self, index: usize, value: T);
 }
 
@@ -62,8 +62,9 @@ impl<T: Copy> VectorTrait<T> for Vec<T> {
         Vec::as_mut_slice(self)
     }
     #[inline]
-    fn resize(&mut self, new_len: usize, value: T) {
-        Vec::resize(self, new_len, value)
+    fn resize(&mut self, new_len: usize, value: T) -> Result<(), ErrorKind> {
+        Vec::resize(self, new_len, value);
+        Ok(())
     }
     #[inline]
     fn replace(&mut self, index: usize, value: T) {
@@ -113,8 +114,9 @@ impl<'a, T: Copy> VectorTrait<T> for FixedVec<'a, T> {
         FixedVec::as_mut_slice(self)
     }
     #[inline]
-    fn resize(&mut self, new_len: usize, value: T) {
-        FixedVec::resize(self, new_len, value)
+    fn resize(&mut self, new_len: usize, value: T) -> Result<(), ErrorKind> {
+        FixedVec::resize(self, new_len, value);
+        Ok(())
     }
     #[inline]
     fn replace(&mut self, index: usize, value: T) {
@@ -164,8 +166,8 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
         HeaplessVec::as_mut_slice(self)
     }
     #[inline]
-    fn resize(&mut self, new_len: usize, value: T) {
-        HeaplessVec::resize(self, new_len, value)?
+    fn resize(&mut self, new_len: usize, value: T) -> Result<(), ErrorKind> {
+        HeaplessVec::resize(self, new_len, value).map_err(|_| ErrorKind::OOB)
     }
     #[inline]
     fn replace(&mut self, index: usize, value: T) {
