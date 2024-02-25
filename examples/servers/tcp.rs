@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use std::sync::RwLock;
 
 use rmodbus::{
-    server::{context::ModbusContext, storage::ModbusStorageFull, ModbusFrame},
+    server::{storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 

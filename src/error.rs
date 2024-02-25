@@ -41,24 +41,26 @@ impl ErrorKind {
     }
 
     pub fn is_modbus_error(&self) -> bool {
+        #[allow(clippy::enum_glob_use)]
         use ErrorKind::*;
 
-        match self {
+        matches!(
+            self,
             IllegalFunction
-            | IllegalDataAddress
-            | IllegalDataValue
-            | SlaveDeviceFailure
-            | Acknowledge
-            | SlaveDeviceBusy
-            | NegativeAcknowledge
-            | MemoryParityError
-            | GatewayPathUnavailable
-            | GatewayTargetFailed => true,
-            _ => false,
-        }
+                | IllegalDataAddress
+                | IllegalDataValue
+                | SlaveDeviceFailure
+                | Acknowledge
+                | SlaveDeviceBusy
+                | NegativeAcknowledge
+                | MemoryParityError
+                | GatewayPathUnavailable
+                | GatewayTargetFailed
+        )
     }
 
     pub fn to_modbus_error(&self) -> Result<u8, ErrorKind> {
+        #[allow(clippy::enum_glob_use)]
         use ErrorKind::*;
 
         match self {
@@ -72,7 +74,7 @@ impl ErrorKind {
             MemoryParityError => Ok(8),
             GatewayPathUnavailable => Ok(9),
             GatewayTargetFailed => Ok(10),
-            _ => Err(self.clone()),
+            _ => Err(*self),
         }
     }
 }

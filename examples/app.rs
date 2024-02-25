@@ -2,7 +2,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 
-use rmodbus::server::context::ModbusContextFull;
+use rmodbus::server::context::ModbusContext;
+use rmodbus::server::storage::ModbusStorageFull;
 
 #[path = "servers/tcp.rs"]
 mod srv;
@@ -40,25 +41,25 @@ fn looping() {
         // WRITE RESULTS
         let mut ctx = srv::CONTEXT.write().unwrap();
         ctx.set_coil(0, true).unwrap();
-        ctx.set_holdings_bulk(10, &(vec![10, 20])).unwrap();
+        ctx.set_holdings_bulk(10, &[10, 20]).unwrap();
         ctx.set_inputs_from_f32(20, 935.77).unwrap();
     }
 }
 
-fn save(fname: &str, ctx: &ModbusContextFull) -> Result<(), Box<dyn Error>> {
+fn save(fname: &str, ctx: &ModbusStorageFull) -> Result<(), Box<dyn Error>> {
     let config = bincode::config::standard();
     let mut file = File::create(fname)?;
-    file.write(&bincode::encode_to_vec(ctx, config)?)?;
+    file.write_all(&bincode::encode_to_vec(ctx, config)?)?;
     file.sync_all()?;
     Ok(())
 }
 
-fn load(fname: &str, ctx: &mut ModbusContextFull) -> Result<(), Box<dyn Error>> {
+fn load(fname: &str, ctx: &mut ModbusStorageFull) -> Result<(), Box<dyn Error>> {
     let config = bincode::config::standard();
     let mut file = File::open(fname)?;
     let mut data: Vec<u8> = Vec::new();
     file.read_to_end(&mut data)?;
-    let (bctx, _): (Box<ModbusContextFull>, usize) = bincode::decode_from_slice(&data, config)?;
+    let (bctx, _): (Box<ModbusStorageFull>, usize) = bincode::decode_from_slice(&data, config)?;
     *ctx = *bctx;
     Ok(())
 }
@@ -68,7 +69,7 @@ fn main() {
     let unit_id = 1;
     {
         let mut ctx = srv::CONTEXT.write().unwrap();
-        let _ = load(&"/tmp/plc1.dat", &mut ctx).map_err(|_| {
+        let _ = load("/tmp/plc1.dat", &mut ctx).map_err(|_| {
             eprintln!("warning: no saved context");
         });
     }

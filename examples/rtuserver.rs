@@ -2,5 +2,5 @@
 mod rtu;
 
 fn main() {
-    rtu::rtuserver(1, &"/dev/ttyS0");
+    rtu::rtuserver(1, "/dev/ttyS0");
 }

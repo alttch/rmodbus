@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use std::sync::RwLock;
 
 use rmodbus::{
-    server::{context::ModbusContext, storage::ModbusStorageFull, ModbusFrame},
+    server::{storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
@@ -38,7 +38,7 @@ pub fn udpserver(unit: u8, listen: &str) {
         if frame.response_required {
             frame.finalize_response().unwrap();
             println!("{:x?}", response.as_slice());
-            socket.send_to(response.as_slice(), &src).unwrap();
+            socket.send_to(response.as_slice(), src).unwrap();
         }
     }
 }

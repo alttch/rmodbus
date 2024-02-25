@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use std::sync::RwLock;
 
 use rmodbus::{
-    server::{context::ModbusContext, storage::ModbusStorageFull, ModbusFrame},
+    server::{storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
@@ -50,7 +50,7 @@ pub fn rtuserver(unit: u8, port: &str) {
             if frame.response_required {
                 frame.finalize_response().unwrap();
                 println!("{:x?}", response);
-                port.write(response.as_slice()).unwrap();
+                port.write_all(response.as_slice()).unwrap();
             }
         }
     }

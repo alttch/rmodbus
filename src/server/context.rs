@@ -1,5 +1,6 @@
 use crate::{ErrorKind, VectorTrait};
 
+#[allow(clippy::module_name_repetitions)]
 pub trait ModbusContext {
     /// Get inputs as Vec of u8
     ///

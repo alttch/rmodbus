@@ -8,7 +8,7 @@ use std::sync::RwLock;
 
 use rmodbus::{
     generate_ascii_frame, guess_request_frame_len, parse_ascii_frame,
-    server::{context::ModbusContext, storage::ModbusStorageFull, ModbusFrame},
+    server::{storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
@@ -42,9 +42,8 @@ pub fn asciiserver(unit: u8, port: &str) {
             if result.is_err() {
                 println!("unable to decode");
                 continue;
-            } else {
-                println!("parsed {} bytes", result.unwrap());
             }
+            println!("parsed {} bytes", result.unwrap());
             let mut response = Vec::new();
             let mut frame = ModbusFrame::new(unit, &buf, ModbusProto::Ascii, &mut response);
             if frame.parse().is_err() {
@@ -67,7 +66,7 @@ pub fn asciiserver(unit: u8, port: &str) {
                 let mut response_ascii = Vec::new();
                 generate_ascii_frame(&response, &mut response_ascii).unwrap();
                 println!("{:x?}", response_ascii);
-                port.write(response_ascii.as_slice()).unwrap();
+                port.write_all(response_ascii.as_slice()).unwrap();
             }
         }
     }
