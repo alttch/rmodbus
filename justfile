@@ -11,7 +11,7 @@ test-nostd:
 	cargo test tests --no-default-features -- --test-threads=1 --nocapture
 
 tag:
-	git tag -a v${VERSION} -m v${VERSION}
+	git tag -a v{{VERSION}} -m v{{VERSION}}
 	git push origin --tags
 
 doc:
