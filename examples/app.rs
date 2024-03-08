@@ -73,8 +73,7 @@ fn main() {
             eprintln!("warning: no saved context");
         });
     }
-    use std::thread;
-    thread::spawn(move || {
+    std::thread::spawn(move || {
         srv::tcpserver(unit_id, "localhost:5502");
     });
     looping();

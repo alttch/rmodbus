@@ -13,29 +13,40 @@ static CTX: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 fn test_std_read_coils_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_coils_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
-        Err(_) => assert!(true),
+    if ctx
+        .get_coils_bulk(0, u16::try_from(STORAGE_SIZE).unwrap() + 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed 0 - MAX+1 ")
     }
-    match ctx.get_coils_bulk(STORAGE_SIZE as u16, 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_coils_bulk(u16::try_from(STORAGE_SIZE).unwrap(), 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_coils_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_coils_bulk(u16::try_from(STORAGE_SIZE - 1).unwrap(), 1, &mut result)
         .unwrap();
-    match ctx.get_coils_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_coils_bulk(u16::try_from(STORAGE_SIZE).unwrap() - 1, 2, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_coil((STORAGE_SIZE - 1) as u16).unwrap();
-    match ctx.get_coil(STORAGE_SIZE as u16) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
-    }
-    ctx.set_coil((STORAGE_SIZE - 1) as u16, true).unwrap();
-    match ctx.set_coil(STORAGE_SIZE as u16, true) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
+    ctx.get_coil(u16::try_from(STORAGE_SIZE - 1).unwrap())
+        .unwrap();
+    assert!(
+        ctx.get_coil(u16::try_from(STORAGE_SIZE).unwrap()).is_err(),
+        "{}",
+        "oob failed MAX"
+    );
+    ctx.set_coil(u16::try_from(STORAGE_SIZE - 1).unwrap(), true)
+        .unwrap();
+    if ctx
+        .set_coil(u16::try_from(STORAGE_SIZE).unwrap(), true)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX")
     }
 }
 
@@ -45,7 +56,7 @@ fn test_std_coil_get_set_bulk() {
     let mut data = Vec::new();
     let mut result = Vec::new();
     data.extend_from_slice(&[true; 2]);
-    ctx.set_coils_bulk(5, &data.as_slice()).unwrap();
+    ctx.set_coils_bulk(5, data.as_slice()).unwrap();
     ctx.get_coils_bulk(5, 2, &mut result).unwrap();
     assert_eq!(result, data);
 
@@ -53,43 +64,55 @@ fn test_std_coil_get_set_bulk() {
     result.clear();
 
     data.extend_from_slice(&[true; 18]);
-    ctx.set_coils_bulk(25, &data.as_slice()).unwrap();
+    ctx.set_coils_bulk(25, data.as_slice()).unwrap();
     ctx.get_coils_bulk(25, 18, &mut result).unwrap();
     assert_eq!(result, data);
 
     ctx.set_coil(28, true).unwrap();
-    assert_eq!(ctx.get_coil(28).unwrap(), true);
+    assert!(ctx.get_coil(28).unwrap());
     ctx.set_coil(28, false).unwrap();
-    assert_eq!(ctx.get_coil(28).unwrap(), false);
+    assert!(!ctx.get_coil(28).unwrap());
 }
 
 #[test]
 fn test_std_read_discretes_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_discretes_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
-        Err(_) => assert!(true),
+    if ctx
+        .get_discretes_bulk(0, u16::try_from(STORAGE_SIZE).unwrap() + 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed 0 - MAX+1 ")
     }
-    match ctx.get_discretes_bulk(STORAGE_SIZE as u16, 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_discretes_bulk(u16::try_from(STORAGE_SIZE).unwrap(), 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_discretes_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_discretes_bulk(u16::try_from(STORAGE_SIZE - 1).unwrap(), 1, &mut result)
         .unwrap();
-    match ctx.get_discretes_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_discretes_bulk(u16::try_from(STORAGE_SIZE).unwrap() - 1, 2, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_discrete((STORAGE_SIZE - 1) as u16).unwrap();
-    match ctx.get_discrete(STORAGE_SIZE as u16) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
+    ctx.get_discrete(u16::try_from(STORAGE_SIZE - 1).unwrap())
+        .unwrap();
+    if ctx
+        .get_discrete(u16::try_from(STORAGE_SIZE).unwrap())
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX")
     }
-    ctx.set_discrete((STORAGE_SIZE - 1) as u16, true).unwrap();
-    match ctx.set_discrete(STORAGE_SIZE as u16, true) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
+    ctx.set_discrete(u16::try_from(STORAGE_SIZE - 1).unwrap(), true)
+        .unwrap();
+    if ctx
+        .set_discrete(u16::try_from(STORAGE_SIZE).unwrap(), true)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX")
     }
 }
 
@@ -99,7 +122,7 @@ fn test_std_discrete_get_set_bulk() {
     let mut data = Vec::new();
     let mut result = Vec::new();
     data.extend_from_slice(&[true; 2]);
-    ctx.set_discretes_bulk(5, &data.as_slice()).unwrap();
+    ctx.set_discretes_bulk(5, data.as_slice()).unwrap();
     ctx.get_discretes_bulk(5, 2, &mut result).unwrap();
     assert_eq!(result, data);
 
@@ -107,59 +130,75 @@ fn test_std_discrete_get_set_bulk() {
     result.clear();
 
     data.extend_from_slice(&[true; 18]);
-    ctx.set_discretes_bulk(25, &data.as_slice()).unwrap();
+    ctx.set_discretes_bulk(25, data.as_slice()).unwrap();
     ctx.get_discretes_bulk(25, 18, &mut result).unwrap();
     assert_eq!(result, data);
 
     ctx.set_discrete(28, true).unwrap();
-    assert_eq!(ctx.get_discrete(28).unwrap(), true);
+    assert!(ctx.get_discrete(28).unwrap());
     ctx.set_discrete(28, false).unwrap();
-    assert_eq!(ctx.get_discrete(28).unwrap(), false);
+    assert!(!ctx.get_discrete(28).unwrap());
 }
 
 #[test]
 fn test_std_read_inputs_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_inputs_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
-        Err(_) => assert!(true),
+    if ctx
+        .get_inputs_bulk(0, u16::try_from(STORAGE_SIZE).unwrap() + 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed 0 - MAX+1 ")
     }
-    match ctx.get_inputs_bulk(STORAGE_SIZE as u16, 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_inputs_bulk(u16::try_from(STORAGE_SIZE).unwrap(), 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_inputs_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_inputs_bulk(u16::try_from(STORAGE_SIZE - 1).unwrap(), 1, &mut result)
         .unwrap();
-    match ctx.get_inputs_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_inputs_bulk(u16::try_from(STORAGE_SIZE).unwrap() - 1, 2, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_input((STORAGE_SIZE - 1) as u16).unwrap();
-    match ctx.get_input(STORAGE_SIZE as u16) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
-    }
-    ctx.set_input((STORAGE_SIZE - 1) as u16, 0x55).unwrap();
-    match ctx.set_input(STORAGE_SIZE as u16, 0x55) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
-    }
-    match ctx.set_inputs_from_u32((STORAGE_SIZE - 1) as u16, 0x55) {
-        Ok(_) => assert!(false, "oob failed MAX u32"),
-        Err(_) => assert!(true),
-    }
-    ctx.set_inputs_from_u32((STORAGE_SIZE - 2) as u16, 0x9999)
+    ctx.get_input(u16::try_from(STORAGE_SIZE - 1).unwrap())
         .unwrap();
-    match ctx.set_inputs_from_u64((STORAGE_SIZE - 3) as u16, 0x55) {
-        Ok(_) => assert!(false, "oob failed MAX u64"),
-        Err(_) => assert!(true),
+    assert!(
+        ctx.get_input(u16::try_from(STORAGE_SIZE).unwrap()).is_err(),
+        "{}",
+        "oob failed MAX"
+    );
+    ctx.set_input(u16::try_from(STORAGE_SIZE - 1).unwrap(), 0x55)
+        .unwrap();
+    if ctx
+        .set_input(u16::try_from(STORAGE_SIZE).unwrap(), 0x55)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX")
     }
-    ctx.set_inputs_from_u64((STORAGE_SIZE - 4) as u16, 0x9999)
+    if ctx
+        .set_inputs_from_u32(u16::try_from(STORAGE_SIZE - 1).unwrap(), 0x55)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX u32")
+    }
+    ctx.set_inputs_from_u32(u16::try_from(STORAGE_SIZE - 2).unwrap(), 0x9999)
+        .unwrap();
+    if ctx
+        .set_inputs_from_u64(u16::try_from(STORAGE_SIZE - 3).unwrap(), 0x55)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX u64")
+    }
+    ctx.set_inputs_from_u64(u16::try_from(STORAGE_SIZE - 4).unwrap(), 0x9999)
         .unwrap();
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_std_get_set_inputs() {
     let mut ctx = CTX.write().unwrap();
     let mut data = Vec::new();
@@ -168,7 +207,7 @@ fn test_std_get_set_inputs() {
     ctx.clear_inputs();
 
     data.extend_from_slice(&[0x77; 2]);
-    ctx.set_inputs_bulk(5, &data.as_slice()).unwrap();
+    ctx.set_inputs_bulk(5, data.as_slice()).unwrap();
     ctx.get_inputs_bulk(5, 2, &mut result).unwrap();
     assert_eq!(result, data);
 
@@ -176,7 +215,7 @@ fn test_std_get_set_inputs() {
     result.clear();
 
     data.extend_from_slice(&[0x33; 18]);
-    ctx.set_inputs_bulk(25, &data.as_slice()).unwrap();
+    ctx.set_inputs_bulk(25, data.as_slice()).unwrap();
     ctx.get_inputs_bulk(25, 18, &mut result).unwrap();
     assert_eq!(result, data);
 
@@ -184,8 +223,8 @@ fn test_std_get_set_inputs() {
     assert_eq!(ctx.get_input(28).unwrap(), 99);
     ctx.set_input(28, 95).unwrap();
     assert_eq!(ctx.get_input(28).unwrap(), 95);
-    ctx.set_inputs_from_u32(100, 1234567).unwrap();
-    assert_eq!(ctx.get_inputs_as_u32(100).unwrap(), 1234567);
+    ctx.set_inputs_from_u32(100, 1_234_567).unwrap();
+    assert_eq!(ctx.get_inputs_as_u32(100).unwrap(), 1_234_567);
     ctx.set_inputs_from_u64(90, 18_446_744_073_709_551_615)
         .unwrap();
     assert_eq!(
@@ -193,52 +232,69 @@ fn test_std_get_set_inputs() {
         18_446_744_073_709_551_615
     );
     ctx.set_inputs_from_f32(200, 1234.567).unwrap();
-    assert_eq!(ctx.get_inputs_as_f32(200).unwrap(), 1234.567);
+    assert_eq!(ctx.get_inputs_as_f32(200).unwrap(), 1234.567f32);
 }
 
 #[test]
 fn test_std_read_holdings_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
-    match ctx.get_holdings_bulk(0, STORAGE_SIZE as u16 + 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed 0 - MAX+1 "),
-        Err(_) => assert!(true),
+    if ctx
+        .get_holdings_bulk(0, u16::try_from(STORAGE_SIZE).unwrap() + 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed 0 - MAX+1 ")
     }
-    match ctx.get_holdings_bulk(STORAGE_SIZE as u16, 1, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_holdings_bulk(u16::try_from(STORAGE_SIZE).unwrap(), 1, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_holdings_bulk((STORAGE_SIZE - 1) as u16, 1, &mut result)
+    ctx.get_holdings_bulk(u16::try_from(STORAGE_SIZE - 1).unwrap(), 1, &mut result)
         .unwrap();
-    match ctx.get_holdings_bulk(STORAGE_SIZE as u16 - 1, 2, &mut result) {
-        Ok(_) => assert!(false, "oob failed MAX - MAX+1"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_holdings_bulk(u16::try_from(STORAGE_SIZE).unwrap() - 1, 2, &mut result)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX - MAX+1")
     }
-    ctx.get_holding((STORAGE_SIZE - 1) as u16).unwrap();
-    match ctx.get_holding(STORAGE_SIZE as u16) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
-    }
-    ctx.set_holding((STORAGE_SIZE - 1) as u16, 0x55).unwrap();
-    match ctx.set_holding(STORAGE_SIZE as u16, 0x55) {
-        Ok(_) => assert!(false, "oob failed MAX"),
-        Err(_) => assert!(true),
-    }
-    match ctx.set_holdings_from_u32((STORAGE_SIZE - 1) as u16, 0x55) {
-        Ok(_) => assert!(false, "oob failed MAX u32"),
-        Err(_) => assert!(true),
-    }
-    ctx.set_holdings_from_u32((STORAGE_SIZE - 2) as u16, 0x9999)
+    ctx.get_holding(u16::try_from(STORAGE_SIZE - 1).unwrap())
         .unwrap();
-    match ctx.set_holdings_from_u64((STORAGE_SIZE - 3) as u16, 0x55) {
-        Ok(_) => assert!(false, "oob failed MAX u64"),
-        Err(_) => assert!(true),
+    if ctx
+        .get_holding(u16::try_from(STORAGE_SIZE).unwrap())
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX")
     }
-    ctx.set_holdings_from_u64((STORAGE_SIZE - 4) as u16, 0x9999)
+    ctx.set_holding(u16::try_from(STORAGE_SIZE - 1).unwrap(), 0x55)
+        .unwrap();
+    if ctx
+        .set_holding(u16::try_from(STORAGE_SIZE).unwrap(), 0x55)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX")
+    }
+    if ctx
+        .set_holdings_from_u32(u16::try_from(STORAGE_SIZE - 1).unwrap(), 0x55)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX u32")
+    }
+    ctx.set_holdings_from_u32(u16::try_from(STORAGE_SIZE - 2).unwrap(), 0x9999)
+        .unwrap();
+    if ctx
+        .set_holdings_from_u64(u16::try_from(STORAGE_SIZE - 3).unwrap(), 0x55)
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX u64")
+    }
+    ctx.set_holdings_from_u64(u16::try_from(STORAGE_SIZE - 4).unwrap(), 0x9999)
         .unwrap();
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn test_std_get_set_holdings() {
     let mut ctx = CTX.write().unwrap();
     let mut data = Vec::new();
@@ -247,7 +303,7 @@ fn test_std_get_set_holdings() {
     ctx.clear_holdings();
 
     data.extend_from_slice(&[0x77; 2]);
-    ctx.set_holdings_bulk(5, &data.as_slice()).unwrap();
+    ctx.set_holdings_bulk(5, data.as_slice()).unwrap();
     ctx.get_holdings_bulk(5, 2, &mut result).unwrap();
     assert_eq!(result, data);
 
@@ -255,7 +311,7 @@ fn test_std_get_set_holdings() {
     result.clear();
 
     data.extend_from_slice(&[0x33; 18]);
-    ctx.set_holdings_bulk(25, &data.as_slice()).unwrap();
+    ctx.set_holdings_bulk(25, data.as_slice()).unwrap();
     ctx.get_holdings_bulk(25, 18, &mut result).unwrap();
     assert_eq!(result, data);
 
@@ -263,8 +319,8 @@ fn test_std_get_set_holdings() {
     assert_eq!(ctx.get_holding(28).unwrap(), 99);
     ctx.set_holding(28, 95).unwrap();
     assert_eq!(ctx.get_holding(28).unwrap(), 95);
-    ctx.set_holdings_from_u32(100, 1234567).unwrap();
-    assert_eq!(ctx.get_holdings_as_u32(100).unwrap(), 1234567);
+    ctx.set_holdings_from_u32(100, 1_234_567).unwrap();
+    assert_eq!(ctx.get_holdings_as_u32(100).unwrap(), 1_234_567);
     ctx.set_holdings_from_u64(90, 18_446_744_073_709_551_615)
         .unwrap();
     assert_eq!(
@@ -272,7 +328,7 @@ fn test_std_get_set_holdings() {
         18_446_744_073_709_551_615
     );
     ctx.set_holdings_from_f32(200, 1234.567).unwrap();
-    assert_eq!(ctx.get_holdings_as_f32(200).unwrap(), 1234.567);
+    assert_eq!(ctx.get_holdings_as_f32(200).unwrap(), 1234.567f32);
 }
 
 #[test]
@@ -281,24 +337,24 @@ fn test_std_get_bools_as_u8() {
     let mut ctx = CTX.write().unwrap();
     ctx.clear_coils();
     data.extend_from_slice(&[true, true, true, true, true, true, false, false]);
-    ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
+    ctx.set_coils_bulk(0, data.as_slice()).unwrap();
     let mut result = Vec::new();
     ctx.get_coils_as_u8(0, 6, &mut result).unwrap();
-    assert_eq!(*result.get(0).unwrap(), 0b00111111);
+    assert_eq!(*result.first().unwrap(), 0b0011_1111);
     result.clear();
     ctx.get_coils_as_u8(0, 5, &mut result).unwrap();
-    assert_eq!(*result.get(0).unwrap(), 0b00011111);
+    assert_eq!(*result.first().unwrap(), 0b0001_1111);
     result.clear();
 
     data.clear();
     data.extend_from_slice(&[true, true, false, true, true, true, true, true]);
-    ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
+    ctx.set_coils_bulk(0, data.as_slice()).unwrap();
     let mut result = Vec::new();
     ctx.get_coils_as_u8(0, 6, &mut result).unwrap();
-    assert_eq!(*result.get(0).unwrap(), 0b00111011);
+    assert_eq!(*result.first().unwrap(), 0b0011_1011);
     result.clear();
     ctx.get_coils_as_u8(0, 5, &mut result).unwrap();
-    assert_eq!(*result.get(0).unwrap(), 0b00011011);
+    assert_eq!(*result.first().unwrap(), 0b0001_1011);
     result.clear();
 
     data.clear();
@@ -307,12 +363,12 @@ fn test_std_get_bools_as_u8() {
         true, true, true, true, false, false, true, false, // byte 2
         false, false, false, true, false, true, // byte 3
     ]);
-    ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
+    ctx.set_coils_bulk(0, data.as_slice()).unwrap();
     let mut result = Vec::new();
     ctx.get_coils_as_u8(0, 22, &mut result).unwrap();
-    assert_eq!(*result.get(0).unwrap(), 0b11111011);
-    assert_eq!(*result.get(1).unwrap(), 0b01001111);
-    assert_eq!(*result.get(2).unwrap(), 0b101000);
+    assert_eq!(*result.first().unwrap(), 0b1111_1011);
+    assert_eq!(*result.get(1).unwrap(), 0b0100_1111);
+    assert_eq!(*result.get(2).unwrap(), 0b10_1000);
 }
 
 #[test]
@@ -321,18 +377,18 @@ fn test_std_get_set_regs_as_u8() {
     let mut ctx = CTX.write().unwrap();
     data.extend_from_slice(&[2, 45, 4559, 31, 394, 1, 9, 7, 0, 1, 9]);
     ctx.clear_holdings();
-    ctx.set_holdings_bulk(0, &data.as_slice()).unwrap();
+    ctx.set_holdings_bulk(0, data.as_slice()).unwrap();
     let mut result = Vec::new();
-    ctx.get_holdings_as_u8(0, data.len() as u16, &mut result)
+    ctx.get_holdings_as_u8(0, u16::try_from(data.len()).unwrap(), &mut result)
         .unwrap();
     assert_eq!(result[0], 0);
     assert_eq!(result[1], 2);
     for i in 0..10 {
         ctx.set_holding(i, 0).unwrap();
     }
-    ctx.set_holdings_from_u8(0, &result.as_slice()).unwrap();
+    ctx.set_holdings_from_u8(0, result.as_slice()).unwrap();
     let mut result = Vec::new();
-    ctx.get_holdings_bulk(0, data.len() as u16, &mut result)
+    ctx.get_holdings_bulk(0, u16::try_from(data.len()).unwrap(), &mut result)
         .unwrap();
     assert_eq!(result, data);
 }
@@ -345,24 +401,27 @@ fn test_std_get_set_bools_as_u8() {
     data.extend_from_slice(&[
         true, true, true, false, true, true, true, true, true, false, false, false, false, false,
     ]);
-    ctx.set_coils_bulk(0, &data.as_slice()).unwrap();
-    ctx.set_coil(data.len() as u16, true).unwrap();
-    ctx.set_coil(data.len() as u16 + 1, false).unwrap();
-    ctx.set_coil(data.len() as u16 + 2, true).unwrap();
-    let mut result = Vec::new();
-    ctx.get_coils_as_u8(0, data.len() as u16, &mut result)
+    ctx.set_coils_bulk(0, data.as_slice()).unwrap();
+    ctx.set_coil(u16::try_from(data.len()).unwrap(), true)
         .unwrap();
-    ctx.set_coils_from_u8(0, data.len() as u16, &result.as_slice())
+    ctx.set_coil(u16::try_from(data.len()).unwrap() + 1, false)
+        .unwrap();
+    ctx.set_coil(u16::try_from(data.len()).unwrap() + 2, true)
         .unwrap();
     let mut result = Vec::new();
-    ctx.get_coils_bulk(0, data.len() as u16, &mut result)
+    ctx.get_coils_as_u8(0, u16::try_from(data.len()).unwrap(), &mut result)
+        .unwrap();
+    ctx.set_coils_from_u8(0, u16::try_from(data.len()).unwrap(), result.as_slice())
+        .unwrap();
+    let mut result = Vec::new();
+    ctx.get_coils_bulk(0, u16::try_from(data.len()).unwrap(), &mut result)
         .unwrap();
     assert_eq!(result, data);
     result.clear();
     data.push(true);
     data.push(false);
     data.push(true);
-    ctx.get_coils_bulk(0, data.len() as u16, &mut result)
+    ctx.get_coils_bulk(0, u16::try_from(data.len()).unwrap(), &mut result)
         .unwrap();
     assert_eq!(result, data);
 }
@@ -373,7 +432,7 @@ fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
     frame[1] = 0x55;
     frame[2] = 0;
     frame[3] = 0;
-    let len = (data.len() as u16).to_be_bytes();
+    let len = u16::try_from(data.len()).unwrap().to_be_bytes();
     frame[4] = len[0];
     frame[5] = len[1];
     for (i, v) in data.iter().enumerate() {
@@ -381,7 +440,7 @@ fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
     }
     assert_eq!(
         guess_request_frame_len(&frame, ModbusProto::TcpUdp).unwrap(),
-        (data.len() + 6) as u8
+        u8::try_from(data.len() + 6).unwrap()
     );
     frame
 }
@@ -399,19 +458,19 @@ fn gen_rtu_frame(data: &[u8]) -> ModbusFrameBuf {
     frame[len + 1] = c[1];
     assert_eq!(
         guess_request_frame_len(&frame, ModbusProto::Rtu).unwrap(),
-        (len + 2) as u8
+        u8::try_from(len + 2).unwrap(),
     );
     frame
 }
 
-fn check_rtu_response(result: &Vec<u8>, response: &[u8]) {
+fn check_rtu_response(result: &[u8], response: &[u8]) {
     let mut resp = Vec::new();
     let mut r = Vec::new();
-    for i in 6..response.len() {
-        resp.push(response[i]);
+    for c in response.iter().skip(6) {
+        resp.push(*c);
     }
-    for i in 0..result.len() - 2 {
-        r.push(result[i]);
+    for c in result.iter().take(result.len() - 2) {
+        r.push(*c);
     }
     assert_eq!(resp, r);
     resp.insert(0, 1);
@@ -420,6 +479,7 @@ fn check_rtu_response(result: &Vec<u8>, response: &[u8]) {
 }
 
 #[test]
+#[allow(clippy::cast_possible_truncation, clippy::too_many_lines)]
 fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let mut ctx = CTX.write().unwrap();
     ctx.clear_all();
@@ -434,9 +494,9 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
+    assert!(frame.readonly);
     assert_eq!(frame.count, 5);
     assert_eq!(frame.reg, 5);
     assert_eq!(frame.error, 0);
@@ -448,9 +508,9 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let mut framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
+    assert!(frame.readonly);
     assert_eq!(frame.count, 5);
     assert_eq!(frame.reg, 5);
     assert_eq!(frame.error, 0);
@@ -459,14 +519,11 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // check rtu crc error
-    framebuf[request.len() + 1] = ((framebuf[request.len() + 1] as u16) + 1) as u8;
+    framebuf[request.len() + 1] = (u16::from(framebuf[request.len() + 1]) + 1) as u8;
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
-    match frame.parse() {
-        Ok(_) => panic!(),
-        Err(e) => match e {
-            ErrorKind::FrameCRCError => {}
-            _ => panic!(),
-        },
+    if let Err(ErrorKind::FrameCRCError) = frame.parse() {
+    } else {
+        panic!()
     }
     // check illegal_function
     let request = [1, 7, 0x27, 0xe, 0, 0xf];
@@ -474,8 +531,8 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, false);
+    assert!(frame.response_required);
+    assert!(!frame.processing_required);
     assert_eq!(frame.error, 1);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
@@ -483,8 +540,8 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, false);
+    assert!(frame.response_required);
+    assert!(!frame.processing_required);
     assert_eq!(frame.error, 1);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -494,8 +551,8 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
     frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 2);
@@ -504,8 +561,8 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
     frame.process_read(&*ctx).unwrap();
     assert_eq!(frame.error, 2);
@@ -517,7 +574,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     framebuf[5] = 2;
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     match frame.parse() {
-        Ok(_) => panic!(),
+        Ok(()) => panic!(),
         Err(e) => match e {
             ErrorKind::FrameBroken => {}
             _ => panic!("{:?}", e),
@@ -527,7 +584,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     framebuf[5] = 251;
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     match frame.parse() {
-        Ok(_) => panic!(),
+        Ok(()) => panic!(),
         Err(e) => match e {
             ErrorKind::FrameBroken => {}
             _ => panic!("{:?}", e),
@@ -537,7 +594,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     framebuf[3] = 22;
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     match frame.parse() {
-        Ok(_) => panic!(),
+        Ok(()) => panic!(),
         Err(e) => match e {
             ErrorKind::FrameBroken => {}
             _ => panic!("{:?}", e),
@@ -550,10 +607,10 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_tcp_frame(&[1, 2, 0, 5, 0, 0x10]);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     assert_eq!(
@@ -572,20 +629,20 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     ];
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -596,10 +653,10 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     let framebuf = gen_tcp_frame(&[1, 4, 1, 0x18, 0, 6]);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
     assert_eq!(
@@ -609,6 +666,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_std_frame_fc05_fc06() {
     let mut ctx = CTX.write().unwrap();
     ctx.clear_all();
@@ -619,22 +677,22 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
-    assert_eq!(ctx.get_coil(11).unwrap(), true);
+    assert!(ctx.get_coil(11).unwrap());
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
@@ -644,34 +702,34 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, false);
-    assert_eq!(frame.processing_required, true);
+    assert!(!frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
-    assert_eq!(ctx.get_coil(5).unwrap(), true);
+    assert!(ctx.get_coil(5).unwrap());
     let request = [0, 5, 0, 0x7, 0xff, 0];
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, false);
-    assert_eq!(frame.processing_required, true);
+    assert!(!frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
-    assert_eq!(ctx.get_coil(7).unwrap(), true);
+    assert!(ctx.get_coil(7).unwrap());
     // write coil invalid data
     let request = [1, 5, 0, 0xb, 0xff, 1];
     let response = [0x77, 0x55, 0, 0, 0, 3, 1, 0x85, 3];
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 3);
     frame.finalize_response().unwrap();
@@ -682,10 +740,10 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -693,10 +751,10 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
@@ -706,10 +764,10 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
@@ -718,10 +776,10 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
@@ -732,10 +790,10 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -743,10 +801,10 @@ fn test_std_frame_fc05_fc06() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -760,31 +818,31 @@ fn test_std_frame_fc15() {
     let mut result = Vec::new();
     // write multiple coils
     let request = [1, 0xf, 1, 0x31, 0, 5, 1, 0x25]; // 6 bits in data but 5 coils
-    let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0xf, 01, 0x31, 0, 5];
+    let response = [0x77, 0x55, 0, 0, 0, 6, 1, 0xf, 1, 0x31, 0, 5];
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
-    assert_eq!(ctx.get_coil(305).unwrap(), true);
-    assert_eq!(ctx.get_coil(306).unwrap(), false);
-    assert_eq!(ctx.get_coil(307).unwrap(), true);
-    assert_eq!(ctx.get_coil(308).unwrap(), false);
-    assert_eq!(ctx.get_coil(309).unwrap(), false);
-    assert_eq!(ctx.get_coil(310).unwrap(), false);
+    assert!(ctx.get_coil(305).unwrap());
+    assert!(!ctx.get_coil(306).unwrap());
+    assert!(ctx.get_coil(307).unwrap());
+    assert!(!ctx.get_coil(308).unwrap());
+    assert!(!ctx.get_coil(309).unwrap());
+    assert!(!ctx.get_coil(310).unwrap());
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
@@ -795,10 +853,10 @@ fn test_std_frame_fc15() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -806,10 +864,10 @@ fn test_std_frame_fc15() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -831,9 +889,9 @@ fn test_std_frame_fc16() {
     frame.parse().unwrap();
     assert_eq!(frame.func, 0x10);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
-    assert_eq!(frame.readonly, false);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
@@ -845,10 +903,10 @@ fn test_std_frame_fc16() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
@@ -861,10 +919,10 @@ fn test_std_frame_fc16() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -872,10 +930,10 @@ fn test_std_frame_fc16() {
     let framebuf = gen_rtu_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Rtu, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, false);
+    assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     assert_eq!(frame.error, 2);
     frame.finalize_response().unwrap();
@@ -898,18 +956,19 @@ fn test_modbus_ascii() {
     parse_ascii_frame(&request, request.len(), &mut framebuf, 0).unwrap();
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::Ascii, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.response_required, true);
-    assert_eq!(frame.processing_required, true);
+    assert!(frame.response_required);
+    assert!(frame.processing_required);
     assert_eq!(frame.error, 0);
-    assert_eq!(frame.readonly, true);
+    assert!(frame.readonly);
     frame.process_read(&ctx).unwrap();
     assert_eq!(frame.error, 0);
     frame.finalize_response().unwrap();
-    generate_ascii_frame(&result.as_slice(), &mut ascii_result).unwrap();
+    generate_ascii_frame(result.as_slice(), &mut ascii_result).unwrap();
     assert_eq!(ascii_result.as_slice(), response);
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_std_client() {
     let mut ctx = CTX.write().unwrap();
     ctx.clear_discretes();
@@ -932,55 +991,54 @@ fn test_std_client() {
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
         for i in 100..100 + coils.len() {
-            assert_eq!(ctx.get_coil(i as u16).unwrap(), coils[i - 100]);
+            assert_eq!(
+                ctx.get_coil(u16::try_from(i).unwrap()).unwrap(),
+                coils[i - 100]
+            );
         }
 
         // reading coils
         let mut mreq = ModbusRequest::new(3, *proto);
         let mut request = Vec::new();
-        mreq.generate_get_coils(100, coils.len() as u16, &mut request)
+        mreq.generate_get_coils(100, u16::try_from(coils.len()).unwrap(), &mut request)
             .unwrap();
         let mut response = Vec::new();
         let mut framebuf: ModbusFrameBuf = [0; 256];
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, true);
-        frame.process_read(&mut *ctx).unwrap();
+        assert!(frame.readonly);
+        frame.process_read(&*ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -991,33 +1049,32 @@ fn test_std_client() {
         ctx.clear_coils();
         ctx.clear_discretes();
         for c in 200..200 + coils.len() {
-            ctx.set_discrete(c as u16, coils[c - 200]).unwrap();
+            ctx.set_discrete(u16::try_from(c).unwrap(), coils[c - 200])
+                .unwrap();
         }
         let mut mreq = ModbusRequest::new(3, *proto);
         let mut request = Vec::new();
-        mreq.generate_get_discretes(200, coils.len() as u16, &mut request)
+        mreq.generate_get_discretes(200, u16::try_from(coils.len()).unwrap(), &mut request)
             .unwrap();
         let mut response = Vec::new();
         let mut framebuf: ModbusFrameBuf = [0; 256];
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, true);
-        frame.process_read(&mut *ctx).unwrap();
+        assert!(frame.readonly);
+        frame.process_read(&*ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1035,26 +1092,24 @@ fn test_std_client() {
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
-        assert_eq!(ctx.get_coil(100).unwrap(), true);
+        assert!(ctx.get_coil(100).unwrap());
 
         // set coils oob
         let mut mreq = ModbusRequest::new(4, *proto);
@@ -1065,21 +1120,19 @@ fn test_std_client() {
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 2);
         frame.finalize_response().unwrap();
@@ -1099,55 +1152,54 @@ fn test_std_client() {
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
         for i in 100..100 + holdings.len() {
-            assert_eq!(ctx.get_holding(i as u16).unwrap(), holdings[i - 100]);
+            assert_eq!(
+                ctx.get_holding(u16::try_from(i).unwrap()).unwrap(),
+                holdings[i - 100]
+            );
         }
 
         // reading holdings
         let mut mreq = ModbusRequest::new(3, *proto);
         let mut request = Vec::new();
-        mreq.generate_get_holdings(100, holdings.len() as u16, &mut request)
+        mreq.generate_get_holdings(100, u16::try_from(holdings.len()).unwrap(), &mut request)
             .unwrap();
         let mut response = Vec::new();
         let mut framebuf: ModbusFrameBuf = [0; 256];
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, true);
-        frame.process_read(&mut *ctx).unwrap();
+        assert!(frame.readonly);
+        frame.process_read(&*ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1158,28 +1210,26 @@ fn test_std_client() {
         ctx.clear_holdings();
         let mut mreq = ModbusRequest::new(2, *proto);
         let mut request = Vec::new();
-        mreq.generate_set_holdings_string(100, &holdstr, &mut request)
+        mreq.generate_set_holdings_string(100, holdstr, &mut request)
             .unwrap();
         let mut response = Vec::new();
         let mut framebuf: ModbusFrameBuf = [0; 256];
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
@@ -1188,29 +1238,27 @@ fn test_std_client() {
         // reading holdings string
         let mut mreq = ModbusRequest::new(3, *proto);
         let mut request = Vec::new();
-        mreq.generate_get_holdings(100, holdstr.len() as u16, &mut request)
+        mreq.generate_get_holdings(100, u16::try_from(holdstr.len()).unwrap(), &mut request)
             .unwrap();
         let mut response = Vec::new();
         let mut framebuf: ModbusFrameBuf = [0; 256];
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, true);
-        frame.process_read(&mut *ctx).unwrap();
+        assert!(frame.readonly);
+        frame.process_read(&*ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = String::new();
@@ -1221,33 +1269,32 @@ fn test_std_client() {
         ctx.clear_holdings();
         ctx.clear_inputs();
         for c in 200..200 + holdings.len() {
-            ctx.set_input(c as u16, holdings[c - 200]).unwrap();
+            ctx.set_input(u16::try_from(c).unwrap(), holdings[c - 200])
+                .unwrap();
         }
         let mut mreq = ModbusRequest::new(3, *proto);
         let mut request = Vec::new();
-        mreq.generate_get_inputs(200, holdings.len() as u16, &mut request)
+        mreq.generate_get_inputs(200, u16::try_from(holdings.len()).unwrap(), &mut request)
             .unwrap();
         let mut response = Vec::new();
         let mut framebuf: ModbusFrameBuf = [0; 256];
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, true);
-        frame.process_read(&mut *ctx).unwrap();
+        assert!(frame.readonly);
+        frame.process_read(&*ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
@@ -1265,26 +1312,24 @@ fn test_std_client() {
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 0);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
-        assert_eq!(ctx.get_coil(100).unwrap(), true);
+        assert!(ctx.get_coil(100).unwrap());
 
         // set holding oob
         let mut mreq = ModbusRequest::new(4, *proto);
@@ -1296,21 +1341,19 @@ fn test_std_client() {
         if *proto == ModbusProto::Rtu {
             let mut ascii_frame = Vec::new();
             generate_ascii_frame(&request, &mut ascii_frame).unwrap();
-            for i in 0..framebuf.len() {
-                framebuf[i] = 0
+            for c in &mut framebuf {
+                *c = 0;
             }
             parse_ascii_frame(&ascii_frame, ascii_frame.len(), &mut framebuf, 0).unwrap();
         } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
-            }
+            framebuf[..request.len()].copy_from_slice(&request[..]);
         }
         let mut frame = ModbusFrame::new(4, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
-        assert_eq!(frame.response_required, true);
-        assert_eq!(frame.processing_required, true);
+        assert!(frame.response_required);
+        assert!(frame.processing_required);
         assert_eq!(frame.error, 0);
-        assert_eq!(frame.readonly, false);
+        assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
         assert_eq!(frame.error, 2);
         frame.finalize_response().unwrap();

@@ -22,7 +22,7 @@ fn main() {
         .unwrap();
 
     // write request to stream
-    stream.write(&request).unwrap();
+    stream.write_all(&request).unwrap();
 
     // read first 6 bytes of response frame
     let mut buf = [0u8; 6];
@@ -41,7 +41,7 @@ fn main() {
 
     // get coil values back
     mreq.generate_get_coils(0, 2, &mut request).unwrap();
-    stream.write(&request).unwrap();
+    stream.write_all(&request).unwrap();
     let mut buf = [0u8; 6];
     stream.read_exact(&mut buf).unwrap();
     let mut response = Vec::new();
@@ -55,7 +55,7 @@ fn main() {
     let mut data = Vec::new();
     // check if frame has no Modbus error inside and parse response bools into data vec
     mreq.parse_bool(&response, &mut data).unwrap();
-    for i in 0..data.len() {
-        println!("{} {}", i, data[i]);
+    for (i, c) in data.iter().enumerate() {
+        println!("{} {}", i, c);
     }
 }

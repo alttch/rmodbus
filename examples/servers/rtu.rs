@@ -34,9 +34,10 @@ pub fn rtuserver(unit: u8, port: &str) {
                 continue;
             }
             if frame.processing_required {
-                let result = match frame.readonly {
-                    true => frame.process_read(&*CONTEXT.read().unwrap()),
-                    false => frame.process_write(&mut *CONTEXT.write().unwrap()),
+                let result = if frame.readonly {
+                    frame.process_read(&*CONTEXT.read().unwrap())
+                } else {
+                    frame.process_write(&mut *CONTEXT.write().unwrap())
                 };
                 if result.is_err() {
                     println!("frame processing error");

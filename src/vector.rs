@@ -135,7 +135,7 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
     }
     #[inline]
     fn extend(&mut self, values: &[T]) -> Result<(), ErrorKind> {
-        self.extend_from_slice(values).map_err(|_| ErrorKind::OOB)
+        self.extend_from_slice(values).map_err(|()| ErrorKind::OOB)
     }
     #[inline]
     fn len(&self) -> usize {
@@ -167,7 +167,7 @@ impl<T: Copy, const N: usize> VectorTrait<T> for HeaplessVec<T, N> {
     }
     #[inline]
     fn resize(&mut self, new_len: usize, value: T) -> Result<(), ErrorKind> {
-        HeaplessVec::resize(self, new_len, value).map_err(|_| ErrorKind::OOB)
+        HeaplessVec::resize(self, new_len, value).map_err(|()| ErrorKind::OOB)
     }
     #[inline]
     fn replace(&mut self, index: usize, value: T) {
