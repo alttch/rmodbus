@@ -320,7 +320,7 @@ impl ModbusRequest {
             MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
                 // no data bytes count byte -> skip 1 fewer byte
                 &buf[frame_start + 2..frame_end]
-            },
+            }
             _ => &buf[frame_start + 3..frame_end],
         };
         Ok(val)
