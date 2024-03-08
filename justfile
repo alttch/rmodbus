@@ -8,7 +8,7 @@ test-std:
 	cargo test --all-features -- --test-threads=1 --nocapture
 
 test-nostd:
-	cargo test --no-default-features -- --test-threads=1 --nocapture
+	cargo test tests --no-default-features -- --test-threads=1 --nocapture
 
 tag:
 	git tag -a v${VERSION} -m v${VERSION}

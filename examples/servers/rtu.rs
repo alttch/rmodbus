@@ -1,19 +1,15 @@
+use once_cell::sync::Lazy;
 use serial::prelude::*;
 use std::io::{Read, Write};
-use std::time::Duration;
-
-use lazy_static::lazy_static;
-
 use std::sync::RwLock;
+use std::time::Duration;
 
 use rmodbus::{
     server::{storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
-lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
-}
+static CONTEXT: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
 pub fn rtuserver(unit: u8, port: &str) {
     let mut port = serial::open(port).unwrap();

@@ -1,19 +1,16 @@
+use once_cell::sync::Lazy;
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::thread;
-
-use lazy_static::lazy_static;
-
 use std::sync::RwLock;
+use std::thread;
 
 use rmodbus::{
     server::{storage::ModbusStorageFull, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
-lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
-}
+// pub for README example
+pub static CONTEXT: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
 pub fn tcpserver(unit: u8, listen: &str) {
     let listener = TcpListener::bind(listen).unwrap();

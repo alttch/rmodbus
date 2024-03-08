@@ -2,10 +2,6 @@
 #![ doc = include_str!( concat!( env!( "CARGO_MANIFEST_DIR" ), "/", "CHANGELOG.md" ) ) ]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
-
 pub mod client;
 pub mod consts;
 pub mod server;

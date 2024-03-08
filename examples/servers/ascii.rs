@@ -1,10 +1,8 @@
+use once_cell::sync::Lazy;
 use serial::prelude::*;
 use std::io::{Read, Write};
-use std::time::Duration;
-
-use lazy_static::lazy_static;
-
 use std::sync::RwLock;
+use std::time::Duration;
 
 use rmodbus::{
     generate_ascii_frame, guess_request_frame_len, parse_ascii_frame,
@@ -12,9 +10,7 @@ use rmodbus::{
     ModbusFrameBuf, ModbusProto,
 };
 
-lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
-}
+static CONTEXT: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
 pub fn asciiserver(unit: u8, port: &str) {
     let mut port = serial::open(port).unwrap();

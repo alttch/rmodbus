@@ -44,11 +44,10 @@ defmt = ["dep:defmt"]
 rand = "0.7.3"
 crc16 = "0.4.0"
 serial = "0.4.0"
-lazy_static = { version = "1.4.0", features = [
-    "spin_no_std",
-], default-features = false }
 fixedvec = "0.2.4"
 spin = "0.5.2"
+bincode = "2.0.0-rc.2"
+once_cell = "1.19.0"
 
 [[example]]
 name = "app"

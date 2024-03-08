@@ -36,23 +36,19 @@ frames and works with Modbus context.
 
 Here is an example of a simple TCP blocking server:
 
-```rust,ignore
+```rust
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread;
-
-use lazy_static::lazy_static;
-
 use std::sync::RwLock;
+use once_cell::sync::Lazy;
 
 use rmodbus::{
-    server::{context::ModbusContextFull, ModbusFrame},
+    server::{storage::ModbusStorageFull, context::ModbusContext, ModbusFrame},
     ModbusFrameBuf, ModbusProto,
 };
 
-lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusContextFull> = RwLock::new(ModbusContextFull::new());
-}
+static CONTEXT: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
 pub fn tcpserver(unit: u8, listen: &str) {
     let listener = TcpListener::bind(listen).unwrap();
@@ -74,9 +70,9 @@ pub fn tcpserver(unit: u8, listen: &str) {
                 }
                 if frame.processing_required {
                     let result = if frame.readonly {
-                        frame.process_read(&CONTEXT.read().unwrap()),
+                        frame.process_read(&*CONTEXT.read().unwrap())
                     } else {
-                        frame.process_write(&mut CONTEXT.write().unwrap()),
+                        frame.process_write(&mut *CONTEXT.write().unwrap())
                     };
                     if result.is_err() {
                         println!("frame processing error");
@@ -123,14 +119,14 @@ when required and only for a short period time.
 
 A simple PLC example:
 
-```rust,ignore
+```rust,no_run
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 
 use rmodbus::server::{storage::ModbusStorageFull, context::ModbusContext};
 
-#[path = "servers/tcp.rs"]
+#[path = "../examples/servers/tcp.rs"]
 mod srv;
 
 // put 1 to holding register 1500 to save current context to /tmp/plc1.dat
@@ -171,7 +167,7 @@ fn looping() {
     }
 }
 
-fn save(fname: &str, ctx: &ModbusContextFull) -> Result<(), Box<dyn Error>> {
+fn save(fname: &str, ctx: &ModbusStorageFull) -> Result<(), Box<dyn Error>> {
     let config = bincode::config::standard();
     let mut file = File::create(fname)?;
     file.write(&bincode::encode_to_vec(ctx, config)?)?;
@@ -179,7 +175,7 @@ fn save(fname: &str, ctx: &ModbusContextFull) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn load(fname: &str, ctx: &mut ModbusContextFull) -> Result<(), Box<dyn Error>> {
+fn load(fname: &str, ctx: &mut ModbusStorageFull) -> Result<(), Box<dyn Error>> {
     let config = bincode::config::standard();
     let mut file = File::open(fname)?;
     let mut data: Vec<u8> = Vec::new();
@@ -271,7 +267,7 @@ any source and with any required way.
 
 TCP client Example:
 
-```rust,ignore
+```rust,no_run
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;

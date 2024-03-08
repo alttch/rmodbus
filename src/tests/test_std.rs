@@ -4,11 +4,10 @@ use crate::server::storage::{ModbusStorageFull, FULL_STORAGE_SIZE as STORAGE_SIZ
 use crate::server::*;
 use crate::*;
 use crc16::*;
+use once_cell::sync::Lazy;
 use std::sync::RwLock;
 
-lazy_static! {
-    pub static ref CTX: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
-}
+static CTX: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
 #[test]
 fn test_std_read_coils_as_bytes_oob() {

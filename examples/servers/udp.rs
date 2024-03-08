@@ -1,7 +1,5 @@
+use once_cell::sync::Lazy;
 use std::net::UdpSocket;
-
-use lazy_static::lazy_static;
-
 use std::sync::RwLock;
 
 use rmodbus::{
@@ -9,9 +7,7 @@ use rmodbus::{
     ModbusFrameBuf, ModbusProto,
 };
 
-lazy_static! {
-    pub static ref CONTEXT: RwLock<ModbusStorageFull> = RwLock::new(ModbusStorageFull::new());
-}
+static CONTEXT: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
 pub fn udpserver(unit: u8, listen: &str) {
     let socket = UdpSocket::bind(listen).unwrap();

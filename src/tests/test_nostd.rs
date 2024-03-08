@@ -5,11 +5,10 @@ use crate::server::*;
 use crate::*;
 use fixedvec::alloc_stack;
 use fixedvec::FixedVec;
+use once_cell::sync::Lazy;
 use spin::RwLock;
 
-lazy_static! {
-    pub static ref CTX: RwLock<ModbusStorageSmall> = RwLock::new(ModbusStorageSmall::new());
-}
+static CTX: Lazy<RwLock<ModbusStorageSmall>> = Lazy::new(<_>::default);
 
 #[test]
 fn test_nostd_coil_get_set_bulk() {
