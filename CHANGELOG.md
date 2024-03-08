@@ -1,5 +1,13 @@
 ## Changelog
 
+### v0.9
+
+* Added [defmt](https://crates.io/crates/defmt) support (via a feature)
+
+* ModbusContext has become a trait
+
+* Bug fixes and code refactoring
+
 ### v0.8.0
 
 * Events system (experimental)
