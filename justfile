@@ -1,4 +1,4 @@
-VERSION=$(shell grep ^version Cargo.toml|cut -d\" -f2)
+VERSION := `grep ^version Cargo.toml|cut -d\" -f2`
 
 all: test
 
