@@ -347,6 +347,27 @@ impl ModbusRequest {
         Ok(())
     }
 
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as bools
+    /// represented as u8 (getting coils, discretes)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_bool_u8<V: VectorTrait<u8>>(
+        &self,
+        buf: &[u8],
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        let (frame_start, frame_end) = self.parse_response(buf)?;
+        for b in buf.iter().take(frame_end).skip(frame_start + 3) {
+            for i in 0..8 {
+                if result.len() >= self.count as usize {
+                    break;
+                }
+                result.push(b >> i & 1)?;
+            }
+        }
+        Ok(())
+    }
+
     fn generate<V: VectorTrait<u8>>(&self, data: &[u8], request: &mut V) -> Result<(), ErrorKind> {
         request.clear();
         if self.proto == ModbusProto::TcpUdp {
