@@ -1,3 +1,5 @@
+use core::num::TryFromIntError;
+
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -111,6 +113,12 @@ impl core::fmt::Display for ErrorKind {
             }
         };
         write!(f, "{}", msg)
+    }
+}
+
+impl From<TryFromIntError> for ErrorKind {
+    fn from(_: TryFromIntError) -> Self {
+        ErrorKind::OOB
     }
 }
 

@@ -125,7 +125,7 @@ impl ModbusRequest {
             return Err(ErrorKind::OOB);
         }
         self.reg = reg;
-        self.count = values.len() as u16;
+        self.count = u16::try_from(values.len())?;
         self.func = MODBUS_SET_HOLDINGS_BULK;
         let mut data: ModbusFrameBuf = [0; 256];
         let mut pos = 0;
@@ -135,6 +135,25 @@ impl ModbusRequest {
             pos += 2;
         }
         self.generate(&data[..values.len() * 2], request)
+    }
+
+    pub fn generate_set_holdings_bulk_from_slice<V: VectorTrait<u8>>(
+        &mut self,
+        reg: u16,
+        values: &[u8],
+        request: &mut V,
+    ) -> Result<(), ErrorKind> {
+        if values.len() > 125 {
+            return Err(ErrorKind::OOB);
+        }
+        self.reg = reg;
+        self.count = u16::try_from(values.len())?;
+        self.func = MODBUS_SET_HOLDINGS_BULK;
+        let mut data: ModbusFrameBuf = [0; 256];
+        for (i, v) in values.iter().enumerate() {
+            data[i] = *v;
+        }
+        self.generate(&data[..values.len()], request)
     }
 
     #[allow(clippy::cast_possible_truncation)]
