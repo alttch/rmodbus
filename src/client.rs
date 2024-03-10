@@ -90,16 +90,27 @@ impl ModbusRequest {
         self.generate(&[], request)
     }
 
-    pub fn generate_set_coil<V: VectorTrait<u8>>(
+    /// a value can be u8 or bool
+    pub fn generate_set_coil<V: VectorTrait<u8>, S: Into<u8>>(
         &mut self,
         reg: u16,
-        value: bool,
+        value: S,
         request: &mut V,
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = 1;
         self.func = MODBUS_SET_COIL;
-        self.generate(&[if value { 0xff } else { 0x00 }, 0x00], request)
+        self.generate(
+            &[
+                if Into::<u8>::into(value) > 0 {
+                    0xff
+                } else {
+                    0x00
+                },
+                0x00,
+            ],
+            request,
+        )
     }
 
     pub fn generate_set_holding<V: VectorTrait<u8>>(
@@ -178,11 +189,12 @@ impl ModbusRequest {
         self.generate(&data[..length], request)
     }
 
+    /// values can be u8 or bool
     #[allow(clippy::cast_possible_truncation)]
-    pub fn generate_set_coils_bulk<V: VectorTrait<u8>>(
+    pub fn generate_set_coils_bulk<V: VectorTrait<u8>, S: Into<u8> + Copy>(
         &mut self,
         reg: u16,
-        values: &[bool],
+        values: &[S],
         request: &mut V,
     ) -> Result<(), ErrorKind> {
         let l = values.len();
@@ -197,7 +209,7 @@ impl ModbusRequest {
         let mut cbyte = 0;
         let mut bidx = 0;
         for v in values {
-            if *v {
+            if Into::<u8>::into(*v) > 0 {
                 cbyte |= 1 << bidx;
             }
             bidx += 1;
