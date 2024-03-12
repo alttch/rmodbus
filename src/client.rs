@@ -348,7 +348,7 @@ impl ModbusRequest {
     pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&[u8], ErrorKind> {
         let (frame_start, frame_end) = self.parse_response(buf)?;
         let val = match self.func {
-            MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+            MODBUS_SET_COIL | MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDING | MODBUS_SET_HOLDINGS_BULK => {
                 // no data bytes count byte -> skip 1 fewer byte
                 &buf[frame_start + 2..frame_end]
             }
