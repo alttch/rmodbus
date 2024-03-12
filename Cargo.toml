@@ -1,6 +1,6 @@
 [package]
 name = "rmodbus"
-version = "0.9.2"
+version = "0.9.3"
 authors = ["Serhij S. <div@altertech.com>"]
 edition = "2021"
 license = "Apache-2.0"
