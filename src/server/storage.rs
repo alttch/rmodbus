@@ -75,6 +75,20 @@ macro_rules! get_bools_as_u8 {
     }};
 }
 
+macro_rules! get_bools_as_u8_bytes {
+    ($reg_context:expr, $reg:expr, $count:expr, $result:expr, $ctx_size: expr) => {{
+        let reg_to = $reg as usize + $count as usize;
+        if reg_to > $ctx_size {
+            Err(ErrorKind::OOBContext)
+        } else {
+            for creg in $reg as usize..reg_to {
+                $result.push(u8::from($reg_context[creg]))?;
+            }
+            Ok(())
+        }
+    }};
+}
+
 macro_rules! set_regs_from_u8 {
     ($reg_context:expr, $reg:expr, $values:expr, $ctx_size: expr) => {{
         let len = $values.len();
@@ -155,6 +169,18 @@ macro_rules! set_bulk {
     };
 }
 
+macro_rules! set_bulk_bools_from_u8 {
+    ($reg_context:expr, $reg:expr, $values:expr, $ctx_size: expr) => {
+        if $reg as usize + $values.len() > $ctx_size {
+            Err(ErrorKind::OOBContext)
+        } else {
+            for (i, value) in $values.iter().enumerate() {
+                $reg_context[$reg as usize + i] = *value > 0;
+            }
+            Ok(())
+        }
+    };
+}
 macro_rules! get {
     ($reg_context:expr, $reg:expr, $ctx_size: expr) => {
         if $reg as usize >= $ctx_size {
@@ -327,6 +353,15 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         get_bools_as_u8!(self.coils, reg, count, result, C)
     }
 
+    fn get_coils_as_u8_bytes<V: VectorTrait<u8>>(
+        &self,
+        reg: u16,
+        count: u16,
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        get_bools_as_u8_bytes!(self.coils, reg, count, result, C)
+    }
+
     fn get_discretes_as_u8<V: VectorTrait<u8>>(
         &self,
         reg: u16,
@@ -336,8 +371,25 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         get_bools_as_u8!(self.discretes, reg, count, result, D)
     }
 
+    fn get_discretes_as_u8_bytes<V: VectorTrait<u8>>(
+        &self,
+        reg: u16,
+        count: u16,
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        get_bools_as_u8_bytes!(self.discretes, reg, count, result, C)
+    }
+
     fn set_coils_from_u8(&mut self, reg: u16, count: u16, values: &[u8]) -> Result<(), ErrorKind> {
         set_bools_from_u8!(self.coils, reg, count, values, C)
+    }
+
+    fn set_coils_from_u8_bytes(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
+        set_bulk_bools_from_u8!(self.coils, reg, values, C)
+    }
+
+    fn set_discretes_from_u8_bytes(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
+        set_bulk_bools_from_u8!(self.discretes, reg, values, C)
     }
 
     fn set_discretes_from_u8(

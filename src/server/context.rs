@@ -28,7 +28,7 @@ pub trait ModbusContext {
     /// Set holdings from Vec of u8
     fn set_holdings_from_u8(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind>;
 
-    /// Get coils as Vec of u8
+    /// Get coils as Vec of u8 (packed as BITS, 1 byte = 8 coils)
     ///
     /// Note: Vec is always appended
     fn get_coils_as_u8<V: VectorTrait<u8>>(
@@ -38,7 +38,17 @@ pub trait ModbusContext {
         result: &mut V,
     ) -> Result<(), ErrorKind>;
 
-    /// Get discretes as Vec of u8
+    /// Get coils as Vec of u8 (packed as BYTES)
+    ///
+    /// Note: Vec is always appended
+    fn get_coils_as_u8_bytes<V: VectorTrait<u8>>(
+        &self,
+        reg: u16,
+        count: u16,
+        result: &mut V,
+    ) -> Result<(), ErrorKind>;
+
+    /// Get discretes as Vec of u8 (packed as BITS, 1 byte = 8 discretes)
     ///
     /// Note: Vec is always appended
     fn get_discretes_as_u8<V: VectorTrait<u8>>(
@@ -48,13 +58,23 @@ pub trait ModbusContext {
         result: &mut V,
     ) -> Result<(), ErrorKind>;
 
-    /// Set coils from Vec of u8
+    /// Get discretes as Vec of u8 (packed as BYTES)
+    ///
+    /// Note: Vec is always appended
+    fn get_discretes_as_u8_bytes<V: VectorTrait<u8>>(
+        &self,
+        reg: u16,
+        count: u16,
+        result: &mut V,
+    ) -> Result<(), ErrorKind>;
+
+    /// Set coils from Vec of u8 (packed as BITS, 1 byte = 8 coils)
     ///
     /// As coils are packed in u8, parameter *count* specifies how many coils are actually needed
     /// to set, extra bits are ignored
     fn set_coils_from_u8(&mut self, reg: u16, count: u16, values: &[u8]) -> Result<(), ErrorKind>;
 
-    /// Set discretes from Vec of u8
+    /// Set discretes from Vec of u8 (packed as BITS, 1 byte = 8 discretes)
     ///
     /// As discretes are packed in u8, parameter *count* specifies how many coils are actually
     /// needed to set, extra bits are ignored
@@ -64,6 +84,12 @@ pub trait ModbusContext {
         count: u16,
         values: &[u8],
     ) -> Result<(), ErrorKind>;
+
+    /// Set coils from Vec of u8 (packed as BYTES)
+    fn set_coils_from_u8_bytes(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind>;
+
+    /// Set discretes from Vec of u8 (packed as BYTES)
+    fn set_discretes_from_u8_bytes(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind>;
 
     /// Bulk get coils
     ///
