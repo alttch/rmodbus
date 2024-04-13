@@ -16,7 +16,7 @@ quickly build Modbus-powered applications. Consider rmodbus is a
 request/response codec, plus context manager.
 
 rmodbus is a part of [EVA ICS v4](https://www.eva-ics.com/) industrial
-automation stack.
+automation stack and [RoboPLC](https://www.roboplc.com/) I/O.
 
 ## Why yet another Modbus lib?
 
@@ -33,6 +33,9 @@ automation stack.
 Yes, there is no server included. You build the server by your own. You choose
 the transport protocol, technology and everything else. rmodbus just process
 frames and works with Modbus context.
+
+For synchronous server and client for std we recommend using [RoboPLC Modbus
+I/O](https://docs.rs/roboplc/latest/roboplc/io/modbus/index.html) modules.
 
 Here is an example of a simple TCP blocking server:
 
