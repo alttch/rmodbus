@@ -326,6 +326,28 @@ impl ModbusRequest {
         Ok(())
     }
 
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as i16
+    /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_i16<V: VectorTrait<i16>>(
+        &self,
+        buf: &[u8],
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        let (frame_start, frame_end) = self.parse_response(buf)?;
+        let mut pos = frame_start + 3;
+        while pos < frame_end - 1 {
+            let value = i16::from_be_bytes([buf[pos], buf[pos + 1]]);
+            if result.len() >= self.count as usize {
+                break;
+            }
+            result.push(value)?;
+            pos += 2;
+        }
+        Ok(())
+    }
+
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as u16
     /// (getting holdings, inputs)
     ///
