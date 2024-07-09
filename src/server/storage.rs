@@ -315,6 +315,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusStora
     }
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::cast_lossless)]
 impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusContext
     for ModbusStorage<C, D, I, H>
 {
