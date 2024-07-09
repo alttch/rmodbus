@@ -1,8 +1,12 @@
+#[allow(clippy::wildcard_imports)]
 use crate::client::*;
 use crate::server::context::ModbusContext;
 use crate::server::storage::{ModbusStorageFull, FULL_STORAGE_SIZE as STORAGE_SIZE};
+#[allow(clippy::wildcard_imports)]
 use crate::server::*;
+#[allow(clippy::wildcard_imports)]
 use crate::*;
+#[allow(clippy::wildcard_imports)]
 use crc16::*;
 use once_cell::sync::Lazy;
 use std::sync::RwLock;
