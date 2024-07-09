@@ -530,6 +530,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             }
             self.frame_start = 6;
         }
+        if self.frame_start >= self.buf.len(){
+            return Err(ErrorKind::FrameBroken);
+        }
         let unit = self.buf[self.frame_start];
         let broadcast = unit == 0 || unit == 255; // some clients send broadcast to 0xff
         if !broadcast && unit != self.unit_id {
