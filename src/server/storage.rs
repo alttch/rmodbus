@@ -390,7 +390,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
     }
 
     fn set_discretes_from_u8_bytes(&mut self, reg: u16, values: &[u8]) -> Result<(), ErrorKind> {
-        set_bulk_bools_from_u8!(self.discretes, reg, values, C)
+        set_bulk_bools_from_u8!(self.discretes, reg, values, D)
     }
 
     fn set_discretes_from_u8(
