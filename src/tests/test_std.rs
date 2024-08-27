@@ -1,8 +1,12 @@
+#[allow(clippy::wildcard_imports)]
 use crate::client::*;
 use crate::server::context::ModbusContext;
 use crate::server::storage::{ModbusStorageFull, FULL_STORAGE_SIZE as STORAGE_SIZE};
+#[allow(clippy::wildcard_imports)]
 use crate::server::*;
+#[allow(clippy::wildcard_imports)]
 use crate::*;
+#[allow(clippy::wildcard_imports)]
 use crc16::*;
 use once_cell::sync::Lazy;
 use std::sync::RwLock;
@@ -72,6 +76,21 @@ fn test_std_coil_get_set_bulk() {
     assert!(ctx.get_coil(28).unwrap());
     ctx.set_coil(28, false).unwrap();
     assert!(!ctx.get_coil(28).unwrap());
+}
+
+#[test]
+fn test_std_coil_get_set_bulk_as_bytes() {
+    let mut ctx = CTX.write().unwrap();
+    let mut result = Vec::new();
+    ctx.set_coils_bulk(5500, &[true, false, true, true, false, true])
+        .unwrap();
+    ctx.get_coils_as_u8_bytes(5500, 6, &mut result).unwrap();
+    assert_eq!(result, [1, 0, 1, 1, 0, 1]);
+    ctx.set_coils_from_u8_bytes(5500, &[1, 1, 0, 0, 1, 0])
+        .unwrap();
+    let mut result = Vec::new();
+    ctx.get_coils_bulk(5500, 6, &mut result).unwrap();
+    assert_eq!(result, [true, true, false, false, true, false]);
 }
 
 #[test]

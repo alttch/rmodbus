@@ -62,6 +62,7 @@ macro_rules! tcp_response_set_data_len {
     };
 }
 
+#[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     pub unit_id: u8,
@@ -528,6 +529,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 return Err(ErrorKind::FrameBroken);
             }
             self.frame_start = 6;
+        }
+        if self.frame_start >= self.buf.len() {
+            return Err(ErrorKind::FrameBroken);
         }
         let unit = self.buf[self.frame_start];
         let broadcast = unit == 0 || unit == 255; // some clients send broadcast to 0xff

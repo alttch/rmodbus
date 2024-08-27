@@ -1,5 +1,10 @@
 ## Changelog
 
+### v0.10
+
+* `ModbusContext` has been extended with methods to set/get boolean registers
+  with `u8`-slices
+
 ### v0.9
 
 * Added [defmt](https://crates.io/crates/defmt) support (via a feature)
