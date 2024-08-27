@@ -174,7 +174,7 @@ impl ModbusRequest {
             return Err(ErrorKind::OOB);
         }
         self.reg = reg;
-        self.count = u16::try_from(values.len())?;
+        self.count = u16::try_from((values.len() + 1) / 2)?; // count is number of u16's
         self.func = MODBUS_SET_HOLDINGS_BULK;
         let mut data: ModbusFrameBuf = [0; 256];
         for (i, v) in values.iter().enumerate() {
