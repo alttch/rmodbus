@@ -7,6 +7,7 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, Vector
 /// Modbus client generator/processor
 ///
 /// One object can be used for multiple calls
+#[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ModbusRequest {
     /// transaction id, (TCP/UDP only), default: 1. To change, set the value manually
@@ -16,6 +17,21 @@ pub struct ModbusRequest {
     pub reg: u16,
     pub count: u16,
     pub proto: ModbusProto,
+}
+
+macro_rules! parse_reg {
+    ($self: expr, $buf: expr, $result: expr, $t: ty) => {{
+        let (frame_start, frame_end) = $self.parse_response($buf)?;
+        let mut pos = frame_start + 3;
+        while pos < frame_end - 1 {
+            let value = <$t>::from_be_bytes([$buf[pos], $buf[pos + 1]]);
+            if $result.len() >= usize::from($self.count) {
+                break;
+            }
+            $result.push(value)?;
+            pos += 2;
+        }
+    }};
 }
 
 impl ModbusRequest {
@@ -312,16 +328,20 @@ impl ModbusRequest {
         buf: &[u8],
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        let (frame_start, frame_end) = self.parse_response(buf)?;
-        let mut pos = frame_start + 3;
-        while pos < frame_end - 1 {
-            let value = u16::from_be_bytes([buf[pos], buf[pos + 1]]);
-            if result.len() >= self.count as usize {
-                break;
-            }
-            result.push(value)?;
-            pos += 2;
-        }
+        parse_reg!(self, buf, result, u16);
+        Ok(())
+    }
+
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as i16
+    /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_i16<V: VectorTrait<i16>>(
+        &self,
+        buf: &[u8],
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        parse_reg!(self, buf, result, i16);
         Ok(())
     }
 
