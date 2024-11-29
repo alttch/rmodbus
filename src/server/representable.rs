@@ -53,6 +53,10 @@ pub mod representations {
     }
 
     /// A [`u64`] represented in 2 [`u16`] registers with big endian.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
+    #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct U64BigEndian(pub u64);
     impl RegisterRepresentable<4> for U64BigEndian {
         fn to_registers_sequential(&self) -> [u16; 4] {
@@ -73,6 +77,10 @@ pub mod representations {
         }
     }
     /// A [`u64`] represented in 2 [`u16`] registers with little endian.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
+    #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct U64LittleEndian(pub u64);
     impl RegisterRepresentable<4> for U64LittleEndian {
         fn to_registers_sequential(&self) -> [u16; 4] {
@@ -90,6 +98,31 @@ pub mod representations {
                     | (value[2] as u64) << 32
                     | (value[3] as u64) << 48,
             )
+        }
+    }
+
+    /// Tests specifically for the 4 representations provided
+    #[cfg(test)]
+    mod tests {
+        #[allow(clippy::wildcard_imports)]
+        use super::*;
+        #[test]
+        fn test_u32_big_small_endian() {
+            let value: u32 = 0x1111_2222;
+            let big_endian = U32BigEndian(value).to_registers_sequential();
+            let little_endian = U32LittleEndian(value).to_registers_sequential();
+            assert_eq!(big_endian[0], little_endian[1]);
+            assert_eq!(big_endian[1], little_endian[0]);
+        }
+        #[test]
+        fn test_u64_big_small_endian() {
+            let value: u64 = 0x1111_2222_3333_4444;
+            let big_endian = U64BigEndian(value).to_registers_sequential();
+            let little_endian = U64LittleEndian(value).to_registers_sequential();
+            assert_eq!(big_endian[0], little_endian[3]);
+            assert_eq!(big_endian[1], little_endian[2]);
+            assert_eq!(big_endian[2], little_endian[1]);
+            assert_eq!(big_endian[3], little_endian[0]);
         }
     }
 }
