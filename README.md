@@ -248,6 +248,14 @@ let context = ModbusStorage::<128, 16, 0, 100>::new();
 Starting from the version 0.9 it is allowed to provide custom server implementation 
 by implementing `use rmodbus::server::context::ModbusContext` on custom struct.
 For sample implementation have a look at `src/server/storage.rs`
+
+## Custom type representations in `u16` sized registers
+
+Starting from version \<todo: insert version number here\>, you can implement 
+`server::RegisterRepresentable<N>` on your own types and use 
+`ModbusContext::set_*_as_representable` and `ModbusContext::get_*_as_representable`
+methods to directly store and read your own types in the registers.
+
 ## Vectors
 
 Some of rmodbus functions use vectors to store result.  Different vector types can be used:

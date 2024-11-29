@@ -1,14 +1,14 @@
-/// Implemented for structs that can be represented using N u16 registers.
+/// Implemented for structs that can be represented using u16 registers.
 /// It is highly recommended that implementors of this type ensure that
 /// [`RegisterRepresentable::to_registers_sequential`] and
 /// [`RegisterRepresentable::from_registers_sequential`] are exact
 /// inverses of each other.
 pub trait RegisterRepresentable<const N: usize> {
     /// Convert this type into a sequence of `u16`s which can be loaded
-    /// into modbus registers.
+    /// into modbus registers. (From lower to higher addresses)
     fn to_registers_sequential(&self) -> [u16; N];
     /// Extract this type from a sequence of `u16`s taken from sequential
-    /// modbus registers.
+    /// modbus registers. (From lower to higher addresses)
     fn from_registers_sequential(value: &[u16; N]) -> Self;
 }
 
@@ -41,18 +41,44 @@ impl<const N: usize, T: RegisterRepresentable<N>> RegisterBuffer<N, T> for [u16;
     }
 }
 
-
-/// Some implementations of [`RegisterRepresentable`] for convenience.
-/// You can implement [`RegisterRepresentable`] for your custom types
-/// if they aren't implemented here.
 pub mod representations {
+    //! This module contains little and big endian implementations of
+    //! storing [`u32`] and [`u64`]s in [`u16`] sized registers.
+    //! 
+    //! Note that "Big Endian" and "Little Endian" in this context means that 
+    //! the value is big/small endian with respect to 16 bit words
+    //! (registers). This means a `u32` like `0x1122_3344` would be `3344 1122`
+    //! in little endian, not `4433 2211`. 
+    //! The bytes in each word are big endian with respect to each other in the
+    //! word.
+    //! 
+    //! # Example
+    //! ```rust
+    //! # use rmodbus::server::storage::ModbusStorageFull;
+    //! # use rmodbus::server::representations::{ U32LittleEndian, U32BigEndian };
+    //! # use rmodbus::server::representable::*;
+    //! # use rmodbus::server::context::ModbusContext;
+    //! // note: in an actual application you would initialise the context globally
+    //! // or in some other way.
+    //! let mut ctx = ModbusStorageFull::default();
+    //! let to_be_stored: u32 = 123u32;
+    //! // store the value as little endian at address 1.
+    //! ctx.set_inputs_from_representable(1, &U32LittleEndian(to_be_stored)).unwrap();
+    //! // we can read it back from address 1
+    //! let read: U32LittleEndian = ctx.get_inputs_as_representable(1).unwrap();
+    //! assert_eq!(U32LittleEndian(to_be_stored), read);
+    //! // we can read it back using big endian as well, but this would give us the
+    //! // value with first and last 16 bits swapped
+    //! let read: U32BigEndian = ctx.get_inputs_as_representable(1).unwrap();
+    //! assert_eq!(to_be_stored, (read.0 << 16) | (read.0 >> 16));
+    //! ```
     use super::RegisterRepresentable;
     #[cfg(feature = "with_bincode")]
     use bincode::{Decode, Encode};
     #[cfg(feature = "with_serde")]
     use serde::{Deserialize, Serialize};
 
-    /// A [`u32`] represented in 2 [`u16`] registers with big endian.
+    /// A [`u32`] represented in 2 [`u16`] registers in big endian.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
     #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
@@ -67,7 +93,7 @@ pub mod representations {
         }
     }
 
-    /// A [`u32`] represented in 2 [`u16`] registers with little endian.
+    /// A [`u32`] represented in 2 [`u16`] registers in little endian.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
     #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
@@ -82,7 +108,7 @@ pub mod representations {
         }
     }
 
-    /// A [`u64`] represented in 2 [`u16`] registers with big endian.
+    /// A [`u64`] represented in 4 [`u16`] registers in big endian.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
     #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
@@ -106,7 +132,7 @@ pub mod representations {
             )
         }
     }
-    /// A [`u64`] represented in 2 [`u16`] registers with little endian.
+    /// A [`u64`] represented in 4 [`u16`] registers in little endian.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     #[cfg_attr(feature = "with_serde", derive(Deserialize, Serialize))]
     #[cfg_attr(feature = "with_bincode", derive(Decode, Encode))]
@@ -146,6 +172,9 @@ pub mod representations {
             assert_eq!(<[u16; 2] as RegisterBuffer<2, U32LittleEndian>>::to_represented(&little_endian), U32LittleEndian(value));
             assert_eq!(big_endian[0], little_endian[1]);
             assert_eq!(big_endian[1], little_endian[0]);
+            
+            assert_eq!(little_endian[0], 0x2222u16);
+            assert_eq!(little_endian[1], 0x1111u16);
         }
         #[test]
         fn test_u64_big_small_endian() {
@@ -158,6 +187,11 @@ pub mod representations {
             assert_eq!(big_endian[1], little_endian[2]);
             assert_eq!(big_endian[2], little_endian[1]);
             assert_eq!(big_endian[3], little_endian[0]);
+
+            assert_eq!(little_endian[0], 0x4444u16);
+            assert_eq!(little_endian[1], 0x3333u16);
+            assert_eq!(little_endian[2], 0x2222u16);
+            assert_eq!(little_endian[3], 0x1111u16);
         }
     }
 }
