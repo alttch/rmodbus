@@ -1,5 +1,7 @@
 use crate::{ErrorKind, VectorTrait};
 
+use super::representable::RegisterRepresentable;
+
 #[allow(clippy::module_name_repetitions)]
 pub trait ModbusContext {
     /// Get inputs as Vec of u8
@@ -218,4 +220,42 @@ pub trait ModbusContext {
 
     /// Set IEEE 754 f32 to two holding registers
     fn set_holdings_from_f32(&mut self, reg: u16, value: f32) -> Result<(), ErrorKind>;
+
+    /// Get N inputs represented as some [`RegisterRepresentable`] type T
+    ///
+    /// Returns the [`RegisterRepresentable`] once converted using
+    /// [`RegisterRepresentable::from_registers_sequential`]
+    fn get_inputs_as_representable<const N: usize, T: RegisterRepresentable<N>>(
+        &self,
+        reg: u16,
+    ) -> Result<T, ErrorKind>;
+
+    /// Get N holdings represented as some [`RegisterRepresentable`] type T.
+    ///
+    /// Returns the [`RegisterRepresentable`] once converted using
+    /// [`RegisterRepresentable::from_registers_sequential`]
+    fn get_holdings_as_representable<const N: usize, T: RegisterRepresentable<N>>(
+        &self,
+        reg: u16,
+    ) -> Result<T, ErrorKind>;
+
+    /// Set N inputs using a [`RegisterRepresentable`].
+    ///
+    /// Uses [`RegisterRepresentable::to_registers_sequential`] to convert
+    /// type T into a sequence of [`u16`] registers.
+    fn set_inputs_from_representable<const N: usize, T: RegisterRepresentable<N>>(
+        &mut self,
+        reg: u16,
+        value: &T,
+    ) -> Result<(), ErrorKind>;
+
+    /// Set N holdings using a [`RegisterRepresentable`].
+    ///
+    /// Uses [`RegisterRepresentable::to_registers_sequential`] to convert
+    /// type T into a sequence of [`u16`] registers.
+    fn set_holdings_from_representable<const N: usize, T: RegisterRepresentable<N>>(
+        &mut self,
+        reg: u16,
+        value: &T,
+    ) -> Result<(), ErrorKind>;
 }

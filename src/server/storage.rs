@@ -1,6 +1,7 @@
 use super::{
     super::{ErrorKind, VectorTrait},
     context::ModbusContext,
+    representable::RegisterRepresentable,
 };
 #[cfg(feature = "with_bincode")]
 use bincode::{Decode, Encode};
@@ -248,6 +249,28 @@ macro_rules! set_u64 {
             $reg_context[$reg as usize + 2] = ($value >> 16) as u16;
             $reg_context[$reg as usize + 3] = $value as u16;
             Ok(())
+        }
+    };
+}
+
+macro_rules! get_representable {
+    ($reg_context:expr, $reg:expr, $regs_count:expr, $representable_ty:ty, $ctx_size:expr) => {
+        if $reg as usize + $regs_count > $ctx_size {
+            Err(ErrorKind::OOBContext)
+        } else {
+            let regs: &[u16; $regs_count] = $reg_context[($reg as usize)..($reg as usize + $regs_count)].try_into().unwrap();
+            Ok(<$representable_ty as RegisterRepresentable<$regs_count>>::from_registers_sequential(regs))
+        }
+    };
+}
+
+macro_rules! set_representable {
+    ($reg_context:expr, $reg:expr, $regs_count:expr, $value:expr, $ctx_size:expr) => {
+        if $reg as usize + $regs_count > $ctx_size {
+            Err(ErrorKind::OOBContext)
+        } else {
+            let regs: [u16; $regs_count] = $value.to_registers_sequential();
+            set_bulk!($reg_context, $reg, regs, $ctx_size)
         }
     };
 }
@@ -534,5 +557,47 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
     #[inline]
     fn set_holdings_from_f32(&mut self, reg: u16, value: f32) -> Result<(), ErrorKind> {
         self.set_holdings_from_u32(reg, value.bits())
+    }
+
+    fn get_inputs_as_representable<
+        const N: usize,
+        T: super::representable::RegisterRepresentable<N>,
+    >(
+        &self,
+        reg: u16,
+    ) -> Result<T, ErrorKind> {
+        get_representable!(self.inputs, reg, N, T, I)
+    }
+
+    fn get_holdings_as_representable<
+        const N: usize,
+        T: super::representable::RegisterRepresentable<N>,
+    >(
+        &self,
+        reg: u16,
+    ) -> Result<T, ErrorKind> {
+        get_representable!(self.holdings, reg, N, T, H)
+    }
+
+    fn set_inputs_from_representable<
+        const N: usize,
+        T: super::representable::RegisterRepresentable<N>,
+    >(
+        &mut self,
+        reg: u16,
+        value: &T,
+    ) -> Result<(), ErrorKind> {
+        set_representable!(self.inputs, reg, N, value, I)
+    }
+
+    fn set_holdings_from_representable<
+        const N: usize,
+        T: super::representable::RegisterRepresentable<N>,
+    >(
+        &mut self,
+        reg: u16,
+        value: &T,
+    ) -> Result<(), ErrorKind> {
+        set_representable!(self.holdings, reg, N, value, H)
     }
 }
