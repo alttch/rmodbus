@@ -16,7 +16,7 @@ pub trait RegisterRepresentable<const N: usize> {
 /// [`Into`] trait is the other side of Rust's [`From`] trait. This
 /// trait is implemented on u16 buffers that can be converted to/from a
 /// [`RegisterRepresentable`] type.
-/// 
+///
 /// This trait is automatically implemented using a blanket impl. Do not
 /// implement this trait manually.
 pub trait RegisterBuffer<const N: usize, T: RegisterRepresentable<N>> {
@@ -44,14 +44,14 @@ impl<const N: usize, T: RegisterRepresentable<N>> RegisterBuffer<N, T> for [u16;
 pub mod representations {
     //! This module contains little and big endian implementations of
     //! storing [`u32`] and [`u64`]s in [`u16`] sized registers.
-    //! 
-    //! Note that "Big Endian" and "Little Endian" in this context means that 
+    //!
+    //! Note that "Big Endian" and "Little Endian" in this context means that
     //! the value is big/small endian with respect to 16 bit words
     //! (registers). This means a `u32` like `0x1122_3344` would be `3344 1122`
-    //! in little endian, not `4433 2211`. 
+    //! in little endian, not `4433 2211`.
     //! The bytes in each word are big endian with respect to each other in the
     //! word.
-    //! 
+    //!
     //! # Example
     //! ```rust
     //! # use rmodbus::server::storage::ModbusStorageFull;
@@ -160,19 +160,25 @@ pub mod representations {
     /// Tests specifically for the 4 representations provided
     #[cfg(test)]
     mod tests {
+        use super::super::RegisterBuffer;
         #[allow(clippy::wildcard_imports)]
         use super::*;
-        use super::super::RegisterBuffer;
         #[test]
         fn test_u32_big_small_endian() {
             let value: u32 = 0x1111_2222;
             let big_endian = U32BigEndian(value).to_registers_sequential();
-            assert_eq!(<[u16; 2] as RegisterBuffer<2, U32BigEndian>>::to_represented(&big_endian), U32BigEndian(value));
+            assert_eq!(
+                <[u16; 2] as RegisterBuffer<2, U32BigEndian>>::to_represented(&big_endian),
+                U32BigEndian(value)
+            );
             let little_endian = U32LittleEndian(value).to_registers_sequential();
-            assert_eq!(<[u16; 2] as RegisterBuffer<2, U32LittleEndian>>::to_represented(&little_endian), U32LittleEndian(value));
+            assert_eq!(
+                <[u16; 2] as RegisterBuffer<2, U32LittleEndian>>::to_represented(&little_endian),
+                U32LittleEndian(value)
+            );
             assert_eq!(big_endian[0], little_endian[1]);
             assert_eq!(big_endian[1], little_endian[0]);
-            
+
             assert_eq!(little_endian[0], 0x2222u16);
             assert_eq!(little_endian[1], 0x1111u16);
         }
@@ -180,9 +186,15 @@ pub mod representations {
         fn test_u64_big_small_endian() {
             let value: u64 = 0x1111_2222_3333_4444;
             let big_endian = U64BigEndian(value).to_registers_sequential();
-            assert_eq!(<[u16; 4] as RegisterBuffer<4, U64BigEndian>>::to_represented(&big_endian), U64BigEndian(value));
+            assert_eq!(
+                <[u16; 4] as RegisterBuffer<4, U64BigEndian>>::to_represented(&big_endian),
+                U64BigEndian(value)
+            );
             let little_endian = U64LittleEndian(value).to_registers_sequential();
-            assert_eq!(<[u16; 4] as RegisterBuffer<4, U64LittleEndian>>::to_represented(&little_endian), U64LittleEndian(value));
+            assert_eq!(
+                <[u16; 4] as RegisterBuffer<4, U64LittleEndian>>::to_represented(&little_endian),
+                U64LittleEndian(value)
+            );
             assert_eq!(big_endian[0], little_endian[3]);
             assert_eq!(big_endian[1], little_endian[2]);
             assert_eq!(big_endian[2], little_endian[1]);

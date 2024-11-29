@@ -228,7 +228,13 @@ pub trait ModbusContext {
     fn get_inputs_as_representable<const N: usize, T: RegisterRepresentable<N>>(
         &self,
         reg: u16,
-    ) -> Result<T, ErrorKind>;
+    ) -> Result<T, ErrorKind> {
+        let mut regs: [u16; N] = [0u16; N];
+        for i in 0..N {
+            regs[i] = self.get_input(reg + i as u16)?;
+        }
+        Ok(T::from_registers_sequential(&regs))
+    }
 
     /// Get N holdings represented as some [`RegisterRepresentable`] type T.
     ///
@@ -237,7 +243,13 @@ pub trait ModbusContext {
     fn get_holdings_as_representable<const N: usize, T: RegisterRepresentable<N>>(
         &self,
         reg: u16,
-    ) -> Result<T, ErrorKind>;
+    ) -> Result<T, ErrorKind> {
+        let mut regs: [u16; N] = [0u16; N];
+        for i in 0..N {
+            regs[i] = self.get_holding(reg + i as u16)?;
+        }
+        Ok(T::from_registers_sequential(&regs))
+    }
 
     /// Set N inputs using a [`RegisterRepresentable`].
     ///
@@ -247,7 +259,10 @@ pub trait ModbusContext {
         &mut self,
         reg: u16,
         value: &T,
-    ) -> Result<(), ErrorKind>;
+    ) -> Result<(), ErrorKind> {
+        let regs = value.to_registers_sequential();
+        self.set_inputs_bulk(reg, &regs)
+    }
 
     /// Set N holdings using a [`RegisterRepresentable`].
     ///
@@ -257,5 +272,8 @@ pub trait ModbusContext {
         &mut self,
         reg: u16,
         value: &T,
-    ) -> Result<(), ErrorKind>;
+    ) -> Result<(), ErrorKind> {
+        let regs = value.to_registers_sequential();
+        self.set_holdings_bulk(reg, &regs)
+    }
 }
