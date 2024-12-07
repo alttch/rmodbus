@@ -122,7 +122,7 @@ when required and only for a short period time.
 
 A simple PLC example:
 
-```rust,no_run
+```rust,ignore
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
