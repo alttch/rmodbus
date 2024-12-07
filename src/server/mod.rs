@@ -55,7 +55,6 @@ use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusProto, VectorTrait};
 /// }
 /// # } }
 /// ```
-
 macro_rules! tcp_response_set_data_len {
     ($self: expr, $len:expr) => {
         if $self.proto == ModbusProto::TcpUdp {
@@ -451,11 +450,11 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 let new_length = current_length + data_len as usize;
                 self.response.resize(new_length, 0u8)?;
 
-                return Ok(Read::Bits(ReadBits {
+                Ok(Read::Bits(ReadBits {
                     address: self.reg,
                     count: self.count,
                     buf: &mut self.response.as_mut_slice()[current_length..new_length],
-                }));
+                }))
             }
             MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
                 // funcs 3 - 4
@@ -477,11 +476,11 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 let new_length = current_length + data_len as usize;
                 self.response.resize(new_length, 0u8)?;
 
-                return Ok(Read::Words(ReadWords {
+                Ok(Read::Words(ReadWords {
                     address: self.reg,
                     count: self.count,
                     buf: &mut self.response.as_mut_slice()[current_length..new_length],
-                }));
+                }))
             }
             MODBUS_SET_COIL
             | MODBUS_SET_HOLDING

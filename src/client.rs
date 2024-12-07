@@ -365,7 +365,7 @@ impl ModbusRequest {
     /// Returns a raw data slice
     ///
     /// The input buffer SHOULD be cut to actual response length
-    pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&[u8], ErrorKind> {
+    pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&'a [u8], ErrorKind> {
         let (frame_start, frame_end) = self.parse_response(buf)?;
         let val = match self.func {
             MODBUS_SET_COIL
