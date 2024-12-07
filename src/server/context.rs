@@ -225,13 +225,14 @@ pub trait ModbusContext {
     ///
     /// Returns the [`RegisterRepresentable`] once converted using
     /// [`RegisterRepresentable::from_registers_sequential`]
+    #[allow(clippy::cast_possible_truncation)]
     fn get_inputs_as_representable<const N: usize, T: RegisterRepresentable<N>>(
         &self,
         reg: u16,
     ) -> Result<T, ErrorKind> {
         let mut regs: [u16; N] = [0u16; N];
-        for i in 0..N {
-            regs[i] = self.get_input(reg + i as u16)?;
+        for (i, r) in regs.iter_mut().enumerate().take(N) {
+            *r = self.get_input(reg + i as u16)?;
         }
         Ok(T::from_registers_sequential(&regs))
     }
@@ -240,13 +241,14 @@ pub trait ModbusContext {
     ///
     /// Returns the [`RegisterRepresentable`] once converted using
     /// [`RegisterRepresentable::from_registers_sequential`]
+    #[allow(clippy::cast_possible_truncation)]
     fn get_holdings_as_representable<const N: usize, T: RegisterRepresentable<N>>(
         &self,
         reg: u16,
     ) -> Result<T, ErrorKind> {
         let mut regs: [u16; N] = [0u16; N];
-        for i in 0..N {
-            regs[i] = self.get_holding(reg + i as u16)?;
+        for (i, r) in regs.iter_mut().enumerate().take(N) {
+            *r = self.get_holding(reg + i as u16)?;
         }
         Ok(T::from_registers_sequential(&regs))
     }

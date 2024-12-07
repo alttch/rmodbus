@@ -161,6 +161,7 @@ fn test_std_discrete_get_set_bulk() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_std_read_inputs_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
@@ -310,40 +311,41 @@ fn test_std_get_set_inputs() {
     ctx.set_inputs_from_f32(200, 1234.567).unwrap();
     assert_eq!(ctx.get_inputs_as_f32(200).unwrap(), 1234.567f32);
 
-    ctx.set_inputs_from_representable(300, &representations::U32LittleEndian(1234567))
+    ctx.set_inputs_from_representable(300, &representations::U32LittleEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_inputs_as_representable::<2, representations::U32LittleEndian>(300)
             .unwrap(),
-        representations::U32LittleEndian(1234567)
+        representations::U32LittleEndian(1_234_567)
     );
 
-    ctx.set_inputs_from_representable(300, &representations::U32BigEndian(1234567))
+    ctx.set_inputs_from_representable(300, &representations::U32BigEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_inputs_as_representable::<2, representations::U32BigEndian>(300)
             .unwrap(),
-        representations::U32BigEndian(1234567)
+        representations::U32BigEndian(1_234_567)
     );
 
-    ctx.set_inputs_from_representable(300, &representations::U64BigEndian(1234567))
+    ctx.set_inputs_from_representable(300, &representations::U64BigEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_inputs_as_representable::<4, representations::U64BigEndian>(300)
             .unwrap(),
-        representations::U64BigEndian(1234567)
+        representations::U64BigEndian(1_234_567)
     );
 
-    ctx.set_inputs_from_representable(300, &representations::U64LittleEndian(1234567))
+    ctx.set_inputs_from_representable(300, &representations::U64LittleEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_inputs_as_representable::<4, representations::U64LittleEndian>(300)
             .unwrap(),
-        representations::U64LittleEndian(1234567)
+        representations::U64LittleEndian(1_234_567)
     );
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_std_read_holdings_as_bytes_oob() {
     let mut ctx = CTX.write().unwrap();
     let mut result = Vec::new();
@@ -494,36 +496,36 @@ fn test_std_get_set_holdings() {
     ctx.set_holdings_from_f32(200, 1234.567).unwrap();
     assert_eq!(ctx.get_holdings_as_f32(200).unwrap(), 1234.567f32);
 
-    ctx.set_holdings_from_representable(300, &representations::U32LittleEndian(1234567))
+    ctx.set_holdings_from_representable(300, &representations::U32LittleEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_holdings_as_representable::<2, representations::U32LittleEndian>(300)
             .unwrap(),
-        representations::U32LittleEndian(1234567)
+        representations::U32LittleEndian(1_234_567)
     );
 
-    ctx.set_holdings_from_representable(300, &representations::U32BigEndian(1234567))
+    ctx.set_holdings_from_representable(300, &representations::U32BigEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_holdings_as_representable::<2, representations::U32BigEndian>(300)
             .unwrap(),
-        representations::U32BigEndian(1234567)
+        representations::U32BigEndian(1_234_567)
     );
 
-    ctx.set_holdings_from_representable(300, &representations::U64BigEndian(1234567))
+    ctx.set_holdings_from_representable(300, &representations::U64BigEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_holdings_as_representable::<4, representations::U64BigEndian>(300)
             .unwrap(),
-        representations::U64BigEndian(1234567)
+        representations::U64BigEndian(1_234_567)
     );
 
-    ctx.set_holdings_from_representable(300, &representations::U64LittleEndian(1234567))
+    ctx.set_holdings_from_representable(300, &representations::U64LittleEndian(1_234_567))
         .unwrap();
     assert_eq!(
         ctx.get_holdings_as_representable::<4, representations::U64LittleEndian>(300)
             .unwrap(),
-        representations::U64LittleEndian(1234567)
+        representations::U64LittleEndian(1_234_567)
     );
 }
 

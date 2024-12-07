@@ -3,6 +3,7 @@
 /// [`RegisterRepresentable::to_registers_sequential`] and
 /// [`RegisterRepresentable::from_registers_sequential`] are exact
 /// inverses of each other.
+#[allow(clippy::module_name_repetitions)]
 pub trait RegisterRepresentable<const N: usize> {
     /// Convert this type into a sequence of `u16`s which can be loaded
     /// into modbus registers. (From lower to higher addresses)
@@ -85,11 +86,12 @@ pub mod representations {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct U32BigEndian(pub u32);
     impl RegisterRepresentable<2> for U32BigEndian {
+        #[allow(clippy::cast_possible_truncation)]
         fn to_registers_sequential(&self) -> [u16; 2] {
             [(self.0 >> 16) as u16, self.0 as u16]
         }
         fn from_registers_sequential(value: &[u16; 2]) -> Self {
-            Self(((value[0] as u32) << 16) | (value[1] as u32))
+            Self(((u32::from(value[0])) << 16) | (u32::from(value[1])))
         }
     }
 
@@ -100,11 +102,12 @@ pub mod representations {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct U32LittleEndian(pub u32);
     impl RegisterRepresentable<2> for U32LittleEndian {
+        #[allow(clippy::cast_possible_truncation)]
         fn to_registers_sequential(&self) -> [u16; 2] {
             [self.0 as u16, (self.0 >> 16) as u16]
         }
         fn from_registers_sequential(value: &[u16; 2]) -> Self {
-            Self((value[0] as u32) | ((value[1] as u32) << 16))
+            Self((u32::from(value[0])) | ((u32::from(value[1])) << 16))
         }
     }
 
@@ -115,6 +118,7 @@ pub mod representations {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct U64BigEndian(pub u64);
     impl RegisterRepresentable<4> for U64BigEndian {
+        #[allow(clippy::cast_possible_truncation)]
         fn to_registers_sequential(&self) -> [u16; 4] {
             [
                 ((self.0 & 0xFFFF_0000_0000_0000) >> 48) as u16,
@@ -125,10 +129,10 @@ pub mod representations {
         }
         fn from_registers_sequential(value: &[u16; 4]) -> Self {
             Self(
-                (value[0] as u64) << 48
-                    | (value[1] as u64) << 32
-                    | (value[2] as u64) << 16
-                    | (value[3] as u64),
+                (u64::from(value[0])) << 48
+                    | (u64::from(value[1])) << 32
+                    | (u64::from(value[2])) << 16
+                    | (u64::from(value[3])),
             )
         }
     }
@@ -139,6 +143,7 @@ pub mod representations {
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct U64LittleEndian(pub u64);
     impl RegisterRepresentable<4> for U64LittleEndian {
+        #[allow(clippy::cast_possible_truncation)]
         fn to_registers_sequential(&self) -> [u16; 4] {
             [
                 self.0 as u16,
@@ -149,10 +154,10 @@ pub mod representations {
         }
         fn from_registers_sequential(value: &[u16; 4]) -> Self {
             Self(
-                (value[0] as u64)
-                    | (value[1] as u64) << 16
-                    | (value[2] as u64) << 32
-                    | (value[3] as u64) << 48,
+                (u64::from(value[0]))
+                    | (u64::from(value[1])) << 16
+                    | (u64::from(value[2])) << 32
+                    | (u64::from(value[3])) << 48,
             )
         }
     }
