@@ -9,6 +9,7 @@ use crate::*;
 #[allow(clippy::wildcard_imports)]
 use crc16::*;
 use once_cell::sync::Lazy;
+use representable::representations;
 use std::sync::RwLock;
 
 static CTX: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
@@ -214,6 +215,62 @@ fn test_std_read_inputs_as_bytes_oob() {
     }
     ctx.set_inputs_from_u64(u16::try_from(STORAGE_SIZE - 4).unwrap(), 0x9999)
         .unwrap();
+    if ctx
+        .set_inputs_from_representable(
+            u16::try_from(STORAGE_SIZE - 1).unwrap(),
+            &representations::U32LittleEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_inputs_from_representable(
+        u16::try_from(STORAGE_SIZE - 2).unwrap(),
+        &representations::U32LittleEndian(0x55),
+    )
+    .unwrap();
+    if ctx
+        .set_inputs_from_representable(
+            u16::try_from(STORAGE_SIZE - 1).unwrap(),
+            &representations::U32BigEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_inputs_from_representable(
+        u16::try_from(STORAGE_SIZE - 2).unwrap(),
+        &representations::U32BigEndian(0x55),
+    )
+    .unwrap();
+    if ctx
+        .set_inputs_from_representable(
+            u16::try_from(STORAGE_SIZE - 3).unwrap(),
+            &representations::U64LittleEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_inputs_from_representable(
+        u16::try_from(STORAGE_SIZE - 4).unwrap(),
+        &representations::U64LittleEndian(0x55),
+    )
+    .unwrap();
+    if ctx
+        .set_inputs_from_representable(
+            u16::try_from(STORAGE_SIZE - 3).unwrap(),
+            &representations::U64BigEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_inputs_from_representable(
+        u16::try_from(STORAGE_SIZE - 4).unwrap(),
+        &representations::U64BigEndian(0x55),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -252,6 +309,38 @@ fn test_std_get_set_inputs() {
     );
     ctx.set_inputs_from_f32(200, 1234.567).unwrap();
     assert_eq!(ctx.get_inputs_as_f32(200).unwrap(), 1234.567f32);
+
+    ctx.set_inputs_from_representable(300, &representations::U32LittleEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_inputs_as_representable::<2, representations::U32LittleEndian>(300)
+            .unwrap(),
+        representations::U32LittleEndian(1234567)
+    );
+
+    ctx.set_inputs_from_representable(300, &representations::U32BigEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_inputs_as_representable::<2, representations::U32BigEndian>(300)
+            .unwrap(),
+        representations::U32BigEndian(1234567)
+    );
+
+    ctx.set_inputs_from_representable(300, &representations::U64BigEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_inputs_as_representable::<4, representations::U64BigEndian>(300)
+            .unwrap(),
+        representations::U64BigEndian(1234567)
+    );
+
+    ctx.set_inputs_from_representable(300, &representations::U64LittleEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_inputs_as_representable::<4, representations::U64LittleEndian>(300)
+            .unwrap(),
+        representations::U64LittleEndian(1234567)
+    );
 }
 
 #[test]
@@ -310,6 +399,62 @@ fn test_std_read_holdings_as_bytes_oob() {
     }
     ctx.set_holdings_from_u64(u16::try_from(STORAGE_SIZE - 4).unwrap(), 0x9999)
         .unwrap();
+    if ctx
+        .set_holdings_from_representable(
+            u16::try_from(STORAGE_SIZE - 1).unwrap(),
+            &representations::U32LittleEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_holdings_from_representable(
+        u16::try_from(STORAGE_SIZE - 2).unwrap(),
+        &representations::U32LittleEndian(0x55),
+    )
+    .unwrap();
+    if ctx
+        .set_holdings_from_representable(
+            u16::try_from(STORAGE_SIZE - 1).unwrap(),
+            &representations::U32BigEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_holdings_from_representable(
+        u16::try_from(STORAGE_SIZE - 2).unwrap(),
+        &representations::U32BigEndian(0x55),
+    )
+    .unwrap();
+    if ctx
+        .set_holdings_from_representable(
+            u16::try_from(STORAGE_SIZE - 3).unwrap(),
+            &representations::U64LittleEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_holdings_from_representable(
+        u16::try_from(STORAGE_SIZE - 4).unwrap(),
+        &representations::U64LittleEndian(0x55),
+    )
+    .unwrap();
+    if ctx
+        .set_holdings_from_representable(
+            u16::try_from(STORAGE_SIZE - 3).unwrap(),
+            &representations::U64BigEndian(0x55),
+        )
+        .is_ok()
+    {
+        panic!("{}", "oob failed MAX RegisterRepresentable U32BigEndian")
+    }
+    ctx.set_holdings_from_representable(
+        u16::try_from(STORAGE_SIZE - 4).unwrap(),
+        &representations::U64BigEndian(0x55),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -348,6 +493,38 @@ fn test_std_get_set_holdings() {
     );
     ctx.set_holdings_from_f32(200, 1234.567).unwrap();
     assert_eq!(ctx.get_holdings_as_f32(200).unwrap(), 1234.567f32);
+
+    ctx.set_holdings_from_representable(300, &representations::U32LittleEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_holdings_as_representable::<2, representations::U32LittleEndian>(300)
+            .unwrap(),
+        representations::U32LittleEndian(1234567)
+    );
+
+    ctx.set_holdings_from_representable(300, &representations::U32BigEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_holdings_as_representable::<2, representations::U32BigEndian>(300)
+            .unwrap(),
+        representations::U32BigEndian(1234567)
+    );
+
+    ctx.set_holdings_from_representable(300, &representations::U64BigEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_holdings_as_representable::<4, representations::U64BigEndian>(300)
+            .unwrap(),
+        representations::U64BigEndian(1234567)
+    );
+
+    ctx.set_holdings_from_representable(300, &representations::U64LittleEndian(1234567))
+        .unwrap();
+    assert_eq!(
+        ctx.get_holdings_as_representable::<4, representations::U64LittleEndian>(300)
+            .unwrap(),
+        representations::U64LittleEndian(1234567)
+    );
 }
 
 #[test]

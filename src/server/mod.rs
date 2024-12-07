@@ -1,7 +1,9 @@
 pub mod context;
+pub mod representable;
 pub mod storage;
 
 use core::slice;
+pub use representable::representations;
 
 #[allow(clippy::wildcard_imports)]
 use crate::consts::*;
