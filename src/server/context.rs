@@ -2,7 +2,7 @@ use super::representable::RegisterRepresentable;
 use crate::{ErrorKind, VectorTrait};
 use ieee754::Ieee754;
 
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_name_repetitions, clippy::cast_lossless, clippy::cast_possible_truncation)]
 pub trait ModbusContext {
     /// Get inputs as Vec of u8
     ///
@@ -43,7 +43,7 @@ pub trait ModbusContext {
         let mut current_reg = reg;
         let mut chunk_iter = values.chunks_exact(2);
         for pair in chunk_iter.by_ref() {
-            let reg_value = ((pair[0] as u16) << 8) + pair[1] as u16;
+            let reg_value = ((pair[0] as u16) << 8) + (pair[1] as u16);
             self.set_input(current_reg, reg_value)?;
             current_reg += 1;
         }
@@ -68,7 +68,7 @@ pub trait ModbusContext {
         let remaining = chunk_iter.remainder();
         if !remaining.is_empty() {
             // 1 u8 left
-            let reg_value = (remaining[0] as u16) << 8;
+            let reg_value = u16::from(remaining[0]) << 8;
             self.set_holding(current_reg, reg_value)?;
         }
         Ok(())
@@ -88,7 +88,7 @@ pub trait ModbusContext {
             let mut cbyte = 0;
             for i in 0..8 {
                 if self.get_coil(creg)? {
-                    cbyte |= 1 << i
+                    cbyte |= 1 << i;
                 }
                 creg += 1;
                 if creg >= (reg + count) {
@@ -129,7 +129,7 @@ pub trait ModbusContext {
             let mut cbyte = 0;
             for i in 0..8 {
                 if self.get_discrete(creg)? {
-                    cbyte |= 1 << i
+                    cbyte |= 1 << i;
                 }
                 creg += 1;
                 if creg >= (reg + count) {
@@ -435,7 +435,6 @@ pub trait ModbusContext {
     ///
     /// Returns the [`RegisterRepresentable`] once converted using
     /// [`RegisterRepresentable::from_registers_sequential`]
-    #[allow(clippy::cast_possible_truncation)]
     fn get_inputs_as_representable<const N: usize, T: RegisterRepresentable<N>>(
         &self,
         reg: u16,
@@ -451,7 +450,6 @@ pub trait ModbusContext {
     ///
     /// Returns the [`RegisterRepresentable`] once converted using
     /// [`RegisterRepresentable::from_registers_sequential`]
-    #[allow(clippy::cast_possible_truncation)]
     fn get_holdings_as_representable<const N: usize, T: RegisterRepresentable<N>>(
         &self,
         reg: u16,
