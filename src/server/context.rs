@@ -2,7 +2,11 @@ use super::representable::RegisterRepresentable;
 use crate::{ErrorKind, VectorTrait};
 use ieee754::Ieee754;
 
-#[allow(clippy::module_name_repetitions, clippy::cast_lossless, clippy::cast_possible_truncation)]
+#[allow(
+    clippy::module_name_repetitions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation
+)]
 pub trait ModbusContext {
     /// Get inputs as Vec of u8
     ///
