@@ -122,5 +122,4 @@ impl From<TryFromIntError> for ErrorKind {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ErrorKind {}
+impl core::error::Error for ErrorKind {}
