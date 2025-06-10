@@ -378,7 +378,7 @@ impl<const C: usize, const D: usize, const I: usize, const H: usize> ModbusConte
         count: u16,
         result: &mut V,
     ) -> Result<(), ErrorKind> {
-        get_bools_as_u8_bytes!(self.discretes, reg, count, result, C)
+        get_bools_as_u8_bytes!(self.discretes, reg, count, result, D)
     }
 
     fn set_coils_from_u8(&mut self, reg: u16, count: u16, values: &[u8]) -> Result<(), ErrorKind> {
