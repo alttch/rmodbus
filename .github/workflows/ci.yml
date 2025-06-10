@@ -100,3 +100,4 @@ jobs:
             -A clippy::no_effect_underscore_binding
             -A clippy::large_futures
             -A clippy::precedence
+            -A clippy::manual_div_ceil
