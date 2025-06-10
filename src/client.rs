@@ -452,7 +452,7 @@ impl ModbusRequest {
                 }
             }
             _ => unimplemented!(),
-        };
+        }
         match self.proto {
             ModbusProto::TcpUdp => {
                 let mut l = request.len();
@@ -486,7 +486,7 @@ impl ModbusRequest {
                 let lrc = calc_lrc(request.as_slice(), l as u8);
                 request.push(lrc)?;
             }
-        };
+        }
         Ok(())
     }
 }
