@@ -101,3 +101,5 @@ jobs:
             -A clippy::large_futures
             -A clippy::precedence
             -A clippy::manual_div_ceil
+            -A clippy::non_std_lazy_statics
+            -A clippy::manual_slice_fill
