@@ -1,0 +1,24 @@
+[package]
+name = "rmodbus-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.rmodbus]
+path = ".."
+
+[profile.release]
+overflow-checks = false
+
+[[bin]]
+name = "server_frame_parser"
+path = "fuzz_targets/server_frame_parser.rs"
+test = false
+doc = false
