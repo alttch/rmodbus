@@ -154,6 +154,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             MODBUS_SET_COIL => {
                 // func 5
                 // write single coil
+                if self.buf.len() < self.frame_start + 6 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let val = match u16::from_be_bytes([
                     self.buf[self.frame_start + 4],
                     self.buf[self.frame_start + 5],
@@ -177,6 +180,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             MODBUS_SET_HOLDING => {
                 // func 6
                 // write single register
+                if self.buf.len() < self.frame_start + 6 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let val = u16::from_be_bytes([
                     self.buf[self.frame_start + 4],
                     self.buf[self.frame_start + 5],
@@ -193,6 +199,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
                 // funcs 15 & 16
                 // write multiple coils / registers
+                if self.buf.len() < self.frame_start + 7 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let bytes = self.buf[self.frame_start + 6];
                 let result = if self.func == MODBUS_SET_COILS_BULK {
                     ctx.set_coils_from_u8(
@@ -523,6 +532,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     #[allow(clippy::too_many_lines)]
     pub fn parse(&mut self) -> Result<(), ErrorKind> {
         if self.proto == ModbusProto::TcpUdp {
+            if self.buf.len() < 6 {
+                return Err(ErrorKind::FrameBroken);
+            }
             //let tr_id = u16::from_be_bytes([self.buf[0], self.buf[1]]);
             let proto_id = u16::from_be_bytes([self.buf[2], self.buf[3]]);
             let length = u16::from_be_bytes([self.buf[4], self.buf[5]]);
@@ -543,18 +555,31 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             // copy 4 bytes: tr id and proto
             self.response.extend(&self.buf[0..4])?;
         }
+        if self.buf.len() < self.frame_start + 2 {
+            return Err(ErrorKind::FrameBroken);
+        }
         self.func = self.buf[self.frame_start + 1];
         macro_rules! check_frame_crc {
             ($len:expr) => {
-                self.proto == ModbusProto::TcpUdp
-                    || (self.proto == ModbusProto::Rtu
-                        && calc_crc16(self.buf, $len)
+                match self.proto {
+                    ModbusProto::TcpUdp => true,
+                    ModbusProto::Rtu => {
+                        if self.buf.len() < self.frame_start + $len as usize + 2 {
+                            return Err(ErrorKind::FrameBroken);
+                        }
+                        calc_crc16(self.buf, $len)
                             == u16::from_le_bytes([
-                                self.buf[$len as usize],
-                                self.buf[$len as usize + 1],
-                            ]))
-                    || (self.proto == ModbusProto::Ascii
-                        && calc_lrc(self.buf, $len) == self.buf[$len as usize])
+                                self.buf[self.frame_start + $len as usize],
+                                self.buf[self.frame_start + $len as usize + 1],
+                            ])
+                    }
+                    ModbusProto::Ascii => {
+                        if self.buf.len() < self.frame_start + $len as usize + 1 {
+                            return Err(ErrorKind::FrameBroken);
+                        }
+                        calc_lrc(self.buf, $len) == self.buf[self.frame_start + $len as usize]
+                    }
+                }
             };
         }
         match self.func {
@@ -563,6 +588,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 // read coils / discretes
                 if broadcast {
                     return Ok(());
+                }
+                if self.buf.len() < self.frame_start + 6 {
+                    return Err(ErrorKind::FrameBroken);
                 }
                 if !check_frame_crc!(6) {
                     return Err(ErrorKind::FrameCRCError);
@@ -589,6 +617,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 if broadcast {
                     return Ok(());
                 }
+                if self.buf.len() < self.frame_start + 6 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 if !check_frame_crc!(6) {
                     return Err(ErrorKind::FrameCRCError);
                 }
@@ -611,6 +642,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             MODBUS_SET_COIL | MODBUS_SET_HOLDING => {
                 // func 5 / 6
                 // write single coil / register
+                if self.buf.len() < self.frame_start + 4 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 if !check_frame_crc!(6) {
                     return Err(ErrorKind::FrameCRCError);
                 }
@@ -629,6 +663,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
                 // funcs 15 & 16
                 // write multiple coils / registers
+                if self.buf.len() < self.frame_start + 7 {
+                    return Err(ErrorKind::FrameBroken);
+                }
                 let bytes = self.buf[self.frame_start + 6];
                 if !check_frame_crc!(7 + bytes) {
                     return Err(ErrorKind::FrameCRCError);
