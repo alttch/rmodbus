@@ -4,6 +4,9 @@ all: test
 
 test: test-std test-nostd
 
+fuzz:
+  cd fuzz && cargo run --release
+
 test-std:
 	cargo test --all-features -- --test-threads=1 --nocapture
 
