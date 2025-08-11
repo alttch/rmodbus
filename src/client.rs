@@ -438,9 +438,6 @@ impl ModbusRequest {
             ModbusFunction::SetCoil
             | ModbusFunction::SetHolding => {
                 request.extend(data)?;
-                // for v in data {
-                //     request.push(*v)?;
-                // }
             }
             ModbusFunction::SetCoilsBulk
             | ModbusFunction::SetHoldingsBulk => {
@@ -451,9 +448,7 @@ impl ModbusRequest {
                 }
                 #[allow(clippy::cast_possible_truncation)]
                 request.push(l as u8)?;
-                for v in data {
-                    request.push(*v)?;
-                }
+                request.extend(data)?;
             }
         }
         match self.proto {
