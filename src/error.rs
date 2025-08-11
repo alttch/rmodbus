@@ -1,5 +1,7 @@
 use core::num::TryFromIntError;
 
+use crate::consts::ModbusErrorCode;
+
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -61,21 +63,22 @@ impl ErrorKind {
         )
     }
 
-    pub fn to_modbus_error(&self) -> Result<u8, ErrorKind> {
+    pub fn to_modbus_error(&self) -> Result<ModbusErrorCode, ErrorKind> {
         #[allow(clippy::enum_glob_use)]
         use ErrorKind::*;
 
         match self {
-            IllegalFunction => Ok(1),
-            IllegalDataAddress => Ok(2),
-            IllegalDataValue => Ok(3),
-            SlaveDeviceFailure => Ok(4),
-            Acknowledge => Ok(5),
-            SlaveDeviceBusy => Ok(6),
-            NegativeAcknowledge => Ok(7),
-            MemoryParityError => Ok(8),
-            GatewayPathUnavailable => Ok(9),
-            GatewayTargetFailed => Ok(10),
+            IllegalFunction => Ok(ModbusErrorCode::IllegalFunction),
+            IllegalDataAddress => Ok(ModbusErrorCode::IllegalDataAddress),
+            IllegalDataValue => Ok(ModbusErrorCode::IllegalDataValue),
+            SlaveDeviceFailure => Ok(ModbusErrorCode::SlaveDeviceFailure),
+            Acknowledge => Ok(ModbusErrorCode::Acknowledge),
+            SlaveDeviceBusy => Ok(ModbusErrorCode::SlaveDeviceBusy),
+            NegativeAcknowledge => Ok(ModbusErrorCode::NegativeAcknowledge),
+            MemoryParityError => Ok(ModbusErrorCode::MemoryParityError),
+            GatewayPathUnavailable => Ok(ModbusErrorCode::GatewayPathUnavailable),
+            GatewayTargetFailed => Ok(ModbusErrorCode::GatewayTargetFailed),
+            CommunicationError => Ok(ModbusErrorCode::InvalidCrc),
             _ => Err(*self),
         }
     }

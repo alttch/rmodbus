@@ -79,13 +79,13 @@ pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     /// Modbus frame start in buf (0 for RTU/ASCII, 6 for TCP)
     pub frame_start: usize,
     /// function requested
-    pub func: u8,
+    pub func: ModbusFunction,
     /// starting register
     pub reg: u16,
     /// registers to process
     pub count: u16,
     /// error code
-    pub error: u8,
+    pub error: Option<ModbusErrorCode>,
 }
 
 impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
@@ -94,7 +94,8 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         Self {
             unit_id,
             buf,
-            func: 0,
+            // default to GetCoils
+            func: ModbusFunction::GetCoils,
             proto,
             response,
             processing_required: false,
@@ -103,23 +104,23 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             frame_start: 0,
             count: 1,
             reg: 0,
-            error: 0,
+            error: None,
         }
     }
     /// Should be always called if response needs to be sent
     pub fn finalize_response(&mut self) -> Result<(), ErrorKind> {
-        if self.error > 0 {
+        if let Some(err) = self.error {
             match self.proto {
                 ModbusProto::TcpUdp => {
                     self.response
                         // write 2b length 1b unit ID, 1b function code and 1b error
                         // 2b transaction ID and 2b protocol ID were already written by .parse()
-                        .extend(&[0, 3, self.unit_id, self.func + 0x80, self.error])?;
+                        .extend(&[0, 3, self.unit_id, self.func.byte() + 0x80, err.byte()])?;
                 }
                 ModbusProto::Rtu | ModbusProto::Ascii => {
                     self.response
                         // write 1b unit ID, 1b function code and 1b error
-                        .extend(&[self.unit_id, self.func + 0x80, self.error])?;
+                        .extend(&[self.unit_id, self.func.byte() + 0x80, err.byte()])?;
                 }
             }
         }
@@ -151,7 +152,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         ctx: &mut C,
     ) -> Result<(), ErrorKind> {
         match self.func {
-            MODBUS_SET_COIL => {
+            ModbusFunction::SetCoil => {
                 // func 5
                 // write single coil
                 if self.buf.len() < self.frame_start + 6 {
@@ -164,12 +165,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     0xff00 => true,
                     0x0000 => false,
                     _ => {
-                        self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                        self.error = Some(ModbusErrorCode::IllegalDataValue);
                         return Ok(());
                     }
                 };
                 if ctx.set_coil(self.reg, val).is_err() {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                    self.error = Some(ModbusErrorCode::IllegalDataAddress);
                     return Ok(());
                 }
                 tcp_response_set_data_len!(self, 6);
@@ -177,7 +178,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 self.response
                     .extend(&self.buf[self.frame_start..self.frame_start + 6])
             }
-            MODBUS_SET_HOLDING => {
+            ModbusFunction::SetHolding => {
                 // func 6
                 // write single register
                 if self.buf.len() < self.frame_start + 6 {
@@ -188,7 +189,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     self.buf[self.frame_start + 5],
                 ]);
                 if ctx.set_holding(self.reg, val).is_err() {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                    self.error = Some(ModbusErrorCode::IllegalDataAddress);
                     return Ok(());
                 }
                 tcp_response_set_data_len!(self, 6);
@@ -196,39 +197,39 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 self.response
                     .extend(&self.buf[self.frame_start..self.frame_start + 6])
             }
-            MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
+            ModbusFunction::SetCoilsBulk | ModbusFunction::SetHoldingsBulk => {
                 // funcs 15 & 16
                 // write multiple coils / registers
                 if self.buf.len() < self.frame_start + 7 {
                     return Err(ErrorKind::FrameBroken);
                 }
                 let bytes = self.buf[self.frame_start + 6];
-                let result = if self.func == MODBUS_SET_COILS_BULK {
-                    ctx.set_coils_from_u8(
+                let result = match self.func {
+                    ModbusFunction::SetCoilsBulk => ctx.set_coils_from_u8(
                         self.reg,
                         self.count,
                         &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
-                    )
-                } else {
-                    ctx.set_holdings_from_u8(
+                    ),
+                    ModbusFunction::SetHoldingsBulk => ctx.set_holdings_from_u8(
                         self.reg,
                         &self.buf[self.frame_start + 7..self.frame_start + 7 + bytes as usize],
-                    )
+                    ),
+                    _ => unreachable!("Matched above"),
                 };
+
                 if result.is_ok() {
                     tcp_response_set_data_len!(self, 6);
                     // 6b unit, f, reg, cnt
                     self.response
                         .extend(&self.buf[self.frame_start..self.frame_start + 6])
                 } else {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                    self.error = Some(ModbusErrorCode::IllegalDataAddress);
                     Ok(())
                 }
             }
-            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS | MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+            ModbusFunction::GetHoldings | ModbusFunction::GetInputs | ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
                 Err(ErrorKind::ReadCallOnWriteFrame)
             }
-            _ => Ok(()),
         }
     }
     /// Construct [`Write`] struct describing the requested write.
@@ -240,7 +241,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// replace the call to [`process_write`](ModbusFrame::process_write).
     pub fn get_external_write(&mut self) -> Result<Write, ErrorKind> {
         match self.func {
-            MODBUS_SET_COIL => {
+            ModbusFunction::SetCoil => {
                 // func 5
                 // write single coil
                 let val = match u16::from_be_bytes([
@@ -265,7 +266,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 
                 Ok(val)
             }
-            MODBUS_SET_HOLDING => {
+            ModbusFunction::SetHolding => {
                 // func 6
                 // write single register
 
@@ -277,7 +278,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 
                 Ok(write)
             }
-            MODBUS_SET_COILS_BULK => {
+            ModbusFunction::SetCoilsBulk => {
                 // funcs 15 & 16
                 // write multiple coils / registers
                 let bytes = self.buf[self.frame_start + 6];
@@ -291,7 +292,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 
                 Ok(write)
             }
-            MODBUS_SET_HOLDINGS_BULK => {
+            ModbusFunction::SetHoldingsBulk => {
                 // funcs 15 & 16
                 // write multiple coils / registers
                 let bytes = self.buf[self.frame_start + 6];
@@ -305,12 +306,8 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 
                 Ok(write)
             }
-            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS | MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+            ModbusFunction::GetHoldings | ModbusFunction::GetInputs | ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
                 Err(ErrorKind::ReadCallOnWriteFrame)
-            }
-            _ => {
-                self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction)?;
-                Err(ErrorKind::IllegalFunction)
             }
         }
     }
@@ -322,10 +319,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         match write_result {
             Ok(()) => {
                 match self.func {
-                    MODBUS_SET_COIL
-                    | MODBUS_SET_HOLDING
-                    | MODBUS_SET_COILS_BULK
-                    | MODBUS_SET_HOLDINGS_BULK => {
+                    ModbusFunction::SetCoil
+                    | ModbusFunction::SetHolding
+                    | ModbusFunction::SetCoilsBulk
+                    | ModbusFunction::SetHoldingsBulk => {
                         // funcs 5 & 6
                         // write single coil / register
                         // funcs 15 & 16
@@ -336,12 +333,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                         self.response
                             .extend(&self.buf[self.frame_start..self.frame_start + 6])
                     }
-                    MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS | MODBUS_GET_COILS
-                    | MODBUS_GET_DISCRETES => Err(ErrorKind::ReadCallOnWriteFrame),
-                    _ => {
-                        self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction)?;
-                        Err(ErrorKind::IllegalFunction)
-                    }
+                    ModbusFunction::GetHoldings
+                    | ModbusFunction::GetInputs
+                    | ModbusFunction::GetCoils
+                    | ModbusFunction::GetDiscretes => Err(ErrorKind::ReadCallOnWriteFrame),
                 }
             }
             Err(e) if e.is_modbus_error() => {
@@ -355,7 +350,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// Process read functions
     pub fn process_read<C: context::ModbusContext>(&mut self, ctx: &C) -> Result<(), ErrorKind> {
         match self.func {
-            MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+            ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
                 // funcs 1 - 2
                 // read coils / discretes
                 let mut data_len = self.count >> 3;
@@ -371,15 +366,23 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 }
                 #[allow(clippy::cast_possible_truncation)]
                 self.response.push(data_len as u8)?;
-                let result = if self.func == MODBUS_GET_COILS {
-                    ctx.get_coils_as_u8(self.reg, self.count, self.response)
-                } else {
-                    ctx.get_discretes_as_u8(self.reg, self.count, self.response)
+                let result = match self.func {
+                    ModbusFunction::GetCoils => ctx.get_coils_as_u8(
+                        self.reg,
+                        self.count,
+                        self.response,
+                    ),
+                    ModbusFunction::GetDiscretes => ctx.get_discretes_as_u8(
+                        self.reg,
+                        self.count,
+                        self.response,
+                    ),
+                    _ => unreachable!("Matched above"),
                 };
                 if let Err(e) = result {
                     if e == ErrorKind::OOBContext {
                         self.response.cut_end(5, 0);
-                        self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                        self.error = Some(ModbusErrorCode::IllegalDataAddress);
                         Ok(())
                     } else {
                         Err(e)
@@ -388,7 +391,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
-            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+            ModbusFunction::GetHoldings | ModbusFunction::GetInputs => {
                 // funcs 3 - 4
                 // read holdings / inputs
                 let data_len = self.count << 1;
@@ -402,15 +405,15 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 #[allow(clippy::cast_possible_truncation)]
                 // 1b data len
                 self.response.push(data_len as u8)?;
-                let result = if self.func == MODBUS_GET_HOLDINGS {
-                    ctx.get_holdings_as_u8(self.reg, self.count, self.response)
-                } else {
-                    ctx.get_inputs_as_u8(self.reg, self.count, self.response)
+                let result = match self.func {
+                    ModbusFunction::GetHoldings => ctx.get_holdings_as_u8(self.reg, self.count, self.response),
+                    ModbusFunction::GetInputs => ctx.get_inputs_as_u8(self.reg, self.count, self.response),
+                    _ => unreachable!("Matched above")
                 };
                 if let Err(e) = result {
                     if e == ErrorKind::OOBContext {
                         self.response.cut_end(5, 0);
-                        self.error = MODBUS_ERROR_ILLEGAL_DATA_ADDRESS;
+                        self.error = Some(ModbusErrorCode::IllegalDataAddress);
                         Ok(())
                     } else {
                         Err(e)
@@ -419,11 +422,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
-            MODBUS_SET_COIL
-            | MODBUS_SET_HOLDING
-            | MODBUS_SET_COILS_BULK
-            | MODBUS_SET_HOLDINGS_BULK => Err(ErrorKind::WriteCallOnReadFrame),
-            _ => Ok(()),
+            ModbusFunction::SetCoil
+            | ModbusFunction::SetHolding
+            | ModbusFunction::SetCoilsBulk
+            | ModbusFunction::SetHoldingsBulk => {
+                Err(ErrorKind::WriteCallOnReadFrame)
+            }
         }
     }
 
@@ -436,7 +440,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// replace the call to [`process_read`](ModbusFrame::process_read).
     pub fn get_external_read(&mut self) -> Result<Read, ErrorKind> {
         match self.func {
-            MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+            ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
                 // funcs 1 - 2
                 // read coils / discretes
                 let mut data_len = self.count >> 3;
@@ -465,7 +469,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     buf: &mut self.response.as_mut_slice()[current_length..new_length],
                 }))
             }
-            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+            ModbusFunction::GetHoldings | ModbusFunction::GetInputs => {
                 // funcs 3 - 4
                 // read holdings / inputs
                 let data_len = self.count << 1;
@@ -491,14 +495,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     buf: &mut self.response.as_mut_slice()[current_length..new_length],
                 }))
             }
-            MODBUS_SET_COIL
-            | MODBUS_SET_HOLDING
-            | MODBUS_SET_COILS_BULK
-            | MODBUS_SET_HOLDINGS_BULK => Err(ErrorKind::WriteCallOnReadFrame),
-            _ => {
-                self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction)?;
-                Err(ErrorKind::IllegalFunction)
-            }
+            ModbusFunction::SetCoil
+            | ModbusFunction::SetHolding
+            | ModbusFunction::SetCoilsBulk
+            | ModbusFunction::SetHoldingsBulk => Err(ErrorKind::WriteCallOnReadFrame),
         }
     }
 
@@ -509,16 +509,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     ) -> Result<(), ErrorKind> {
         match read_result {
             Ok(()) => match self.func {
-                MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS
-                | MODBUS_GET_INPUTS => Ok(()),
-                MODBUS_SET_COIL
-                | MODBUS_SET_HOLDING
-                | MODBUS_SET_COILS_BULK
-                | MODBUS_SET_HOLDINGS_BULK => Err(ErrorKind::WriteCallOnReadFrame),
-                _ => {
-                    self.set_modbus_error_if_unset(&ErrorKind::IllegalFunction)?;
-                    Ok(())
-                }
+                ModbusFunction::GetCoils | ModbusFunction::GetDiscretes | ModbusFunction::GetHoldings
+                | ModbusFunction::GetInputs => Ok(()),
+                ModbusFunction::SetCoil
+                | ModbusFunction::SetHolding
+                | ModbusFunction::SetCoilsBulk
+                | ModbusFunction::SetHoldingsBulk => Err(ErrorKind::WriteCallOnReadFrame),
             },
             Err(e) if e.is_modbus_error() => {
                 self.set_modbus_error_if_unset(&e)?;
@@ -558,7 +554,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         if self.buf.len() < self.frame_start + 2 {
             return Err(ErrorKind::FrameBroken);
         }
-        self.func = self.buf[self.frame_start + 1];
+        self.func = ModbusFunction::try_from(self.buf[self.frame_start + 1])?;
         macro_rules! check_frame_crc {
             ($len:expr) => {
                 match self.proto {
@@ -583,7 +579,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             };
         }
         match self.func {
-            MODBUS_GET_COILS | MODBUS_GET_DISCRETES => {
+            ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
                 // funcs 1 - 2
                 // read coils / discretes
                 if broadcast {
@@ -601,7 +597,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     self.buf[self.frame_start + 5],
                 ]);
                 if self.count > 2000 {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    self.error = Some(ModbusErrorCode::IllegalDataValue);
                     return Ok(());
                 }
                 self.processing_required = true;
@@ -611,7 +607,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 ]);
                 Ok(())
             }
-            MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+            ModbusFunction::GetHoldings | ModbusFunction::GetInputs => {
                 // funcs 3 - 4
                 // read holdings / inputs
                 if broadcast {
@@ -629,7 +625,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     self.buf[self.frame_start + 5],
                 ]);
                 if self.count > 125 {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    self.error = Some(ModbusErrorCode::IllegalDataValue);
                     return Ok(());
                 }
                 self.processing_required = true;
@@ -639,7 +635,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 ]);
                 Ok(())
             }
-            MODBUS_SET_COIL | MODBUS_SET_HOLDING => {
+            ModbusFunction::SetCoil | ModbusFunction::SetHolding => {
                 // func 5 / 6
                 // write single coil / register
                 if self.buf.len() < self.frame_start + 4 {
@@ -660,7 +656,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 ]);
                 Ok(())
             }
-            MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
+            ModbusFunction::SetCoilsBulk | ModbusFunction::SetHoldingsBulk => {
                 // funcs 15 & 16
                 // write multiple coils / registers
                 if self.buf.len() < self.frame_start + 7 {
@@ -677,17 +673,17 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     self.buf[self.frame_start + 4],
                     self.buf[self.frame_start + 5],
                 ]);
-                let max_count = if self.func == MODBUS_SET_COILS_BULK {
-                    1968
-                } else {
-                    123
+                let max_count = match self.func {
+                    ModbusFunction::SetCoilsBulk => 1968,
+                    ModbusFunction::SetHoldingsBulk => 123,
+                    _ => unreachable!("Matched above"),
                 };
                 if self.count > max_count {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    self.error = Some(ModbusErrorCode::IllegalDataValue);
                     return Ok(());
                 }
                 if bytes > 246 {
-                    self.error = MODBUS_ERROR_ILLEGAL_DATA_VALUE;
+                    self.error = Some(ModbusErrorCode::IllegalDataValue);
                     return Ok(());
                 }
                 self.processing_required = true;
@@ -702,14 +698,6 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 ]);
                 Ok(())
             }
-            _ => {
-                // function unsupported
-                if !broadcast {
-                    self.response_required = true;
-                    self.error = MODBUS_ERROR_ILLEGAL_FUNCTION;
-                }
-                Ok(())
-            }
         }
     }
 
@@ -721,10 +709,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         let count = self.count;
 
         Some(match self.func {
-            MODBUS_SET_COIL => Changes::Coils { reg, count: 1 },
-            MODBUS_SET_COILS_BULK => Changes::Coils { reg, count },
-            MODBUS_SET_HOLDING => Changes::Holdings { reg, count: 1 },
-            MODBUS_SET_HOLDINGS_BULK => Changes::Holdings { reg, count },
+            ModbusFunction::SetCoil => Changes::Coils { reg, count: 1 },
+            ModbusFunction::SetCoilsBulk => Changes::Coils { reg, count },
+            ModbusFunction::SetHolding => Changes::Holdings { reg, count: 1 },
+            ModbusFunction::SetHoldingsBulk => Changes::Holdings { reg, count },
             _ => return None,
         })
     }
@@ -736,7 +724,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     ///
     /// Should not panic
     pub fn set_modbus_error_if_unset(&mut self, err: &ErrorKind) -> Result<(), ErrorKind> {
-        if self.error == 0 && err.is_modbus_error() {
+        if self.error.is_none() && err.is_modbus_error() {
             // leave 0 bytes for RTU/ASCII, leave 4 bytes for TCP/UDP (Transaction ID and Protocol ID)
             let len_leave_before_finalize = if self.proto == ModbusProto::TcpUdp {
                 4
@@ -745,9 +733,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             };
 
             self.response.resize(len_leave_before_finalize, 0)?;
-            self.error = err
-                .to_modbus_error()
-                .expect("the outer if statement checks for this");
+            self.error = Some(err.to_modbus_error()?);
         }
         Ok(())
     }
