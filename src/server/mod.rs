@@ -74,6 +74,8 @@ pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     pub processing_required: bool,
     /// is response required
     pub response_required: bool,
+    /// which function code to respond to
+    pub responding_to_fn: u8,
     /// is request read-only
     pub readonly: bool,
     /// Modbus frame start in buf (0 for RTU/ASCII, 6 for TCP)
@@ -94,16 +96,18 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         Self {
             unit_id,
             buf,
-            // default to GetCoils
-            func: ModbusFunction::GetCoils,
             proto,
             response,
             processing_required: false,
             readonly: true,
             response_required: false,
+            responding_to_fn: 0,
             frame_start: 0,
             count: 1,
             reg: 0,
+            // default to GetCoils
+            func: ModbusFunction::GetCoils,
+            // simulate invalid starting state with error
             error: None,
         }
     }
@@ -115,12 +119,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     self.response
                         // write 2b length 1b unit ID, 1b function code and 1b error
                         // 2b transaction ID and 2b protocol ID were already written by .parse()
-                        .extend(&[0, 3, self.unit_id, self.func.byte() + 0x80, err.byte()])?;
+                        .extend(&[0, 3, self.unit_id, self.responding_to_fn + 0x80, err.byte()])?;
                 }
                 ModbusProto::Rtu | ModbusProto::Ascii => {
                     self.response
                         // write 1b unit ID, 1b function code and 1b error
-                        .extend(&[self.unit_id, self.func.byte() + 0x80, err.byte()])?;
+                        .extend(&[self.unit_id, self.responding_to_fn + 0x80, err.byte()])?;
                 }
             }
         }
@@ -554,7 +558,22 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         if self.buf.len() < self.frame_start + 2 {
             return Err(ErrorKind::FrameBroken);
         }
-        self.func = ModbusFunction::try_from(self.buf[self.frame_start + 1])?;
+
+
+        // hack since self.func can't represent invalid state
+        self.responding_to_fn = self.buf[self.frame_start + 1];
+        match ModbusFunction::try_from(self.buf[self.frame_start + 1]) {
+            Ok(f) => self.func = f,
+            Err(_) => {
+                // if function is not supported, we still need to return a response
+                // so we set the error code and return
+                if !broadcast {
+                    self.response_required = true;
+                    self.error = Some(ModbusErrorCode::IllegalFunction);
+                }
+                return Ok(());
+            }
+        }
         macro_rules! check_frame_crc {
             ($len:expr) => {
                 match self.proto {

@@ -45,40 +45,35 @@ impl ErrorKind {
     }
 
     pub fn is_modbus_error(&self) -> bool {
-        #[allow(clippy::enum_glob_use)]
-        use ErrorKind::*;
-
         matches!(
             self,
-            IllegalFunction
-                | IllegalDataAddress
-                | IllegalDataValue
-                | SlaveDeviceFailure
-                | Acknowledge
-                | SlaveDeviceBusy
-                | NegativeAcknowledge
-                | MemoryParityError
-                | GatewayPathUnavailable
-                | GatewayTargetFailed
+            Self::IllegalFunction
+                | Self::IllegalDataAddress
+                | Self::IllegalDataValue
+                | Self::SlaveDeviceFailure
+                | Self::Acknowledge
+                | Self::SlaveDeviceBusy
+                | Self::NegativeAcknowledge
+                | Self::MemoryParityError
+                | Self::GatewayPathUnavailable
+                | Self::GatewayTargetFailed
+                | Self::CommunicationError
         )
     }
 
     pub fn to_modbus_error(&self) -> Result<ModbusErrorCode, ErrorKind> {
-        #[allow(clippy::enum_glob_use)]
-        use ErrorKind::*;
-
         match self {
-            IllegalFunction => Ok(ModbusErrorCode::IllegalFunction),
-            IllegalDataAddress => Ok(ModbusErrorCode::IllegalDataAddress),
-            IllegalDataValue => Ok(ModbusErrorCode::IllegalDataValue),
-            SlaveDeviceFailure => Ok(ModbusErrorCode::SlaveDeviceFailure),
-            Acknowledge => Ok(ModbusErrorCode::Acknowledge),
-            SlaveDeviceBusy => Ok(ModbusErrorCode::SlaveDeviceBusy),
-            NegativeAcknowledge => Ok(ModbusErrorCode::NegativeAcknowledge),
-            MemoryParityError => Ok(ModbusErrorCode::MemoryParityError),
-            GatewayPathUnavailable => Ok(ModbusErrorCode::GatewayPathUnavailable),
-            GatewayTargetFailed => Ok(ModbusErrorCode::GatewayTargetFailed),
-            CommunicationError => Ok(ModbusErrorCode::InvalidCrc),
+            Self::IllegalFunction => Ok(ModbusErrorCode::IllegalFunction),
+            Self::IllegalDataAddress => Ok(ModbusErrorCode::IllegalDataAddress),
+            Self::IllegalDataValue => Ok(ModbusErrorCode::IllegalDataValue),
+            Self::SlaveDeviceFailure => Ok(ModbusErrorCode::SlaveDeviceFailure),
+            Self::Acknowledge => Ok(ModbusErrorCode::Acknowledge),
+            Self::SlaveDeviceBusy => Ok(ModbusErrorCode::SlaveDeviceBusy),
+            Self::NegativeAcknowledge => Ok(ModbusErrorCode::NegativeAcknowledge),
+            Self::MemoryParityError => Ok(ModbusErrorCode::MemoryParityError),
+            Self::GatewayPathUnavailable => Ok(ModbusErrorCode::GatewayPathUnavailable),
+            Self::GatewayTargetFailed => Ok(ModbusErrorCode::GatewayTargetFailed),
+            Self::CommunicationError => Ok(ModbusErrorCode::InvalidCrc),
             _ => Err(*self),
         }
     }

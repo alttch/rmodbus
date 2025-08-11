@@ -129,10 +129,10 @@ pub mod representations {
         }
         fn from_registers_sequential(value: &[u16; 4]) -> Self {
             Self(
-                (u64::from(value[0])) << 48
-                    | (u64::from(value[1])) << 32
-                    | (u64::from(value[2])) << 16
-                    | (u64::from(value[3])),
+                (u64::from(value[0]) << 48)
+                | (u64::from(value[1]) << 32)
+                | (u64::from(value[2]) << 16)
+                | u64::from(value[3]),
             )
         }
     }
@@ -154,10 +154,10 @@ pub mod representations {
         }
         fn from_registers_sequential(value: &[u16; 4]) -> Self {
             Self(
-                (u64::from(value[0]))
-                    | (u64::from(value[1])) << 16
-                    | (u64::from(value[2])) << 32
-                    | (u64::from(value[3])) << 48,
+                u64::from(value[0])
+                | (u64::from(value[1]) << 16)
+                | (u64::from(value[2]) << 32)
+                | (u64::from(value[3]) << 48),
             )
         }
     }

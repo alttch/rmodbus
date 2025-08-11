@@ -369,17 +369,12 @@ impl ModbusRequest {
     /// The input buffer SHOULD be cut to actual response length
     pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&'a [u8], ErrorKind> {
         let (frame_start, frame_end) = self.parse_response(buf)?;
-        let val = match self.func {
-            ModbusFunction::SetCoil
-            | ModbusFunction::SetCoilsBulk
-            | ModbusFunction::SetHolding
-            | ModbusFunction::SetHoldingsBulk => {
-                // no data bytes count byte -> skip 1 fewer byte
-                &buf[frame_start + 2..frame_end]
-            }
-            _ => &buf[frame_start + 3..frame_end],
-        };
-        Ok(val)
+        match self.func.is_write() {
+            // frame is [SLAVE_ADDR, FUNC_CODE, ... DATA_ADDR, NUM_WRITTEN ..., CRC] for write functions
+            true => Ok(&buf[frame_start + 2..frame_end]),
+            // frame is [SLAVE_ADDR, FUNC_CODE, NUM_DATA, ... DATA ..., CRC] for read functions
+            false => Ok(&buf[frame_start + 3..frame_end]),
+        }
     }
 
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as bools
@@ -397,7 +392,7 @@ impl ModbusRequest {
                 if result.len() >= self.count as usize {
                     break;
                 }
-                result.push(b >> i & 1 == 1)?;
+                result.push((b >> i) & 1 == 1)?;
             }
         }
         Ok(())
@@ -418,7 +413,7 @@ impl ModbusRequest {
                 if result.len() >= self.count as usize {
                     break;
                 }
-                result.push(b >> i & 1)?;
+                result.push((b >> i) & 1)?;
             }
         }
         Ok(())
@@ -442,9 +437,10 @@ impl ModbusRequest {
             }
             ModbusFunction::SetCoil
             | ModbusFunction::SetHolding => {
-                for v in data {
-                    request.push(*v)?;
-                }
+                request.extend(data)?;
+                // for v in data {
+                //     request.push(*v)?;
+                // }
             }
             ModbusFunction::SetCoilsBulk
             | ModbusFunction::SetHoldingsBulk => {
