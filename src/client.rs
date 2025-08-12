@@ -165,6 +165,11 @@ impl ModbusRequest {
         self.generate(&data[..values.len() * 2], request)
     }
 
+    /// Generates a Set Holdings Register (modbus function `0x10`) message into `request`.
+    ///
+    /// If `values.len()` is odd, then the last byte is interpreted as the lower byte of the last register.
+    /// Eg, `generate_set_holdings_bulk_from_slice(1200, [0x0A, 0x0B, 0x0C], &mut v)`
+    /// writes `0x0A0B` to register `1200` and `0x000C` to register `1201`
     pub fn generate_set_holdings_bulk_from_slice<V: VectorTrait<u8>>(
         &mut self,
         reg: u16,
@@ -189,10 +194,6 @@ impl ModbusRequest {
             data[ptr + 1] = l;
             ptr += 2;
         }
-
-        // for (i, v) in values.iter().enumerate() {
-        //     data[i] = *v;
-        // }
         self.generate(&data[..ptr], request)
     }
 
