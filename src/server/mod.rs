@@ -231,9 +231,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                     Ok(())
                 }
             }
-            ModbusFunction::GetHoldings | ModbusFunction::GetInputs | ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
-                Err(ErrorKind::ReadCallOnWriteFrame)
-            }
+            ModbusFunction::GetHoldings
+            | ModbusFunction::GetInputs
+            | ModbusFunction::GetCoils
+            | ModbusFunction::GetDiscretes => Err(ErrorKind::ReadCallOnWriteFrame),
         }
     }
     /// Construct [`Write`] struct describing the requested write.
@@ -310,9 +311,10 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
 
                 Ok(write)
             }
-            ModbusFunction::GetHoldings | ModbusFunction::GetInputs | ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
-                Err(ErrorKind::ReadCallOnWriteFrame)
-            }
+            ModbusFunction::GetHoldings
+            | ModbusFunction::GetInputs
+            | ModbusFunction::GetCoils
+            | ModbusFunction::GetDiscretes => Err(ErrorKind::ReadCallOnWriteFrame),
         }
     }
     /// See [get_external_write](ModbusFrame::get_external_write)
@@ -371,16 +373,12 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 #[allow(clippy::cast_possible_truncation)]
                 self.response.push(data_len as u8)?;
                 let result = match self.func {
-                    ModbusFunction::GetCoils => ctx.get_coils_as_u8(
-                        self.reg,
-                        self.count,
-                        self.response,
-                    ),
-                    ModbusFunction::GetDiscretes => ctx.get_discretes_as_u8(
-                        self.reg,
-                        self.count,
-                        self.response,
-                    ),
+                    ModbusFunction::GetCoils => {
+                        ctx.get_coils_as_u8(self.reg, self.count, self.response)
+                    }
+                    ModbusFunction::GetDiscretes => {
+                        ctx.get_discretes_as_u8(self.reg, self.count, self.response)
+                    }
                     _ => unreachable!("Matched above"),
                 };
                 if let Err(e) = result {
@@ -410,9 +408,13 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 // 1b data len
                 self.response.push(data_len as u8)?;
                 let result = match self.func {
-                    ModbusFunction::GetHoldings => ctx.get_holdings_as_u8(self.reg, self.count, self.response),
-                    ModbusFunction::GetInputs => ctx.get_inputs_as_u8(self.reg, self.count, self.response),
-                    _ => unreachable!("Matched above")
+                    ModbusFunction::GetHoldings => {
+                        ctx.get_holdings_as_u8(self.reg, self.count, self.response)
+                    }
+                    ModbusFunction::GetInputs => {
+                        ctx.get_inputs_as_u8(self.reg, self.count, self.response)
+                    }
+                    _ => unreachable!("Matched above"),
                 };
                 if let Err(e) = result {
                     if e == ErrorKind::OOBContext {
@@ -429,9 +431,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             ModbusFunction::SetCoil
             | ModbusFunction::SetHolding
             | ModbusFunction::SetCoilsBulk
-            | ModbusFunction::SetHoldingsBulk => {
-                Err(ErrorKind::WriteCallOnReadFrame)
-            }
+            | ModbusFunction::SetHoldingsBulk => Err(ErrorKind::WriteCallOnReadFrame),
         }
     }
 
@@ -513,7 +513,9 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     ) -> Result<(), ErrorKind> {
         match read_result {
             Ok(()) => match self.func {
-                ModbusFunction::GetCoils | ModbusFunction::GetDiscretes | ModbusFunction::GetHoldings
+                ModbusFunction::GetCoils
+                | ModbusFunction::GetDiscretes
+                | ModbusFunction::GetHoldings
                 | ModbusFunction::GetInputs => Ok(()),
                 ModbusFunction::SetCoil
                 | ModbusFunction::SetHolding
@@ -559,20 +561,18 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             return Err(ErrorKind::FrameBroken);
         }
 
-
         // hack since self.func can't represent invalid state
         self.responding_to_fn = self.buf[self.frame_start + 1];
-        match ModbusFunction::try_from(self.buf[self.frame_start + 1]) {
-            Ok(f) => self.func = f,
-            Err(_) => {
-                // if function is not supported, we still need to return a response
-                // so we set the error code and return
-                if !broadcast {
-                    self.response_required = true;
-                    self.error = Some(ModbusErrorCode::IllegalFunction);
-                }
-                return Ok(());
+        if let Ok(f) = ModbusFunction::try_from(self.buf[self.frame_start + 1]) {
+            self.func = f;
+        } else {
+            // if function is not supported, we still need to return a response
+            // so we set the error code and return
+            if !broadcast {
+                self.response_required = true;
+                self.error = Some(ModbusErrorCode::IllegalFunction);
             }
+            return Ok(());
         }
         macro_rules! check_frame_crc {
             ($len:expr) => {

@@ -1,5 +1,7 @@
-
-use crate::{calc_crc16, calc_lrc, consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
+use crate::{
+    calc_crc16, calc_lrc, consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto,
+    VectorTrait,
+};
 
 /// Modbus client generator/processor
 ///
@@ -369,11 +371,10 @@ impl ModbusRequest {
     /// The input buffer SHOULD be cut to actual response length
     pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&'a [u8], ErrorKind> {
         let (frame_start, frame_end) = self.parse_response(buf)?;
-        match self.func.is_write() {
-            // frame is [SLAVE_ADDR, FUNC_CODE, ... DATA_ADDR, NUM_WRITTEN ..., CRC] for write functions
-            true => Ok(&buf[frame_start + 2..frame_end]),
-            // frame is [SLAVE_ADDR, FUNC_CODE, NUM_DATA, ... DATA ..., CRC] for read functions
-            false => Ok(&buf[frame_start + 3..frame_end]),
+        if self.func.is_write() {
+            Ok(&buf[frame_start + 2..frame_end])
+        } else {
+            Ok(&buf[frame_start + 3..frame_end])
         }
     }
 
@@ -435,12 +436,10 @@ impl ModbusRequest {
             | ModbusFunction::GetInputs => {
                 request.extend(&self.count.to_be_bytes())?;
             }
-            ModbusFunction::SetCoil
-            | ModbusFunction::SetHolding => {
+            ModbusFunction::SetCoil | ModbusFunction::SetHolding => {
                 request.extend(data)?;
             }
-            ModbusFunction::SetCoilsBulk
-            | ModbusFunction::SetHoldingsBulk => {
+            ModbusFunction::SetCoilsBulk | ModbusFunction::SetHoldingsBulk => {
                 request.extend(&self.count.to_be_bytes())?;
                 let l = data.len();
                 if l > u8::MAX as usize {
