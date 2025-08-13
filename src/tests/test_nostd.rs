@@ -195,10 +195,10 @@ fn test_nostd_frame() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     //check result OOB
@@ -265,10 +265,10 @@ fn test_nostd_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         mreq.parse_ok(response.as_slice()).unwrap();
         for i in 100..100 + coils.len() {
@@ -304,10 +304,10 @@ fn test_nostd_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(frame.readonly);
         frame.process_read(&*ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         let mut result_mem = alloc_stack!([bool; 256]);
         let mut result = FixedVec::new(&mut result_mem);
