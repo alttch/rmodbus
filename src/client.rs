@@ -597,7 +597,7 @@ mod tests {
             let s = req.parse_string_utf8(exp.full_response);
             assert_eq!(
                 s,
-                p.parse_string_utf8.map(|s| s.to_string()),
+                p.parse_string_utf8.map(ToString::to_string),
                 "parse_string_utf8 data mismatch"
             );
         }
