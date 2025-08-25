@@ -20,10 +20,11 @@ pub struct ModbusRequest {
 
 macro_rules! parse_reg {
     ($self: expr, $buf: expr, $result: expr, $t: ty) => {{
-        let (frame_start, frame_end) = $self.parse_response($buf)?;
-        let mut pos = frame_start + 3;
-        while pos < frame_end - 1 {
-            let value = <$t>::from_be_bytes([$buf[pos], $buf[pos + 1]]);
+        // let (frame_start, frame_end) = $self.parse_response($buf)?;
+        let data = $self.parse_slice($buf)?;
+        let mut pos = 0;
+        while pos < data.len() - 1 {
+            let value = <$t>::from_be_bytes([data[pos], data[pos + 1]]);
             if $result.len() >= usize::from($self.count) {
                 break;
             }
@@ -165,6 +166,11 @@ impl ModbusRequest {
         self.generate(&data[..values.len() * 2], request)
     }
 
+    /// Generates a Set Holdings Register (modbus function `0x10`) message into `request`.
+    ///
+    /// If `values.len()` is odd, then the last byte is interpreted as the lower byte of the last register.
+    /// Eg, `generate_set_holdings_bulk_from_slice(1200, [0x0A, 0x0B, 0x0C], &mut v)`
+    /// writes `0x0A0B` to register `1200` and `0x000C` to register `1201`
     pub fn generate_set_holdings_bulk_from_slice<V: VectorTrait<u8>>(
         &mut self,
         reg: u16,
@@ -178,10 +184,18 @@ impl ModbusRequest {
         self.count = u16::try_from((values.len() + 1) / 2)?; // count is number of u16's
         self.func = ModbusFunction::SetHoldingsBulk;
         let mut data: ModbusFrameBuf = [0; 256];
-        for (i, v) in values.iter().enumerate() {
-            data[i] = *v;
+        let mut ptr = 0;
+        for v in values.chunks(2) {
+            let (h, l) = match *v {
+                [h, l] => (h, l),
+                [l] => (0x00, l), // pad
+                _ => unreachable!(),
+            };
+            data[ptr] = h;
+            data[ptr + 1] = l;
+            ptr += 2;
         }
-        self.generate(&data[..values.len()], request)
+        self.generate(&data[..ptr], request)
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -365,6 +379,20 @@ impl ModbusRequest {
         Ok(())
     }
 
+    /// Parses response data as a UTF-8 string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the data is not correct UTF-8
+    #[cfg(feature = "std")]
+    pub fn parse_string_utf8(&self, buf: &[u8]) -> Result<String, ErrorKind> {
+        let data = self.parse_slice(buf)?;
+        match std::str::from_utf8(data) {
+            Ok(s) => Ok(s.to_string()),
+            Err(_) => Err(ErrorKind::Utf8Error),
+        }
+    }
+
     /// Parse response, make sure there's no Modbus error inside
     /// Returns a raw data slice
     ///
@@ -485,5 +513,303 @@ impl ModbusRequest {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "std")]
+mod tests {
+    use super::*;
+
+    struct ExpectedParseResults<'a> {
+        parse_slice: &'a [u8],
+        parse_u16: &'a [u16],
+        parse_i16: &'a [i16],
+        parse_bool: &'a [bool],
+        /// expected output from parse_string
+        parse_string: &'a str,
+        /// expected output from parse_string_utf8
+        parse_string_utf8: Result<&'a str, ErrorKind>,
+    }
+
+    struct ExpectedSet<'a> {
+        gen: &'a [u8],
+        full_response: &'a [u8],
+        parsed: Option<ExpectedParseResults<'a>>,
+    }
+
+    fn test_func(
+        u_id: u8,
+        proto: ModbusProto,
+        gen_func: fn(&mut ModbusRequest, &mut Vec<u8>) -> Result<(), ErrorKind>,
+        exp: ExpectedSet,
+    ) {
+        let mut req = ModbusRequest::new(u_id, proto);
+        let mut msg = Vec::new();
+        gen_func(&mut req, &mut msg).unwrap();
+        assert_eq!(
+            msg, exp.gen,
+            "Generated message mismatch: {:02X?} != {:02X?}",
+            msg, exp.gen
+        );
+        req.parse_response(exp.full_response).unwrap();
+        req.parse_ok(exp.full_response).unwrap();
+
+        if let Some(p) = exp.parsed {
+            let b = req.parse_slice(exp.full_response).unwrap();
+            assert_eq!(
+                b, p.parse_slice,
+                "parse_slice data mismatch: {:02X?} != {:02X?}",
+                b, p.parse_slice
+            );
+
+            let mut b = Vec::new();
+            req.parse_u16(exp.full_response, &mut b).unwrap();
+            assert_eq!(
+                b, p.parse_u16,
+                "parse_u16 data mismatch: {:02X?} != {:02X?}",
+                b, p.parse_u16
+            );
+
+            let mut b = Vec::new();
+            req.parse_i16(exp.full_response, &mut b).unwrap();
+            assert_eq!(
+                b, p.parse_i16,
+                "parse_i16 data mismatch: {:02X?} != {:02X?}",
+                b, p.parse_i16
+            );
+
+            let mut b = Vec::new();
+            req.parse_bool(exp.full_response, &mut b).unwrap();
+            assert_eq!(
+                b, p.parse_bool,
+                "parse_bool data mismatch: {:?} != {:?}",
+                b, p.parse_bool
+            );
+
+            let mut s = String::new();
+            req.parse_string(exp.full_response, &mut s).unwrap();
+            assert_eq!(s, p.parse_string, "parse_string data mismatch");
+
+            let s = req.parse_string_utf8(exp.full_response);
+            assert_eq!(
+                s,
+                p.parse_string_utf8.map(ToString::to_string),
+                "parse_string_utf8 data mismatch"
+            );
+        }
+    }
+
+    // test cases taken from https://www.modbustools.com/modbus.html
+    #[test]
+    fn test_rtu_gen_get_coils() {
+        test_func(
+            0x04,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_get_coils(0x000A, 0x000D, msg),
+            ExpectedSet {
+                gen: &[0x04, 0x01, 0x00, 0x0A, 0x00, 0x0D, 0xDD, 0x98],
+                full_response: &[0x04, 0x01, 0x02, 0x0A, 0x11, 0xB3, 0x50],
+                parsed: Some(ExpectedParseResults {
+                    parse_slice: &[0x0A, 0x11],
+                    parse_u16: &[0x0A11_u16],
+                    parse_i16: &[0x0A11_i16],
+                    parse_bool: &[
+                        false, true, false, true, false, false, false, false, true, false, false,
+                        false, true,
+                    ],
+                    parse_string: std::str::from_utf8(&[0x0A, 0x11]).unwrap(),
+                    parse_string_utf8: Ok(std::str::from_utf8(&[0x0A, 0x11]).unwrap()),
+                }),
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_gen_get_discretes() {
+        test_func(
+            0x04,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_get_discretes(0x000A, 0x000D, msg),
+            ExpectedSet {
+                gen: &[0x04, 0x02, 0x00, 0x0A, 0x00, 0x0D, 0x99, 0x98],
+                full_response: &[0x04, 0x02, 0x02, 0x0A, 0x11, 0xB3, 0x14],
+                parsed: Some(ExpectedParseResults {
+                    parse_slice: &[0x0A, 0x11],
+                    parse_u16: &[0x0A11_u16],
+                    parse_i16: &[0x0A11_i16],
+                    parse_bool: &[
+                        false, true, false, true, false, false, false, false, true, false, false,
+                        false, true,
+                    ],
+                    parse_string: std::str::from_utf8(&[0x0A, 0x11]).unwrap(),
+                    parse_string_utf8: Ok(std::str::from_utf8(&[0x0A, 0x11]).unwrap()),
+                }),
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_gen_get_holdings() {
+        test_func(
+            0x01,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_get_holdings(0x0000, 0x0002, msg),
+            ExpectedSet {
+                gen: &[0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B],
+                full_response: &[0x01, 0x03, 0x04, 0x00, 0x06, 0x00, 0x05, 0xDA, 0x31],
+                parsed: Some(ExpectedParseResults {
+                    parse_slice: &[0x00, 0x06, 0x00, 0x05],
+                    parse_u16: &[0x0006_u16, 0x0005_u16],
+                    parse_i16: &[0x0006_i16, 0x0005_i16],
+                    parse_bool: &[false, false],
+                    // it stops at the first null byte... is this a bug?
+                    parse_string: std::str::from_utf8(&[]).unwrap(),
+                    parse_string_utf8: Ok(std::str::from_utf8(&[0x00, 0x06, 0x00, 0x05]).unwrap()),
+                }),
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_gen_get_inputs() {
+        test_func(
+            0x01,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_get_inputs(0x0000, 0x0002, msg),
+            ExpectedSet {
+                gen: &[0x01, 0x04, 0x00, 0x00, 0x00, 0x02, 0x71, 0xCB],
+                full_response: &[0x01, 0x04, 0x04, 0x00, 0x06, 0x00, 0x05, 0xDB, 0x86],
+                parsed: Some(ExpectedParseResults {
+                    parse_slice: &[0x00, 0x06, 0x00, 0x05],
+                    parse_u16: &[0x0006_u16, 0x0005_u16],
+                    parse_i16: &[0x0006_i16, 0x0005_i16],
+                    parse_bool: &[false, false],
+                    // it stops at the first null byte... is this a bug?
+                    parse_string: std::str::from_utf8(&[]).unwrap(),
+                    parse_string_utf8: Ok(std::str::from_utf8(&[0x00, 0x06, 0x00, 0x05]).unwrap()),
+                }),
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_set_coil() {
+        test_func(
+            0x11,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_set_coil(0x00AC, true, msg),
+            ExpectedSet {
+                gen: &[0x11, 0x05, 0x00, 0xAC, 0xFF, 0x00, 0x4E, 0x8B],
+                // write message should mirror the generated message
+                full_response: &[0x11, 0x05, 0x00, 0xAC, 0xFF, 0x00, 0x4E, 0x8B],
+                parsed: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_set_holding() {
+        test_func(
+            0x11,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_set_holding(0x0001, 0x0003, msg),
+            ExpectedSet {
+                gen: &[0x11, 0x06, 0x00, 0x01, 0x00, 0x03, 0x9A, 0x9B],
+                // write message should mirror the generated message
+                full_response: &[0x11, 0x06, 0x00, 0x01, 0x00, 0x03, 0x9A, 0x9B],
+                parsed: None,
+            },
+        );
+    }
+
+    // set coils is bugged and input is confusing
+    // it should be possible to set not set a coil, eg [0xCD, 0x01] only settings 10 coils instead of 16.
+    #[test]
+    fn test_rtu_set_coils_bulk() {
+        test_func(
+            0x11,
+            ModbusProto::Rtu,
+            |req, msg| {
+                req.generate_set_coils_bulk(
+                    0x0013,
+                    &[1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+                    msg,
+                )
+            },
+            ExpectedSet {
+                // gen: &[0x11, 0x0F, 0x00, 0x13, 0x00, 0x0A, 0x02, 0xCD, 0x01, 0xBF, 0x0B],
+                gen: &[
+                    0x11, 0x0F, 0x00, 0x13, 0x00, 0x10, 0x02, 0xB3, 0x80, 0x59, 0xD3,
+                ],
+                // write message should mirror the generated message
+                full_response: &[
+                    0x11, 0x0F, 0x00, 0x13, 0x00, 0x10, 0x02, 0xB3, 0x80, 0x59, 0xD3,
+                ],
+                parsed: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_set_holdings_bulk() {
+        test_func(
+            0x11,
+            ModbusProto::Rtu,
+            |req, msg| req.generate_set_holdings_bulk(0x0001, &[0x000A, 0x0102], msg),
+            ExpectedSet {
+                gen: &[
+                    0x11, 0x10, 0x00, 0x01, 0x00, 0x02, 0x04, 0x00, 0x0A, 0x01, 0x02, 0xC6, 0xF0,
+                ],
+                // write message should mirror the generated message
+                full_response: &[
+                    0x11, 0x10, 0x00, 0x01, 0x00, 0x02, 0x04, 0x00, 0x0A, 0x01, 0x02, 0xC6, 0xF0,
+                ],
+                parsed: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_rtu_set_holdings_bulk_from_slice() {
+        test_func(
+            0x11,
+            ModbusProto::Rtu,
+            |req, msg| {
+                req.generate_set_holdings_bulk_from_slice(0x0001, &[0x00, 0x0A, 0x01, 0x02], msg)
+            },
+            ExpectedSet {
+                gen: &[
+                    0x11, 0x10, 0x00, 0x01, 0x00, 0x02, 0x04, 0x00, 0x0A, 0x01, 0x02, 0xC6, 0xF0,
+                ],
+                // write message should mirror the generated message
+                full_response: &[0x11, 0x10, 0x00, 0x01, 0x00, 0x02, 0x12, 0x98],
+                parsed: None,
+            },
+        );
+    }
+
+    /// Odd number of bytes should pad
+    #[test]
+    fn test_rtu_set_holdings_bulk_from_slice_odd() {
+        test_func(
+            0x11,
+            ModbusProto::Rtu,
+            |req, msg| {
+                req.generate_set_holdings_bulk_from_slice(
+                    0x0001,
+                    &[0x00, 0x0A, 0x01, 0x02, 0x03],
+                    msg,
+                )
+            },
+            ExpectedSet {
+                gen: &[
+                    0x11, 0x10, 0x00, 0x01, 0x00, 0x03, 0x06, 0x00, 0x0A, 0x01, 0x02, 0x00, 0x03,
+                    0xF1, 0xE9,
+                ],
+                full_response: &[0x11, 0x10, 0x00, 0x01, 0x00, 0x02, 0x06, 0x98, 0x0F],
+                parsed: None,
+            },
+        );
     }
 }
