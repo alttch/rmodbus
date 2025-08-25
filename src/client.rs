@@ -1,8 +1,7 @@
-use crate::consts::{
-    MODBUS_GET_COILS, MODBUS_GET_DISCRETES, MODBUS_GET_HOLDINGS, MODBUS_GET_INPUTS,
-    MODBUS_SET_COIL, MODBUS_SET_COILS_BULK, MODBUS_SET_HOLDING, MODBUS_SET_HOLDINGS_BULK,
+use crate::{
+    calc_crc16, calc_lrc, consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto,
+    VectorTrait,
 };
-use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
 
 /// Modbus client generator/processor
 ///
@@ -13,7 +12,7 @@ pub struct ModbusRequest {
     /// transaction id, (TCP/UDP only), default: 1. To change, set the value manually
     pub tr_id: u16,
     pub unit_id: u8,
-    pub func: u8,
+    pub func: ModbusFunction,
     pub reg: u16,
     pub count: u16,
     pub proto: ModbusProto,
@@ -41,7 +40,8 @@ impl ModbusRequest {
         Self {
             tr_id: 1,
             unit_id,
-            func: 0,
+            // default to GetCoils
+            func: ModbusFunction::GetCoils,
             reg: 0,
             count: 0,
             proto,
@@ -52,7 +52,8 @@ impl ModbusRequest {
         Self {
             tr_id,
             unit_id,
-            func: 0,
+            // default to GetCoils
+            func: ModbusFunction::GetCoils,
             reg: 0,
             count: 0,
             proto: ModbusProto::TcpUdp,
@@ -67,7 +68,7 @@ impl ModbusRequest {
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = count;
-        self.func = MODBUS_GET_COILS;
+        self.func = ModbusFunction::GetCoils;
         self.generate(&[], request)
     }
 
@@ -79,7 +80,7 @@ impl ModbusRequest {
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = count;
-        self.func = MODBUS_GET_DISCRETES;
+        self.func = ModbusFunction::GetDiscretes;
         self.generate(&[], request)
     }
 
@@ -91,7 +92,7 @@ impl ModbusRequest {
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = count;
-        self.func = MODBUS_GET_HOLDINGS;
+        self.func = ModbusFunction::GetHoldings;
         self.generate(&[], request)
     }
 
@@ -103,7 +104,7 @@ impl ModbusRequest {
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = count;
-        self.func = MODBUS_GET_INPUTS;
+        self.func = ModbusFunction::GetInputs;
         self.generate(&[], request)
     }
 
@@ -116,7 +117,7 @@ impl ModbusRequest {
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = 1;
-        self.func = MODBUS_SET_COIL;
+        self.func = ModbusFunction::SetCoil;
         self.generate(
             &[
                 if Into::<u8>::into(value) > 0 {
@@ -138,7 +139,7 @@ impl ModbusRequest {
     ) -> Result<(), ErrorKind> {
         self.reg = reg;
         self.count = 1;
-        self.func = MODBUS_SET_HOLDING;
+        self.func = ModbusFunction::SetHolding;
         self.generate(&value.to_be_bytes(), request)
     }
 
@@ -154,7 +155,7 @@ impl ModbusRequest {
         }
         self.reg = reg;
         self.count = u16::try_from(values.len())?;
-        self.func = MODBUS_SET_HOLDINGS_BULK;
+        self.func = ModbusFunction::SetHoldingsBulk;
         let mut data: ModbusFrameBuf = [0; 256];
         let mut pos = 0;
         for v in values {
@@ -181,7 +182,7 @@ impl ModbusRequest {
         }
         self.reg = reg;
         self.count = u16::try_from((values.len() + 1) / 2)?; // count is number of u16's
-        self.func = MODBUS_SET_HOLDINGS_BULK;
+        self.func = ModbusFunction::SetHoldingsBulk;
         let mut data: ModbusFrameBuf = [0; 256];
         let mut ptr = 0;
         for v in values.chunks(2) {
@@ -211,7 +212,7 @@ impl ModbusRequest {
         }
         self.reg = reg;
         self.count = length as u16 / 2u16;
-        self.func = MODBUS_SET_HOLDINGS_BULK;
+        self.func = ModbusFunction::SetHoldingsBulk;
         let mut data: ModbusFrameBuf = [0; 256];
         for (pos, v) in values.iter().enumerate() {
             data[pos] = *v;
@@ -233,7 +234,7 @@ impl ModbusRequest {
         }
         self.reg = reg;
         self.count = l as u16;
-        self.func = MODBUS_SET_COILS_BULK;
+        self.func = ModbusFunction::SetCoilsBulk;
         let mut data: ModbusFrameBuf = [0; 256];
         let mut pos = 0;
         let mut cbyte = 0;
@@ -308,15 +309,18 @@ impl ModbusRequest {
             }
         };
         let unit_id = buf[frame_start];
-        let func = buf[frame_start + 1];
         if unit_id != self.unit_id {
             return Err(ErrorKind::FrameBroken);
         }
-        if func != self.func {
+
+        // check if received function is valid
+        if !ModbusFunction::try_from(buf[frame_start + 1]).is_ok_and(|f| f == self.func) {
             // func-0x80 but some servers respond any shit
             return Err(ErrorKind::from_modbus_error(buf[frame_start + 2]));
         }
-        if self.func > 0 && self.func < 5 {
+
+        if self.func.is_read() {
+            // len is number of words
             let len = buf[frame_start + 2] as usize;
             if len * 2 < (frame_end - frame_start) - 3 {
                 return Err(ErrorKind::FrameBroken);
@@ -395,17 +399,11 @@ impl ModbusRequest {
     /// The input buffer SHOULD be cut to actual response length
     pub fn parse_slice<'a>(&'a self, buf: &'a [u8]) -> Result<&'a [u8], ErrorKind> {
         let (frame_start, frame_end) = self.parse_response(buf)?;
-        let val = match self.func {
-            MODBUS_SET_COIL
-            | MODBUS_SET_COILS_BULK
-            | MODBUS_SET_HOLDING
-            | MODBUS_SET_HOLDINGS_BULK => {
-                // no data bytes count byte -> skip 1 fewer byte
-                &buf[frame_start + 2..frame_end]
-            }
-            _ => &buf[frame_start + 3..frame_end],
-        };
-        Ok(val)
+        if self.func.is_write() {
+            Ok(&buf[frame_start + 2..frame_end])
+        } else {
+            Ok(&buf[frame_start + 3..frame_end])
+        }
     }
 
     /// Parse response, make sure there's no Modbus error inside, plus parse response data as bools
@@ -456,18 +454,20 @@ impl ModbusRequest {
             request.extend(&self.tr_id.to_be_bytes())?;
             request.extend(&[0u8, 0, 0, 0])?;
         }
-        request.extend(&[self.unit_id, self.func])?;
+        request.push(self.unit_id)?;
+        request.push(self.func.byte())?;
         request.extend(&self.reg.to_be_bytes())?;
         match self.func {
-            MODBUS_GET_COILS | MODBUS_GET_DISCRETES | MODBUS_GET_HOLDINGS | MODBUS_GET_INPUTS => {
+            ModbusFunction::GetCoils
+            | ModbusFunction::GetDiscretes
+            | ModbusFunction::GetHoldings
+            | ModbusFunction::GetInputs => {
                 request.extend(&self.count.to_be_bytes())?;
             }
-            MODBUS_SET_COIL | MODBUS_SET_HOLDING => {
-                for v in data {
-                    request.push(*v)?;
-                }
+            ModbusFunction::SetCoil | ModbusFunction::SetHolding => {
+                request.extend(data)?;
             }
-            MODBUS_SET_COILS_BULK | MODBUS_SET_HOLDINGS_BULK => {
+            ModbusFunction::SetCoilsBulk | ModbusFunction::SetHoldingsBulk => {
                 request.extend(&self.count.to_be_bytes())?;
                 let l = data.len();
                 if l > u8::MAX as usize {
@@ -475,11 +475,8 @@ impl ModbusRequest {
                 }
                 #[allow(clippy::cast_possible_truncation)]
                 request.push(l as u8)?;
-                for v in data {
-                    request.push(*v)?;
-                }
+                request.extend(data)?;
             }
-            _ => unimplemented!(),
         }
         match self.proto {
             ModbusProto::TcpUdp => {

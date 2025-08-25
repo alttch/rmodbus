@@ -1,5 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use crate::client::*;
+use crate::consts::{ModbusErrorCode, ModbusFunction};
 use crate::server::context::ModbusContext;
 use crate::server::storage::{ModbusStorageFull, FULL_STORAGE_SIZE as STORAGE_SIZE};
 #[allow(clippy::wildcard_imports)]
@@ -697,9 +698,9 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert!(frame.readonly);
     assert_eq!(frame.count, 5);
     assert_eq!(frame.reg, 5);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.process_read(&*ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
 
@@ -711,9 +712,9 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     assert!(frame.readonly);
     assert_eq!(frame.count, 5);
     assert_eq!(frame.reg, 5);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.process_read(&*ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // check rtu crc error
@@ -731,7 +732,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(!frame.processing_required);
-    assert_eq!(frame.error, 1);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalFunction));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
 
@@ -740,7 +741,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(!frame.processing_required);
-    assert_eq!(frame.error, 1);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalFunction));
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // check context oob
@@ -751,9 +752,9 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.process_read(&*ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
@@ -761,9 +762,9 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.process_read(&*ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // check invalid length
@@ -807,7 +808,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
@@ -829,7 +830,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
@@ -839,7 +840,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
@@ -853,7 +854,7 @@ fn test_std_frame_fc01_fc02_fc03_fc04_unknown_function() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(frame.readonly);
     frame.process_read(&*ctx).unwrap();
     frame.finalize_response().unwrap();
@@ -877,10 +878,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     assert!(ctx.get_coil(11).unwrap());
@@ -889,10 +890,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // write coil broadcast tcp
@@ -902,10 +903,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(!frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(ctx.get_coil(5).unwrap());
     let request = [0, 5, 0, 0x7, 0xff, 0];
     let framebuf = gen_rtu_frame(&request);
@@ -913,10 +914,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(!frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(ctx.get_coil(7).unwrap());
     // write coil invalid data
     let request = [1, 5, 0, 0xb, 0xff, 1];
@@ -926,10 +927,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 3);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataValue));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     // write coil context oob
@@ -940,10 +941,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
@@ -951,7 +952,7 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
     frame.finalize_response().unwrap();
@@ -964,10 +965,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     assert_eq!(ctx.get_holding(12).unwrap(), 0x3355);
@@ -976,10 +977,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // write holding context oob
@@ -990,10 +991,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
@@ -1001,10 +1002,10 @@ fn test_std_frame_fc05_fc06() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
 }
@@ -1022,10 +1023,10 @@ fn test_std_frame_fc15() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     assert!(ctx.get_coil(305).unwrap());
@@ -1039,10 +1040,10 @@ fn test_std_frame_fc15() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // write coils context oob
@@ -1053,10 +1054,10 @@ fn test_std_frame_fc15() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
@@ -1064,10 +1065,10 @@ fn test_std_frame_fc15() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
 }
@@ -1085,13 +1086,13 @@ fn test_std_frame_fc16() {
     let framebuf = gen_tcp_frame(&request);
     let mut frame = ModbusFrame::new(1, &framebuf, ModbusProto::TcpUdp, &mut result);
     frame.parse().unwrap();
-    assert_eq!(frame.func, 0x10);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.func, ModbusFunction::SetHoldingsBulk);
+    assert_eq!(frame.error, None);
     assert!(frame.response_required);
     assert!(frame.processing_required);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     assert_eq!(ctx.get_holding(300).unwrap(), 0x1122);
@@ -1103,10 +1104,10 @@ fn test_std_frame_fc16() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
     // write holdings context oob
@@ -1119,10 +1120,10 @@ fn test_std_frame_fc16() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     assert_eq!(result.as_slice(), response);
     let framebuf = gen_rtu_frame(&request);
@@ -1130,10 +1131,10 @@ fn test_std_frame_fc16() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(!frame.readonly);
     frame.process_write(&mut *ctx).unwrap();
-    assert_eq!(frame.error, 2);
+    assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
     frame.finalize_response().unwrap();
     check_rtu_response(&result, &response);
 }
@@ -1156,10 +1157,10 @@ fn test_modbus_ascii() {
     frame.parse().unwrap();
     assert!(frame.response_required);
     assert!(frame.processing_required);
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     assert!(frame.readonly);
     frame.process_read(&ctx).unwrap();
-    assert_eq!(frame.error, 0);
+    assert_eq!(frame.error, None);
     frame.finalize_response().unwrap();
     generate_ascii_frame(result.as_slice(), &mut ascii_result).unwrap();
     assert_eq!(ascii_result.as_slice(), response);
@@ -1200,10 +1201,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
         for i in 100..100 + coils.len() {
@@ -1234,10 +1235,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(frame.readonly);
         frame.process_read(&*ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
         mreq.parse_bool(&response, &mut result).unwrap();
@@ -1270,10 +1271,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(frame.readonly);
         frame.process_read(&*ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
         mreq.parse_bool(&response, &mut result).unwrap();
@@ -1301,10 +1302,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
         assert!(ctx.get_coil(100).unwrap());
@@ -1329,10 +1330,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 2);
+        assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
         frame.finalize_response().unwrap();
         assert_eq!(
             mreq.parse_ok(&response).err().unwrap(),
@@ -1361,10 +1362,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
         for i in 100..100 + holdings.len() {
@@ -1395,10 +1396,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(frame.readonly);
         frame.process_read(&*ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
         mreq.parse_u16(&response, &mut result).unwrap();
@@ -1426,10 +1427,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
 
@@ -1454,10 +1455,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(frame.readonly);
         frame.process_read(&*ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         let mut result = String::new();
         mreq.parse_string(&response, &mut result).unwrap();
@@ -1490,10 +1491,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(frame.readonly);
         frame.process_read(&*ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         let mut result = Vec::new();
         mreq.parse_u16(&response, &mut result).unwrap();
@@ -1521,10 +1522,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         frame.finalize_response().unwrap();
         mreq.parse_ok(&response).unwrap();
         assert!(ctx.get_coil(100).unwrap());
@@ -1550,10 +1551,10 @@ fn test_std_client() {
         frame.parse().unwrap();
         assert!(frame.response_required);
         assert!(frame.processing_required);
-        assert_eq!(frame.error, 0);
+        assert_eq!(frame.error, None);
         assert!(!frame.readonly);
         frame.process_write(&mut *ctx).unwrap();
-        assert_eq!(frame.error, 2);
+        assert_eq!(frame.error, Some(ModbusErrorCode::IllegalDataAddress));
         frame.finalize_response().unwrap();
         assert_eq!(
             mreq.parse_ok(&response).err().unwrap(),
