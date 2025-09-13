@@ -246,7 +246,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// replace the call to [`process_write`](ModbusFrame::process_write).
 
     pub fn get_external_write(&mut self) -> Result<Write<'_>, ErrorKind> {
-       match self.func {
+        match self.func {
             ModbusFunction::SetCoil => {
                 // func 5
                 // write single coil
@@ -443,8 +443,8 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// [`ModbusContext`](context::ModbusContext)) don't forget to call
     /// [`process_external_read`](ModbusFrame::process_external_read), these two calls together
     /// replace the call to [`process_read`](ModbusFrame::process_read).
- pub fn get_external_read(&mut self) -> Result<Read<'_>, ErrorKind> {
-       match self.func {
+    pub fn get_external_read(&mut self) -> Result<Read<'_>, ErrorKind> {
+        match self.func {
             ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
                 // funcs 1 - 2
                 // read coils / discretes
