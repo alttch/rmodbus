@@ -244,7 +244,6 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// [`ModbusContext`](context::ModbusContext)) don't forget to call
     /// [`process_external_write`](ModbusFrame::process_external_write), these two calls together
     /// replace the call to [`process_write`](ModbusFrame::process_write).
-
     pub fn get_external_write(&mut self) -> Result<Write<'_>, ErrorKind> {
         match self.func {
             ModbusFunction::SetCoil => {
