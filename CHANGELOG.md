@@ -1,9 +1,14 @@
 ## Changelog
 
+### v0.12.1
+
+* Restore `std` and remove `heapless` from default features 
+
 ### v0.12
 
 * Bump Rust version to 1.86
 * Bump `heapless` to 0.9.1
+* Make `heapless` a default feature and remove `std` 
 
 ### v0.11
 
