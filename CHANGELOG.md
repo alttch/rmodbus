@@ -2,7 +2,7 @@
 
 ### v0.12
 
-* Bump Rust version to 1.90
+* Bump Rust version to 1.86
 * Bump `heapless` to 0.9.1
 
 ### v0.11
