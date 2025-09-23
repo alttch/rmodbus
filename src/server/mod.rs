@@ -354,6 +354,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     }
 
     /// Process read functions
+    #[allow(clippy::manual_is_multiple_of)]
     pub fn process_read<C: context::ModbusContext>(&mut self, ctx: &C) -> Result<(), ErrorKind> {
         match self.func {
             ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
@@ -442,6 +443,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// [`ModbusContext`](context::ModbusContext)) don't forget to call
     /// [`process_external_read`](ModbusFrame::process_external_read), these two calls together
     /// replace the call to [`process_read`](ModbusFrame::process_read).
+    #[allow(clippy::manual_is_multiple_of)]
     pub fn get_external_read(&mut self) -> Result<Read<'_>, ErrorKind> {
         match self.func {
             ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => {
