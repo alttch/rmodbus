@@ -1,5 +1,14 @@
 ## Changelog
 
+### v0.12
+
+* Bump Rust version to 1.86
+* Bump `heapless` to 0.9.1
+
+### v0.11
+
+* Replace error code and function code consts with enums
+
 ### v0.10
 
 * `ModbusContext` has been extended with methods to set/get boolean registers
