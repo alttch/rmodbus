@@ -81,12 +81,12 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-          components: rustfmt
+          components: clippy
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
-          command: rustup component add clippy && clippy
+          command: clippy
           args: |
             --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
             -A clippy::used-underscore-binding
