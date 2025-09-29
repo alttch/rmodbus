@@ -34,6 +34,23 @@ macro_rules! parse_reg {
     }};
 }
 
+macro_rules! parse_reg32 {
+    ($self: expr, $buf: expr, $result: expr, $t: ty) => {{
+        // let (frame_start, frame_end) = $self.parse_response($buf)?;
+        let data = $self.parse_slice($buf)?;
+        let mut pos = 0;
+        while pos < data.len() - 3 {
+            let value =
+                <$t>::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
+            if $result.len() >= usize::from($self.count) {
+                break;
+            }
+            $result.push(value)?;
+            pos += 4;
+        }
+    }};
+}
+
 impl ModbusRequest {
     /// Crate new Modbus client
     pub fn new(unit_id: u8, proto: ModbusProto) -> Self {
@@ -360,6 +377,45 @@ impl ModbusRequest {
         result: &mut V,
     ) -> Result<(), ErrorKind> {
         parse_reg!(self, buf, result, i16);
+        Ok(())
+    }
+
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as u32
+    /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_u32<V: VectorTrait<u32>>(
+        &self,
+        buf: &[u8],
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        parse_reg32!(self, buf, result, u32);
+        Ok(())
+    }
+
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as i32
+    /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_i32<V: VectorTrait<i32>>(
+        &self,
+        buf: &[u8],
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        parse_reg32!(self, buf, result, i32);
+        Ok(())
+    }
+
+    /// Parse response, make sure there's no Modbus error inside, plus parse response data as f32
+    /// (getting holdings, inputs)
+    ///
+    /// The input buffer SHOULD be cut to actual response length
+    pub fn parse_f32<V: VectorTrait<f32>>(
+        &self,
+        buf: &[u8],
+        result: &mut V,
+    ) -> Result<(), ErrorKind> {
+        parse_reg32!(self, buf, result, f32);
         Ok(())
     }
 
