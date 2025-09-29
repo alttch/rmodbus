@@ -86,7 +86,7 @@ jobs:
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
-          command: clippy
+          command: rustup component add clippy && clippy
           args: |
             --all-targets -- -D warnings -W clippy::all -W clippy::pedantic
             -A clippy::used-underscore-binding
