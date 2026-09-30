@@ -15,6 +15,13 @@ pub use error::ErrorKind;
 #[cfg(test)]
 mod tests;
 
+#[cfg(not(any(
+    feature = "tcpudp",
+    feature = "rtu",
+    feature = "ascii",
+)))]
+compile_error!("At least one features [tcpudp, rtu, ascii] must be enabled");
+
 /// Modbus protocol selection for frame processing
 ///
 /// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
