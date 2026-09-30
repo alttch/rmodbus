@@ -22,8 +22,11 @@ mod tests;
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ModbusProto {
+    #[cfg(feature = "rtu")]
     Rtu,
+    #[cfg(feature = "ascii")]
     Ascii,
+    #[cfg(feature = "tcpudp")]
     TcpUdp,
 }
 
@@ -48,6 +51,7 @@ pub type ModbusFrameBuf = [u8; 256];
 ///
 /// * **OOB** input is larger than frame buffer (starting from frame_pos)
 /// * **FrameBroken** unable to decode input hex string
+#[cfg(feature = "ascii")]
 pub fn parse_ascii_frame(
     data: &[u8],
     data_len: usize,
@@ -81,6 +85,7 @@ pub fn parse_ascii_frame(
 ///
 /// Generates ASCII frame from binary response, made by "process_frame" function (response must be
 /// supplited as slice)
+#[cfg(feature = "ascii")]
 pub fn generate_ascii_frame<V: VectorTrait<u8>>(
     data: &[u8],
     result: &mut V,
@@ -160,6 +165,7 @@ fn hex_to_chr(h: u8) -> u8 {
 pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut b: ModbusFrameBuf;
     let (f, f_len, multiplier, extra) = match proto {
+        #[cfg(feature = "tcpudp")]
         ModbusProto::TcpUdp => {
             if buf.len() < 6 {
                 return Err(ErrorKind::OOB);
@@ -175,7 +181,9 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
             }
             return Err(ErrorKind::FrameBroken);
         }
+        #[cfg(feature = "rtu")]
         ModbusProto::Rtu => (buf, buf.len(), 1, 2), // two bytes CRC16
+        #[cfg(feature = "ascii")]
         ModbusProto::Ascii => {
             if buf.is_empty() {
                 return Err(ErrorKind::OOB);
@@ -231,7 +239,9 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
 pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut buf: ModbusFrameBuf;
     let (f, f_len, extra, multiplier) = match proto {
+        #[cfg(feature = "rtu")]
         ModbusProto::Rtu => (frame, frame.len(), 2, 1),
+        #[cfg(feature = "ascii")]
         ModbusProto::Ascii => {
             if frame.is_empty() {
                 return Err(ErrorKind::OOB);
@@ -240,6 +250,7 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
             let n = parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
             (&buf[..], usize::from(n), 5, 2)
         }
+        #[cfg(feature = "tcpudp")]
         ModbusProto::TcpUdp => {
             if frame.len() < 6 {
                 return Err(ErrorKind::OOB);

@@ -30,10 +30,13 @@ bincode = { version = "2.0.0-rc.2", optional = true }
 defmt = { version = "0.3.0", optional = true }
 
 [features]
-default = ["std"]
+default = ["std", "tcpudp", "rtu", "ascii"]
 std = []
 with_serde = ["serde", "serde_arrays"]
 with_bincode = ["bincode"]
+tcpudp = []
+rtu = []
+ascii = []
 # Provide impls for types in the Rust core allocation and collections library
 # including String, Box<T>, Vec<T>, and Cow<T>. This is a subset of std but may
 # be enabled without depending on all of std.
