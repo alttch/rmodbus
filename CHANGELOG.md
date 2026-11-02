@@ -1,5 +1,13 @@
 ## Changelog
 
+### v0.13.0
+
+* Server broadcast units now default to `[0]` instead of `[0, 255]`. Unit 255
+  is answered normally when configured as the server's unit ID.
+* Add `ModbusFrame::with_broadcast_units(&[...])` to replace the broadcast list
+  without allocation. Use `&[0, 255]` for the legacy behavior, or `&[]` to disable
+  broadcast handling. Other unit-ID matching rules are unchanged.
+
 ### v0.12.2
 
 * Fix `guess_response_frame_len` docs and per-protocol minimum-buffer requirements; RTU exception responses (5 bytes on
