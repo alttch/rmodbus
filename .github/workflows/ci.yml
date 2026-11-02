@@ -28,6 +28,10 @@ jobs:
             features: "--no-default-features --features heapless,fixedvec,tcpudp"
             tests: "tests"
 
+          - name: no_std rtu, ascii, tcpudp
+            features: "--no-default-features --features heapless,fixedvec,rtu,ascii,tcpudp"
+            tests: "tests"
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
