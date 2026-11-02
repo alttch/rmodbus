@@ -285,13 +285,12 @@ impl ModbusRequest {
                 cbyte = 0;
             }
         }
-        let len;
-        if bidx > 0 {
+        let len = if bidx > 0 {
             data[pos] = cbyte;
-            len = pos + 1;
+            pos + 1
         } else {
-            len = pos;
-        }
+            pos
+        };
         self.generate(&data[..len], request)
     }
 

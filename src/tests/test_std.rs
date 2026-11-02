@@ -1751,7 +1751,7 @@ fn test_server_broadcast_units() {
                 let unit_offset = if proto == ModbusProto::TcpUdp { 6 } else { 0 };
                 assert_eq!(result[unit_offset], request_unit);
             } else if !processing {
-                assert!(result.is_empty());
+                assert_eq!(result, [0_u8; 0]);
             }
         }
     }
@@ -1779,5 +1779,5 @@ fn test_server_unit_255_tcp_read() {
     frame.parse().unwrap();
     assert!(!frame.processing_required);
     assert!(!frame.response_required);
-    assert!(result.is_empty());
+    assert_eq!(result, [0_u8; 0]);
 }
