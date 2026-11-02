@@ -1562,3 +1562,108 @@ fn test_std_client() {
         );
     }
 }
+
+#[test]
+fn test_guess_response_frame_len_tcp() {
+    // Normal read-holdings response for 2 registers: MBAP(6) + unit + func + bc + 4 bytes = 13
+    let normal = [
+        0x00, 0x01, 0x00, 0x00, 0x00, 0x07, 0x01, 0x03, 0x04, 0xde, 0xad, 0xbe, 0xef,
+    ];
+    assert_eq!(
+        guess_response_frame_len(&normal, ModbusProto::TcpUdp).unwrap(),
+        13
+    );
+    // Exception response: MBAP length field == 3, total 9 bytes.
+    let exc = [0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x01, 0x83, 0x02];
+    assert_eq!(
+        guess_response_frame_len(&exc, ModbusProto::TcpUdp).unwrap(),
+        9
+    );
+    // Short buffer → OOB.
+    assert_eq!(
+        guess_response_frame_len(&exc[..5], ModbusProto::TcpUdp).unwrap_err(),
+        ErrorKind::OOB
+    );
+}
+
+#[test]
+fn test_guess_response_frame_len_rtu() {
+    // Exception response is 5 bytes total; 2 bytes (unit + func|0x80) are enough to guess.
+    let exc_prefix = [0x01, 0x83];
+    assert_eq!(
+        guess_response_frame_len(&exc_prefix, ModbusProto::Rtu).unwrap(),
+        5
+    );
+    // Normal read-holdings response for 2 registers: unit + func + bc + 4 bytes + CRC = 9.
+    let normal = [0x01, 0x03, 0x04, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00];
+    assert_eq!(
+        guess_response_frame_len(&normal, ModbusProto::Rtu).unwrap(),
+        9
+    );
+    // 1-byte buffer → OOB, not panic.
+    assert_eq!(
+        guess_response_frame_len(&[0x01], ModbusProto::Rtu).unwrap_err(),
+        ErrorKind::OOB
+    );
+    // 2-byte non-exception buffer is too short to inspect the byte-count byte → OOB.
+    assert_eq!(
+        guess_response_frame_len(&[0x01, 0x03], ModbusProto::Rtu).unwrap_err(),
+        ErrorKind::OOB
+    );
+    // Unknown function code (non-exception) → FrameBroken, not OOB — guards must not
+    // shadow this branch.
+    assert_eq!(
+        guess_response_frame_len(&[0x01, 0x42, 0x00], ModbusProto::Rtu).unwrap_err(),
+        ErrorKind::FrameBroken
+    );
+}
+
+#[test]
+fn test_guess_response_frame_len_ascii() {
+    // `:` + "01" + "83" + "02" + LRC + CRLF → 11 chars. Parser stops at \r.
+    let exc: &[u8] = b":0183027A\r\n";
+    assert_eq!(
+        guess_response_frame_len(exc, ModbusProto::Ascii).unwrap(),
+        11
+    );
+    // Normal read-holdings 2 regs: `:` + "01"+"03"+"04"+4*2 hex + LRC + CRLF = 19 chars.
+    let normal: &[u8] = b":010304DEADBEEF00\r\n";
+    assert_eq!(
+        guess_response_frame_len(normal, ModbusProto::Ascii).unwrap(),
+        19
+    );
+    // Too-short ASCII buffer — 2 decoded bytes but no byte-count byte → OOB.
+    let short: &[u8] = b":0103\r\n";
+    assert_eq!(
+        guess_response_frame_len(short, ModbusProto::Ascii).unwrap_err(),
+        ErrorKind::OOB
+    );
+}
+
+#[test]
+fn test_guess_request_frame_len_short_buffer() {
+    // TCP: less than 6 bytes → OOB.
+    assert_eq!(
+        guess_request_frame_len(&[0u8; 5], ModbusProto::TcpUdp).unwrap_err(),
+        ErrorKind::OOB
+    );
+    // RTU: 0 or 1 byte → OOB.
+    assert_eq!(
+        guess_request_frame_len(&[], ModbusProto::Rtu).unwrap_err(),
+        ErrorKind::OOB
+    );
+    assert_eq!(
+        guess_request_frame_len(&[0x01], ModbusProto::Rtu).unwrap_err(),
+        ErrorKind::OOB
+    );
+    // RTU: func 15/16 requires 7 bytes to inspect the byte count.
+    assert_eq!(
+        guess_request_frame_len(&[0x01, 0x0f, 0, 0, 0, 1], ModbusProto::Rtu).unwrap_err(),
+        ErrorKind::OOB
+    );
+    // RTU: func 0x03 with just unit+func is enough to compute a fixed-length request.
+    assert_eq!(
+        guess_request_frame_len(&[0x01, 0x03], ModbusProto::Rtu).unwrap(),
+        8
+    );
+}

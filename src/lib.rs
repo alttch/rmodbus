@@ -140,24 +140,30 @@ fn hex_to_chr(h: u8) -> u8 {
 
 /// Guess response frame length
 ///
-/// Frames are often read byte-by-byte. The function allows to guess total frame length, having
-/// first 7 (or more) bytes read.
+/// Frames are often read byte-by-byte. The function lets a caller determine the total frame
+/// length after reading only the first few bytes, so the rest can be read in one shot.
 ///
-/// How to use: read at least first 6 bytes (3 for RTU, 7 for ASCII) into buffer and call the
-/// function to guess the total frame length. The remaining amount of bytes to read will be
-/// function result - 7. 8 bytes is also fine, as that's the minimal correct frame length.
+/// Minimum buffer per protocol:
 ///
-/// * the function may return wrong result for broken frames
+/// * **TcpUdp**: 6 bytes (the MBAP header fully describes the frame length, including
+///   exception responses).
+/// * **Rtu**: 2 bytes to detect an exception response (`func & 0x80 != 0`), which is always
+///   5 bytes on the wire. For a non-exception response, 3 bytes are required so the byte
+///   count / register count byte can be inspected.
+/// * **Ascii**: at least 5 ASCII chars (`:AAFF`) to detect an exception (always 11 chars
+///   total), or 7 chars (`:AAFFBB`) for a non-exception response. `parse_ascii_frame` stops
+///   decoding at the first `\r`, `\n`, or `\0`.
 ///
-/// * the function may return ErrorKind::FrameBroken for broken ASCII frames
-///
-/// # Panics
-///
-/// The function panics if the buffer length is less than 6 (3 for RTU, 7 for ASCII)
+/// If fewer bytes are supplied than required for the detected frame kind, `ErrorKind::OOB`
+/// is returned instead of panicking. `ErrorKind::FrameBroken` is returned for malformed
+/// frames (unknown function code, ASCII decode failure, or computed length > 255).
 pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
-    let mut b: ModbusFrameBuf = [0; 256];
-    let (f, multiplier, extra) = match proto {
+    let mut b: ModbusFrameBuf;
+    let (f, f_len, multiplier, extra) = match proto {
         ModbusProto::TcpUdp => {
+            if buf.len() < 6 {
+                return Err(ErrorKind::OOB);
+            }
             let proto = u16::from_be_bytes([buf[2], buf[3]]);
             if proto == 0 {
                 let len = u16::from_be_bytes([buf[4], buf[5]]) + 6;
@@ -169,14 +175,21 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
             }
             return Err(ErrorKind::FrameBroken);
         }
-        ModbusProto::Rtu => (buf, 1, 2), // two bytes CRC16
+        ModbusProto::Rtu => (buf, buf.len(), 1, 2), // two bytes CRC16
         ModbusProto::Ascii => {
-            parse_ascii_frame(buf, buf.len(), &mut b, 0)?;
-            (&b[..], 2, 5) // : + two chars LRC + \r\n
+            b = [0; 256];
+            let n = parse_ascii_frame(buf, buf.len(), &mut b, 0)?;
+            (&b[..], usize::from(n), 2, 5) // : + two chars LRC + \r\n
         }
     };
+    if f_len < 2 {
+        return Err(ErrorKind::OOB);
+    }
     let func = f[1];
     let len: usize = if func < 0x80 {
+        if f_len < 3 {
+            return Err(ErrorKind::OOB);
+        }
         match func {
             1..=4 => (f[2] as usize + 3) * multiplier + extra,
             5 | 6 | 15 | 16 => 6 * multiplier + extra,
@@ -197,29 +210,34 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
 
 /// Guess request frame length
 ///
-/// Frames are often read byte-by-byte. The function allows to guess total frame length, having
-/// first 7 (or more) bytes read.
+/// Frames are often read byte-by-byte. The function lets a caller determine the total frame
+/// length after reading only the first few bytes, so the rest can be read in one shot.
 ///
-/// How to use: read at least first 7 bytes (16 for ASCII) into buffer and call the function to
-/// guess the total frame length. The remaining amount of bytes to read will be function result -
-/// 7. 8 bytes is also fine, as that's the minimal correct frame length.
+/// Minimum buffer per protocol:
 ///
-/// * the function may return wrong result for broken frames
+/// * **TcpUdp**: 6 bytes (the MBAP header fully describes the frame length).
+/// * **Rtu**: 7 bytes for write-multiple functions (15/16) so the byte-count byte can be
+///   inspected; 2 bytes (`unit_id` + `func`) are sufficient for all other functions.
+/// * **Ascii**: at least 15 ASCII chars for write-multiple (15/16), or 5 chars (`:AAFF`)
+///   for all other functions. `parse_ascii_frame` stops decoding at the first `\r`, `\n`,
+///   or `\0`.
 ///
-/// * the function may return ErrorKind::FrameBroken for broken ASCII frames
-///
-/// # Panics
-///
-/// The function panics if the buffer length is less than 7 (for ASCII - 16)
+/// If fewer bytes are supplied than required for the detected frame kind, `ErrorKind::OOB`
+/// is returned instead of panicking. `ErrorKind::FrameBroken` is returned for malformed
+/// frames (ASCII decode failure or computed length > 255).
 pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
-    let mut buf: ModbusFrameBuf = [0; 256];
-    let (f, extra, multiplier) = match proto {
-        ModbusProto::Rtu => (frame, 2, 1),
+    let mut buf: ModbusFrameBuf;
+    let (f, f_len, extra, multiplier) = match proto {
+        ModbusProto::Rtu => (frame, frame.len(), 2, 1),
         ModbusProto::Ascii => {
-            parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
-            (&buf[..], 5, 2)
+            buf = [0; 256];
+            let n = parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
+            (&buf[..], usize::from(n), 5, 2)
         }
         ModbusProto::TcpUdp => {
+            if frame.len() < 6 {
+                return Err(ErrorKind::OOB);
+            }
             let proto = u16::from_be_bytes([frame[2], frame[3]]);
             if proto == 0 {
                 let len = u16::from_be_bytes([frame[4], frame[5]]) + 6;
@@ -232,8 +250,16 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
             return Err(ErrorKind::FrameBroken);
         }
     };
+    if f_len < 2 {
+        return Err(ErrorKind::OOB);
+    }
     let len: usize = match f[1] {
-        15 | 16 => (f[6] as usize + 7) * multiplier + extra,
+        15 | 16 => {
+            if f_len < 7 {
+                return Err(ErrorKind::OOB);
+            }
+            (f[6] as usize + 7) * multiplier + extra
+        }
         _ => 6 * multiplier + extra,
     };
     if len > u8::MAX as usize {

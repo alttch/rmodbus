@@ -22,7 +22,7 @@ pub fn rtuserver(unit: u8, port: &str) {
         Ok(())
     })
     .unwrap();
-    port.set_timeout(Duration::from_secs(3600)).unwrap();
+    port.set_timeout(Duration::from_hours(1)).unwrap();
     loop {
         let mut buf: ModbusFrameBuf = [0; 256];
         if port.read(&mut buf).unwrap() > 0 {

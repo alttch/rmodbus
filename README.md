@@ -339,6 +339,13 @@ for i in 0..data.len() {
     println!("{} {}", i, data[i]);
 }
 ```
+
+For RTU clients the read pattern is slightly different: read the first 2 bytes
+(`unit_id` + `func`), branch on `buf[1] & 0x80 != 0` to detect an exception
+response (always 5 bytes total on the wire), and otherwise read one more byte
+before calling `guess_response_frame_len` to learn the full frame length. See
+`examples/rtuclient.rs` for a complete example.
+
 ## About the authors
 
 [Bohemia Automation](https://www.bohemia-automation.com) /

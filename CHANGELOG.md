@@ -1,5 +1,15 @@
 ## Changelog
 
+### v0.12.2
+
+* Fix `guess_response_frame_len` docs and per-protocol minimum-buffer requirements; RTU exception responses (5 bytes on
+  the wire) are now correctly described.
+
+* `guess_response_frame_len` and `guess_request_frame_len` return `ErrorKind::OOB` on buffers shorter than the
+  per-protocol minimum instead of panicking.
+
+* Added `examples/rtuclient.rs` demonstrating the correct read pattern for RTU exception responses.
+
 ### v0.12
 
 * Bump Rust version to 1.86

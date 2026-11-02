@@ -23,7 +23,7 @@ pub fn asciiserver(unit: u8, port: &str) {
         Ok(())
     })
     .unwrap();
-    port.set_timeout(Duration::from_secs(3600)).unwrap();
+    port.set_timeout(Duration::from_hours(1)).unwrap();
     loop {
         let mut asciibuf = [0; 1024];
         let rd = port.read(&mut asciibuf).unwrap();

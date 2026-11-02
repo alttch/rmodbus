@@ -633,6 +633,10 @@ impl ModbusRequest {
 mod tests {
     use super::*;
 
+    #[expect(
+        clippy::struct_field_names,
+        reason = "fields mirror the parse_* method names they validate"
+    )]
     struct ExpectedParseResults<'a> {
         parse_slice: &'a [u8],
         parse_u16: &'a [u16],

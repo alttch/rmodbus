@@ -79,6 +79,11 @@ name = "tcpclient"
 path = "examples/tcpclient.rs"
 required-features = ["std"]
 
+[[example]]
+name = "rtuclient"
+path = "examples/rtuclient.rs"
+required-features = ["std"]
+
 [lints.clippy]
 # all = "warn"
 pedantic = { level = "warn", priority = -1 }
