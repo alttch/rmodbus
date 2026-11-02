@@ -68,6 +68,7 @@ macro_rules! tcp_response_set_data_len {
 pub struct ModbusFrame<'a, V: VectorTrait<u8>> {
     pub unit_id: u8,
     buf: &'a [u8],
+    broadcast_units: &'a [u8],
     pub response: &'a mut V,
     pub proto: ModbusProto,
     /// after parse: is processing required
@@ -96,6 +97,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
         Self {
             unit_id,
             buf,
+            broadcast_units: &[0],
             proto,
             response,
             processing_required: false,
@@ -110,6 +112,30 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             // simulate invalid starting state with error
             error: None,
         }
+    }
+    /// Replace the broadcast unit addresses for this frame processor.
+    ///
+    /// The default is `&[0]`. Pass `&[0, 255]` to restore the legacy behavior,
+    /// or `&[]` to disable broadcast handling. The slice is borrowed without allocation.
+    /// Broadcast addresses take precedence over `unit_id`: writes are processed without
+    /// a reply and reads are ignored. Other addresses must still match `unit_id`.
+    /// Configure this before calling [`Self::parse`].
+    ///
+    /// ```
+    /// # #[cfg(feature = "std")]
+    /// # {
+    /// use rmodbus::{server::ModbusFrame, ModbusProto};
+    /// let request = [0u8; 8];
+    /// let mut response = Vec::new();
+    /// let frame = ModbusFrame::new(1, &request, ModbusProto::Rtu, &mut response)
+    ///     .with_broadcast_units(&[0, 255]);
+    /// # let _ = frame;
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn with_broadcast_units(mut self, units: &'a [u8]) -> Self {
+        self.broadcast_units = units;
+        self
     }
     /// Should be always called if response needs to be sent
     pub fn finalize_response(&mut self) -> Result<(), ErrorKind> {
@@ -551,7 +577,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
             return Err(ErrorKind::FrameBroken);
         }
         let unit = self.buf[self.frame_start];
-        let broadcast = unit == 0 || unit == 255; // some clients send broadcast to 0xff
+        let broadcast = self.broadcast_units.contains(&unit);
         if !broadcast && unit != self.unit_id {
             return Ok(());
         }

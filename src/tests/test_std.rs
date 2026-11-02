@@ -1701,3 +1701,83 @@ fn test_guess_frame_len_tcp_length_boundaries() {
         );
     }
 }
+
+#[test]
+fn test_server_broadcast_units() {
+    // (server unit, request unit, override, process write, send response)
+    type BroadcastCase<'a> = (u8, u8, Option<&'a [u8]>, bool, bool);
+    let cases: &[BroadcastCase<'_>] = &[
+        (1, 0, None, true, false),
+        (255, 255, None, true, true),
+        (1, 255, None, false, false),
+        (1, 255, Some(&[0, 255]), true, false),
+        (1, 0, Some(&[0, 255]), true, false),
+        (1, 1, Some(&[0, 255]), true, true),
+        (0, 0, Some(&[]), true, true),
+        (1, 0, Some(&[]), false, false),
+        (1, 0, Some(&[255]), false, false),
+        (1, 255, Some(&[255]), true, false),
+        (1, 1, Some(&[1]), true, false),
+    ];
+    for proto in [ModbusProto::TcpUdp, ModbusProto::Rtu, ModbusProto::Ascii] {
+        for &(server_unit, request_unit, units, processing, responding) in cases {
+            let request = [request_unit, 5, 0, 5, 0xff, 0];
+            let framebuf = match proto {
+                ModbusProto::TcpUdp => gen_tcp_frame(&request),
+                ModbusProto::Rtu => gen_rtu_frame(&request),
+                ModbusProto::Ascii => {
+                    // ModbusFrame accepts an already decoded ASCII frame with LRC.
+                    let mut buf = [0; 256];
+                    buf[..request.len()].copy_from_slice(&request);
+                    buf[request.len()] = calc_lrc(&request, 6);
+                    buf
+                }
+            };
+            let mut result = Vec::new();
+            let mut frame = ModbusFrame::new(server_unit, &framebuf, proto, &mut result);
+            if let Some(units) = units {
+                frame = frame.with_broadcast_units(units);
+            }
+            frame.parse().unwrap();
+            assert_eq!(frame.processing_required, processing);
+            assert_eq!(frame.response_required, responding);
+            if processing {
+                let mut ctx = crate::server::storage::ModbusStorageSmall::default();
+                frame.process_write(&mut ctx).unwrap();
+                assert!(ctx.get_coil(5).unwrap());
+            }
+            if responding {
+                frame.finalize_response().unwrap();
+                let unit_offset = if proto == ModbusProto::TcpUdp { 6 } else { 0 };
+                assert_eq!(result[unit_offset], request_unit);
+            } else if !processing {
+                assert!(result.is_empty());
+            }
+        }
+    }
+}
+
+#[test]
+fn test_server_unit_255_tcp_read() {
+    // The exact FC03 request from issue #58 must receive a normal response.
+    let request = [0, 1, 0, 0, 0, 6, 255, 3, 0, 0, 0, 1];
+    let mut result = Vec::new();
+    let mut frame = ModbusFrame::new(255, &request, ModbusProto::TcpUdp, &mut result);
+    frame.parse().unwrap();
+    assert!(frame.processing_required);
+    assert!(frame.response_required);
+    let mut ctx = crate::server::storage::ModbusStorageSmall::default();
+    ctx.set_holding(0, 42).unwrap();
+    frame.process_read(&ctx).unwrap();
+    frame.finalize_response().unwrap();
+    assert_eq!(result, [0, 1, 0, 0, 0, 5, 255, 3, 2, 0, 42]);
+
+    // A caller may explicitly restore no-reply behavior for the same address.
+    let units = [0, 255];
+    let mut frame = ModbusFrame::new(255, &request, ModbusProto::TcpUdp, &mut result)
+        .with_broadcast_units(&units);
+    frame.parse().unwrap();
+    assert!(!frame.processing_required);
+    assert!(!frame.response_required);
+    assert!(result.is_empty());
+}
