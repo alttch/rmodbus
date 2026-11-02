@@ -406,7 +406,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 // funcs 1 - 2
                 // read coils / discretes
                 let mut data_len = self.count >> 3;
-                if self.count % 8 != 0 {
+                if !self.count.is_multiple_of(8) {
                     data_len += 1;
                 }
                 #[cfg(feature = "tcpudp")]
@@ -497,7 +497,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
                 // funcs 1 - 2
                 // read coils / discretes
                 let mut data_len = self.count >> 3;
-                if self.count % 8 != 0 {
+                if !self.count.is_multiple_of(8) {
                     data_len += 1;
                 }
                 #[cfg(feature = "tcpudp")]

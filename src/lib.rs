@@ -18,6 +18,12 @@ mod tests;
 #[cfg(not(any(feature = "tcpudp", feature = "rtu", feature = "ascii",)))]
 compile_error!("At least one features [tcpudp, rtu, ascii] must be enabled");
 
+const ASCII_TERMINATION_LEN: usize = 5;
+// two bytes CRC16
+const RTU_TERMINATION_LEN: usize = 2;
+const ASCII_MULTIPLIER: usize = 2;
+const RTU_MULTIPLIER: usize = 1;
+
 /// Modbus protocol selection for frame processing
 ///
 /// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
@@ -175,8 +181,7 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
         ModbusProto::TcpUdp => guess_tcp_response_frame_len(buf),
         #[cfg(feature = "rtu")]
         ModbusProto::Rtu => {
-            // two bytes CRC16
-            guess_serial_response_frame_len(buf, buf.len(), 1, 2)
+            guess_serial_response_frame_len(buf, buf.len(), RTU_MULTIPLIER, RTU_TERMINATION_LEN)
         }
         #[cfg(feature = "ascii")]
         ModbusProto::Ascii => {
@@ -185,7 +190,12 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
             }
             let mut b: ModbusFrameBuf = [0; 256];
             let n = parse_ascii_frame(buf, buf.len(), &mut b, 0)?;
-            guess_serial_response_frame_len(&b[..], usize::from(n), 2, 5)
+            guess_serial_response_frame_len(
+                &b[..],
+                usize::from(n),
+                ASCII_MULTIPLIER,
+                ASCII_TERMINATION_LEN,
+            )
         }
     }
 }
@@ -208,21 +218,21 @@ fn guess_tcp_response_frame_len(buf: &[u8]) -> Result<u8, ErrorKind> {
 
 #[cfg(any(feature = "rtu", feature = "ascii"))]
 fn guess_serial_response_frame_len(
-    f: &[u8],
-    f_len: usize,
+    frame: &[u8],
+    frame_len: usize,
     multiplier: usize,
     extra: usize,
 ) -> Result<u8, ErrorKind> {
-    if f_len < 2 {
+    if frame_len < 2 {
         return Err(ErrorKind::OOB);
     }
-    let func = f[1];
+    let func = frame[1];
     let len: usize = if func < 0x80 {
-        if f_len < 3 {
+        if frame_len < 3 {
             return Err(ErrorKind::OOB);
         }
         match func {
-            1..=4 => (f[2] as usize + 3) * multiplier + extra,
+            1..=4 => (frame[2] as usize + 3) * multiplier + extra,
             5 | 6 | 15 | 16 => 6 * multiplier + extra,
             _ => {
                 return Err(ErrorKind::FrameBroken);
@@ -258,8 +268,12 @@ fn guess_serial_response_frame_len(
 /// frames (ASCII decode failure or computed length > 255).
 pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     match proto {
+        #[cfg(feature = "tcpudp")]
+        ModbusProto::TcpUdp => guess_tcp_request_frame_len(frame),
         #[cfg(feature = "rtu")]
-        ModbusProto::Rtu => guess_serial_request_frame_len(frame, frame.len(), 2, 1),
+        ModbusProto::Rtu => {
+            guess_serial_request_frame_len(frame, frame.len(), RTU_MULTIPLIER, RTU_TERMINATION_LEN)
+        }
         #[cfg(feature = "ascii")]
         ModbusProto::Ascii => {
             if frame.is_empty() {
@@ -267,30 +281,33 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
             }
             let mut buf: ModbusFrameBuf = [0; 256];
             let n = parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
-            guess_serial_request_frame_len(&buf[..], usize::from(n), 5, 2)
+            guess_serial_request_frame_len(
+                &buf[..],
+                usize::from(n),
+                ASCII_MULTIPLIER,
+                ASCII_TERMINATION_LEN,
+            )
         }
-        #[cfg(feature = "tcpudp")]
-        ModbusProto::TcpUdp => guess_tcp_request_frame_len(frame),
     }
 }
 
 #[cfg(any(feature = "rtu", feature = "ascii"))]
 #[inline]
 fn guess_serial_request_frame_len(
-    f: &[u8],
-    f_len: usize,
+    frame: &[u8],
+    frame_len: usize,
     multiplier: usize,
     extra: usize,
 ) -> Result<u8, ErrorKind> {
-    if f_len < 2 {
+    if frame_len < 2 {
         return Err(ErrorKind::OOB);
     }
-    let len: usize = match f[1] {
+    let len: usize = match frame[1] {
         15 | 16 => {
-            if f_len < 7 {
+            if frame_len < 7 {
                 return Err(ErrorKind::OOB);
             }
-            (f[6] as usize + 7) * multiplier + extra
+            (frame[6] as usize + 7) * multiplier + extra
         }
         _ => 6 * multiplier + extra,
     };
