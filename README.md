@@ -225,7 +225,7 @@ The full Modbus storage has 10000 registers of each type, which requires 60000
 bytes total. For systems with small RAM amount there is a pre-defined small
 storage with 1000 registers:
 
-```rust,no_run
+```rust
 use rmodbus::server::{storage::ModbusStorageSmall, context::ModbusContext};
 ```
 
@@ -238,7 +238,7 @@ holdings.
 E.g. let us define a context for 128 coils, 16 discretes, 0 inputs and 100
 holdings:
 
-```rust,no_run
+```rust
 use rmodbus::server::{storage::ModbusStorage, context::ModbusContext};
 
 let context = ModbusStorage::<128, 16, 0, 100>::new();
