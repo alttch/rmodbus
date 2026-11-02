@@ -23,6 +23,8 @@ pub fn asciiserver(unit: u8, port: &str) {
         Ok(())
     })
     .unwrap();
+    // Keep compatibility with Rust versions before Duration::from_hours.
+    #[allow(clippy::duration_suboptimal_units)]
     port.set_timeout(Duration::from_secs(3600)).unwrap();
     loop {
         let mut asciibuf = [0; 1024];
