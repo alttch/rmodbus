@@ -801,6 +801,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     pub fn set_modbus_error_if_unset(&mut self, err: &ErrorKind) -> Result<(), ErrorKind> {
         if self.error.is_none() && err.is_modbus_error() {
             // leave 0 bytes for RTU/ASCII, leave 4 bytes for TCP/UDP (Transaction ID and Protocol ID)
+            #[allow(unreachable_patterns, reason = "feature could be deactivated")]
             let len_leave_before_finalize = match self.proto {
                 #[cfg(feature = "tcpudp")]
                 ModbusProto::TcpUdp => 4,
