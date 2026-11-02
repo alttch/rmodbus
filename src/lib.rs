@@ -166,8 +166,8 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
             }
             let proto = u16::from_be_bytes([buf[2], buf[3]]);
             if proto == 0 {
-                let len = u16::from_be_bytes([buf[4], buf[5]]) + 6;
-                if len > u16::from(u8::MAX) {
+                let len = u32::from(u16::from_be_bytes([buf[4], buf[5]])) + 6;
+                if len > u32::from(u8::MAX) {
                     return Err(ErrorKind::FrameBroken);
                 }
                 #[allow(clippy::cast_possible_truncation)]
@@ -177,6 +177,9 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
         }
         ModbusProto::Rtu => (buf, buf.len(), 1, 2), // two bytes CRC16
         ModbusProto::Ascii => {
+            if buf.is_empty() {
+                return Err(ErrorKind::OOB);
+            }
             b = [0; 256];
             let n = parse_ascii_frame(buf, buf.len(), &mut b, 0)?;
             (&b[..], usize::from(n), 2, 5) // : + two chars LRC + \r\n
@@ -230,6 +233,9 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
     let (f, f_len, extra, multiplier) = match proto {
         ModbusProto::Rtu => (frame, frame.len(), 2, 1),
         ModbusProto::Ascii => {
+            if frame.is_empty() {
+                return Err(ErrorKind::OOB);
+            }
             buf = [0; 256];
             let n = parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
             (&buf[..], usize::from(n), 5, 2)
@@ -240,8 +246,8 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
             }
             let proto = u16::from_be_bytes([frame[2], frame[3]]);
             if proto == 0 {
-                let len = u16::from_be_bytes([frame[4], frame[5]]) + 6;
-                if len > u16::from(u8::MAX) {
+                let len = u32::from(u16::from_be_bytes([frame[4], frame[5]])) + 6;
+                if len > u32::from(u8::MAX) {
                     return Err(ErrorKind::FrameBroken);
                 }
                 #[allow(clippy::cast_possible_truncation)]

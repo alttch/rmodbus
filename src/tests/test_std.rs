@@ -1667,3 +1667,37 @@ fn test_guess_request_frame_len_short_buffer() {
         8
     );
 }
+
+#[test]
+fn test_guess_frame_len_empty_ascii() {
+    // ASCII decoding must not index byte zero before the length guard.
+    for prefix in [b"".as_slice(), b":", b":01"] {
+        assert_eq!(
+            guess_response_frame_len(prefix, ModbusProto::Ascii),
+            Err(ErrorKind::OOB)
+        );
+        assert_eq!(
+            guess_request_frame_len(prefix, ModbusProto::Ascii),
+            Err(ErrorKind::OOB)
+        );
+    }
+}
+
+#[test]
+fn test_guess_frame_len_tcp_length_boundaries() {
+    // 249 + the 6-byte header is the largest total this u8 API can return.
+    // Large malformed lengths must neither panic nor wrap in release builds.
+    for length in [0_u16, 1, 249, 250, 65_529, 65_530, u16::MAX] {
+        let [hi, lo] = length.to_be_bytes();
+        let header = [0, 1, 0, 0, hi, lo];
+        let expected = u8::try_from(u32::from(length) + 6).map_err(|_| ErrorKind::FrameBroken);
+        assert_eq!(
+            guess_response_frame_len(&header, ModbusProto::TcpUdp),
+            expected
+        );
+        assert_eq!(
+            guess_request_frame_len(&header, ModbusProto::TcpUdp),
+            expected
+        );
+    }
+}
