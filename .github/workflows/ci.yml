@@ -2,50 +2,41 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
   pull_request:
 
 jobs:
   test:
-    name: Compile and Test (std)
+    name: Test (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: std
+            features: "--all-features"
+            tests: ""
+
+          - name: no_std rtu
+            features: "--no-default-features --features heapless,fixedvec,rtu"
+            tests: "tests"
+
+          - name: no_std ascii
+            features: "--no-default-features --features heapless,fixedvec,ascii"
+            tests: "tests"
+
+          - name: no_std tcpudp
+            features: "--no-default-features --features heapless,fixedvec,tcpudp"
+            tests: "tests"
+
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install stable rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features -- --test-threads=1 --nocapture
-
-  build_nostd:
-    name: Compile (no_std)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: tests --no-default-features --features heapless,fixedvec -- --test-threads=1 --nocapture
+        run: cargo test ${{ matrix.tests }} ${{ matrix.features }} -- --test-threads=1 --nocapture
 
   rustfmt:
     name: Rustfmt
