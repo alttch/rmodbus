@@ -163,6 +163,7 @@ fn test_nostd_get_set_bools_as_u8() {
     assert_eq!(result, data);
 }
 
+#[cfg(feature = "tcpudp")]
 fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
     let mut frame: ModbusFrameBuf = [0; 256];
     frame[0] = 0x77;
@@ -178,6 +179,7 @@ fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
     frame
 }
 
+#[cfg(feature = "tcpudp")]
 #[test]
 fn test_nostd_frame() {
     let mut ctx = CTX.write();
@@ -235,7 +237,14 @@ fn test_nostd_client() {
     let coils = [
         true, true, true, false, true, true, false, true, true, false, true,
     ];
-    let protos = [ModbusProto::TcpUdp, ModbusProto::Rtu, ModbusProto::Ascii];
+    let protos = [
+        #[cfg(feature = "tcpudp")]
+        ModbusProto::TcpUdp,
+        #[cfg(feature = "rtu")]
+        ModbusProto::Rtu,
+        #[cfg(feature = "ascii")]
+        ModbusProto::Ascii,
+    ];
 
     for proto in &protos {
         // set coils bulk

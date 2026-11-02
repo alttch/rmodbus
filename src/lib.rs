@@ -15,11 +15,7 @@ pub use error::ErrorKind;
 #[cfg(test)]
 mod tests;
 
-#[cfg(not(any(
-    feature = "tcpudp",
-    feature = "rtu",
-    feature = "ascii",
-)))]
+#[cfg(not(any(feature = "tcpudp", feature = "rtu", feature = "ascii",)))]
 compile_error!("At least one features [tcpudp, rtu, ascii] must be enabled");
 
 /// Modbus protocol selection for frame processing
@@ -107,6 +103,7 @@ pub fn generate_ascii_frame<V: VectorTrait<u8>>(
     result.push(0x0A)
 }
 
+#[cfg(feature = "rtu")]
 fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     let mut crc: u16 = 0xffff;
     for i in frame.iter().take(data_length as usize) {
@@ -123,6 +120,7 @@ fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     crc
 }
 
+#[cfg(feature = "ascii")]
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_sign_loss)]
 fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
@@ -133,6 +131,7 @@ fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
     lrc as u8
 }
 
+#[cfg(feature = "ascii")]
 fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
     match c {
         48..=57 => Ok(c - 48),
@@ -141,6 +140,7 @@ fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
     }
 }
 
+#[cfg(feature = "ascii")]
 #[inline]
 fn hex_to_chr(h: u8) -> u8 {
     if h < 10 {
@@ -171,7 +171,7 @@ fn hex_to_chr(h: u8) -> u8 {
 /// frames (unknown function code, ASCII decode failure, or computed length > 255).
 pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
     let mut b: ModbusFrameBuf;
-    let (f, f_len, multiplier, extra) = match proto {
+    let (f, f_len, multiplier, extra): (&[u8], usize, usize, usize) = match proto {
         #[cfg(feature = "tcpudp")]
         ModbusProto::TcpUdp => {
             if buf.len() < 6 {
@@ -244,8 +244,9 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
 /// is returned instead of panicking. `ErrorKind::FrameBroken` is returned for malformed
 /// frames (ASCII decode failure or computed length > 255).
 pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
+    #[cfg(feature = "ascii")]
     let mut buf: ModbusFrameBuf;
-    let (f, f_len, extra, multiplier) = match proto {
+    let (f, f_len, extra, multiplier): (&[u8], usize, usize, usize) = match proto {
         #[cfg(feature = "rtu")]
         ModbusProto::Rtu => (frame, frame.len(), 2, 1),
         #[cfg(feature = "ascii")]

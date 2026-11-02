@@ -60,32 +60,32 @@ required-features = ["std", "with_bincode"]
 [[example]]
 name = "tcpserver"
 path = "examples/tcpserver.rs"
-required-features = ["std"]
+required-features = ["std", "tcpudp"]
 
 [[example]]
 name = "udpserver"
 path = "examples/udpserver.rs"
-required-features = ["std"]
+required-features = ["std", "tcpudp"]
 
 [[example]]
 name = "rtuserver"
 path = "examples/rtuserver.rs"
-required-features = ["std"]
+required-features = ["std", "rtu"]
 
 [[example]]
 name = "asciiserver"
 path = "examples/asciiserver.rs"
-required-features = ["std"]
+required-features = ["std", "ascii"]
 
 [[example]]
 name = "tcpclient"
 path = "examples/tcpclient.rs"
-required-features = ["std"]
+required-features = ["std", "tcpudp"]
 
 [[example]]
 name = "rtuclient"
 path = "examples/rtuclient.rs"
-required-features = ["std"]
+required-features = ["std", "rtu"]
 
 [lints.clippy]
 # all = "warn"

@@ -1,7 +1,8 @@
-use crate::{
-    calc_crc16, calc_lrc, consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto,
-    VectorTrait,
-};
+#[cfg(feature = "rtu")]
+use crate::calc_crc16;
+#[cfg(feature = "ascii")]
+use crate::calc_lrc;
+use crate::{consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
 
 /// Modbus client generator/processor
 ///
@@ -724,6 +725,7 @@ mod tests {
     }
 
     // test cases taken from https://www.modbustools.com/modbus.html
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_gen_get_coils() {
         test_func(
@@ -748,6 +750,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_gen_get_discretes() {
         test_func(
@@ -772,6 +775,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_gen_get_holdings() {
         test_func(
@@ -794,6 +798,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_gen_get_inputs() {
         test_func(
@@ -816,6 +821,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_set_coil() {
         test_func(
@@ -831,6 +837,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_set_holding() {
         test_func(
@@ -848,6 +855,7 @@ mod tests {
 
     // set coils is bugged and input is confusing
     // it should be possible to set not set a coil, eg [0xCD, 0x01] only settings 10 coils instead of 16.
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_set_coils_bulk() {
         test_func(
@@ -874,6 +882,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_set_holdings_bulk() {
         test_func(
@@ -893,6 +902,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_set_holdings_bulk_from_slice() {
         test_func(
@@ -913,6 +923,7 @@ mod tests {
     }
 
     /// Odd number of bytes should pad
+    #[cfg(feature = "rtu")]
     #[test]
     fn test_rtu_set_holdings_bulk_from_slice_odd() {
         test_func(

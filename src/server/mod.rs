@@ -5,14 +5,18 @@ pub mod storage;
 use core::slice;
 pub use representable::representations;
 
+#[cfg(feature = "rtu")]
+use crate::calc_crc16;
+#[cfg(feature = "ascii")]
+use crate::calc_lrc;
 #[allow(clippy::wildcard_imports)]
 use crate::consts::*;
-use crate::{calc_crc16, calc_lrc, ErrorKind, ModbusProto, VectorTrait};
+use crate::{ErrorKind, ModbusProto, VectorTrait};
 
 /// Modbus frame processor
 ///
 /// ```no_run
-/// # #[cfg(feature = "fixedvec")]
+/// # #[cfg(all(feature = "fixedvec", feature = "tcpudp"))]
 /// # mod with_fixedvec {
 /// use rmodbus::{ModbusFrameBuf, ModbusProto, server::{ModbusFrame, storage::ModbusStorageFull, context::ModbusContext}};
 /// use fixedvec::{FixedVec, alloc_stack}; // for std use regular std::vec::Vec
@@ -123,7 +127,7 @@ impl<'a, V: VectorTrait<u8>> ModbusFrame<'a, V> {
     /// Configure this before calling [`Self::parse`].
     ///
     /// ```
-    /// # #[cfg(feature = "std")]
+    /// # #[cfg(all(feature = "std", feature = "rtu"))]
     /// # {
     /// use rmodbus::{server::ModbusFrame, ModbusProto};
     /// let request = [0u8; 8];
