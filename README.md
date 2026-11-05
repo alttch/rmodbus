@@ -216,8 +216,15 @@ support both `std` and `no_std`.
 For `no_std`, set the dependency as:
 
 ```toml
-rmodbus = { version = "*", default-features = false }
+rmodbus = { version = "*", default-features = false, features = ["rtu"] }
 ```
+
+Different Modbus protocols can also be enabled individually.
+This is useful to reduce the code size on embedded targets. The features are:
+
+- `rtu`
+- `ascii`
+- `tcpudp`
 
 ## Small storage
 
