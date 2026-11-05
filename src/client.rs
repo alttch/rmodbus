@@ -1,7 +1,8 @@
-use crate::{
-    calc_crc16, calc_lrc, consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto,
-    VectorTrait,
-};
+#[cfg(feature = "rtu")]
+use crate::calc_crc16;
+#[cfg(feature = "ascii")]
+use crate::calc_lrc;
+use crate::{consts::ModbusFunction, ErrorKind, ModbusFrameBuf, ModbusProto, VectorTrait};
 
 /// Modbus client generator/processor
 ///
@@ -82,6 +83,7 @@ impl ModbusRequest {
         }
     }
 
+    #[cfg(feature = "tcpudp")]
     pub fn new_tcp_udp(unit_id: u8, tr_id: u16) -> Self {
         Self {
             tr_id,
@@ -296,6 +298,7 @@ impl ModbusRequest {
 
     fn parse_response(&self, buf: &[u8]) -> Result<(usize, usize), ErrorKind> {
         let (frame_start, frame_end) = match self.proto {
+            #[cfg(feature = "tcpudp")]
             ModbusProto::TcpUdp => {
                 let l = buf.len();
                 if l < 9 {
@@ -308,6 +311,7 @@ impl ModbusRequest {
                 }
                 (6, l)
             }
+            #[cfg(feature = "rtu")]
             ModbusProto::Rtu => {
                 let mut l = buf.len();
                 if l < 5 {
@@ -324,6 +328,7 @@ impl ModbusRequest {
                 }
                 (0, l)
             }
+            #[cfg(feature = "ascii")]
             ModbusProto::Ascii => {
                 let mut l = buf.len();
                 if l < 4 {
@@ -561,6 +566,7 @@ impl ModbusRequest {
 
     fn generate<V: VectorTrait<u8>>(&self, data: &[u8], request: &mut V) -> Result<(), ErrorKind> {
         request.clear();
+        #[cfg(feature = "tcpudp")]
         if self.proto == ModbusProto::TcpUdp {
             request.extend(&self.tr_id.to_be_bytes())?;
             request.extend(&[0u8, 0, 0, 0])?;
@@ -590,6 +596,7 @@ impl ModbusRequest {
             }
         }
         match self.proto {
+            #[cfg(feature = "tcpudp")]
             ModbusProto::TcpUdp => {
                 let mut l = request.len();
                 if l < 6 {
@@ -604,6 +611,7 @@ impl ModbusRequest {
                 request.replace(4, len_buf[0]);
                 request.replace(5, len_buf[1]);
             }
+            #[cfg(feature = "rtu")]
             ModbusProto::Rtu => {
                 let l = request.len();
                 if l > u8::MAX as usize {
@@ -613,6 +621,7 @@ impl ModbusRequest {
                 let crc = calc_crc16(request.as_slice(), l as u8);
                 request.extend(&crc.to_le_bytes())?;
             }
+            #[cfg(feature = "ascii")]
             ModbusProto::Ascii => {
                 let l = request.len();
                 if l > u8::MAX as usize {
@@ -628,7 +637,7 @@ impl ModbusRequest {
 }
 
 #[cfg(test)]
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "rtu"))]
 mod tests {
     use super::*;
 

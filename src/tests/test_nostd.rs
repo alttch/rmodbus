@@ -163,6 +163,7 @@ fn test_nostd_get_set_bools_as_u8() {
     assert_eq!(result, data);
 }
 
+#[cfg(feature = "tcpudp")]
 fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
     let mut frame: ModbusFrameBuf = [0; 256];
     frame[0] = 0x77;
@@ -178,6 +179,7 @@ fn gen_tcp_frame(data: &[u8]) -> ModbusFrameBuf {
     frame
 }
 
+#[cfg(feature = "tcpudp")]
 #[test]
 fn test_nostd_frame() {
     let mut ctx = CTX.write();
@@ -235,7 +237,14 @@ fn test_nostd_client() {
     let coils = [
         true, true, true, false, true, true, false, true, true, false, true,
     ];
-    let protos = [ModbusProto::TcpUdp, ModbusProto::Rtu, ModbusProto::Ascii];
+    let protos = [
+        #[cfg(feature = "tcpudp")]
+        ModbusProto::TcpUdp,
+        #[cfg(feature = "rtu")]
+        ModbusProto::Rtu,
+        #[cfg(feature = "ascii")]
+        ModbusProto::Ascii,
+    ];
 
     for proto in &protos {
         // set coils bulk
@@ -248,19 +257,26 @@ fn test_nostd_client() {
         let mut response_mem = alloc_stack!([u8; 256]);
         let mut response = FixedVec::new(&mut response_mem);
         let mut framebuf: ModbusFrameBuf = [0; 256];
-        if *proto == ModbusProto::Rtu {
-            let mut ascii_mem = alloc_stack!([u8; 1024]);
-            let mut ascii_frame = FixedVec::new(&mut ascii_mem);
-            generate_ascii_frame(request.as_slice(), &mut ascii_frame).unwrap();
-            for c in &mut framebuf {
-                *c = 0;
+
+        match proto {
+            #[cfg(feature = "ascii")]
+            ModbusProto::Ascii => {
+                let mut ascii_mem = alloc_stack!([u8; 1024]);
+                let mut ascii_frame = FixedVec::new(&mut ascii_mem);
+                generate_ascii_frame(request.as_slice(), &mut ascii_frame).unwrap();
+                for c in &mut framebuf {
+                    *c = 0;
+                }
+                parse_ascii_frame(ascii_frame.as_slice(), ascii_frame.len(), &mut framebuf, 0)
+                    .unwrap();
             }
-            parse_ascii_frame(ascii_frame.as_slice(), ascii_frame.len(), &mut framebuf, 0).unwrap();
-        } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
+            _ => {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
             }
         }
+
         let mut frame = ModbusFrame::new(2, &framebuf, *proto, &mut response);
         frame.parse().unwrap();
         assert!(frame.response_required);
@@ -287,17 +303,23 @@ fn test_nostd_client() {
         let mut response_mem = alloc_stack!([u8; 256]);
         let mut response = FixedVec::new(&mut response_mem);
         let mut framebuf: ModbusFrameBuf = [0; 256];
-        if *proto == ModbusProto::Rtu {
-            let mut ascii_mem = alloc_stack!([u8; 1024]);
-            let mut ascii_frame = FixedVec::new(&mut ascii_mem);
-            generate_ascii_frame(request.as_slice(), &mut ascii_frame).unwrap();
-            for c in &mut framebuf {
-                *c = 0;
+
+        match proto {
+            #[cfg(feature = "ascii")]
+            ModbusProto::Ascii => {
+                let mut ascii_mem = alloc_stack!([u8; 1024]);
+                let mut ascii_frame = FixedVec::new(&mut ascii_mem);
+                generate_ascii_frame(request.as_slice(), &mut ascii_frame).unwrap();
+                for c in &mut framebuf {
+                    *c = 0;
+                }
+                parse_ascii_frame(ascii_frame.as_slice(), ascii_frame.len(), &mut framebuf, 0)
+                    .unwrap();
             }
-            parse_ascii_frame(ascii_frame.as_slice(), ascii_frame.len(), &mut framebuf, 0).unwrap();
-        } else {
-            for i in 0..request.len() {
-                framebuf[i] = request[i];
+            _ => {
+                for i in 0..request.len() {
+                    framebuf[i] = request[i];
+                }
             }
         }
         let mut frame = ModbusFrame::new(3, &framebuf, *proto, &mut response);

@@ -1757,6 +1757,7 @@ fn test_server_broadcast_units() {
     }
 }
 
+#[cfg(feature = "tcpudp")]
 #[test]
 fn test_server_unit_255_tcp_read() {
     // The exact FC03 request from issue #58 must receive a normal response.

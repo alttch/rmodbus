@@ -53,6 +53,7 @@ use rmodbus::{
 
 static CONTEXT: Lazy<RwLock<ModbusStorageFull>> = Lazy::new(<_>::default);
 
+#[cfg(feature = "tcpudp")]
 pub fn tcpserver(unit: u8, listen: &str) {
     let listener = TcpListener::bind(listen).unwrap();
     println!("listening started, ready to accept");
@@ -215,8 +216,15 @@ support both `std` and `no_std`.
 For `no_std`, set the dependency as:
 
 ```toml
-rmodbus = { version = "*", default-features = false }
+rmodbus = { version = "*", default-features = false, features = ["rtu"] }
 ```
+
+Different Modbus protocols can also be enabled individually.
+This is useful to reduce the code size on embedded targets. The features are:
+
+- `rtu`
+- `ascii`
+- `tcpudp`
 
 ## Small storage
 
@@ -285,58 +293,61 @@ use std::time::Duration;
 
 use rmodbus::{client::ModbusRequest, guess_response_frame_len, ModbusProto};
 
-let timeout = Duration::from_secs(1);
-
-// open TCP connection
-let mut stream = TcpStream::connect("localhost:5502").unwrap();
-stream.set_read_timeout(Some(timeout)).unwrap();
-stream.set_write_timeout(Some(timeout)).unwrap();
-
-// create request object
-let mut mreq = ModbusRequest::new(1, ModbusProto::TcpUdp);
-mreq.tr_id = 2; // just for test, default tr_id is 1
-
-// set 2 coils
-let mut request = Vec::new();
-mreq.generate_set_coils_bulk(0, &[true, true], &mut request)
-    .unwrap();
-
-// write request to stream
-stream.write(&request).unwrap();
-
-// read first 6 bytes of response frame
-let mut buf = [0u8; 6];
-stream.read_exact(&mut buf).unwrap();
-let mut response = Vec::new();
-response.extend_from_slice(&buf);
-let len = guess_response_frame_len(&buf, ModbusProto::TcpUdp).unwrap();
-// read rest of response frame
-if len > 6 {
-    let mut rest = vec![0u8; (len - 6) as usize];
-    stream.read_exact(&mut rest).unwrap();
-    response.extend(rest);
-}
-// check if frame has no Modbus error inside
-mreq.parse_ok(&response).unwrap();
-
-// get coil values back
-mreq.generate_get_coils(0, 2, &mut request).unwrap();
-stream.write(&request).unwrap();
-let mut buf = [0u8; 6];
-stream.read_exact(&mut buf).unwrap();
-let mut response = Vec::new();
-response.extend_from_slice(&buf);
-let len = guess_response_frame_len(&buf, ModbusProto::TcpUdp).unwrap();
-if len > 6 {
-    let mut rest = vec![0u8; (len - 6) as usize];
-    stream.read_exact(&mut rest).unwrap();
-    response.extend(rest);
-}
-let mut data = Vec::new();
-// check if frame has no Modbus error inside and parse response bools into data vec
-mreq.parse_bool(&response, &mut data).unwrap();
-for i in 0..data.len() {
-    println!("{} {}", i, data[i]);
+#[cfg(feature = "tcpudp")]
+fn tcp_client() {
+    let timeout = Duration::from_secs(1);
+    
+    // open TCP connection
+    let mut stream = TcpStream::connect("localhost:5502").unwrap();
+    stream.set_read_timeout(Some(timeout)).unwrap();
+    stream.set_write_timeout(Some(timeout)).unwrap();
+    
+    // create request object
+    let mut mreq = ModbusRequest::new(1, ModbusProto::TcpUdp);
+    mreq.tr_id = 2; // just for test, default tr_id is 1
+    
+    // set 2 coils
+    let mut request = Vec::new();
+    mreq.generate_set_coils_bulk(0, &[true, true], &mut request)
+        .unwrap();
+    
+    // write request to stream
+    stream.write(&request).unwrap();
+    
+    // read first 6 bytes of response frame
+    let mut buf = [0u8; 6];
+    stream.read_exact(&mut buf).unwrap();
+    let mut response = Vec::new();
+    response.extend_from_slice(&buf);
+    let len = guess_response_frame_len(&buf, ModbusProto::TcpUdp).unwrap();
+    // read rest of response frame
+    if len > 6 {
+        let mut rest = vec![0u8; (len - 6) as usize];
+        stream.read_exact(&mut rest).unwrap();
+        response.extend(rest);
+    }
+    // check if frame has no Modbus error inside
+    mreq.parse_ok(&response).unwrap();
+    
+    // get coil values back
+    mreq.generate_get_coils(0, 2, &mut request).unwrap();
+    stream.write(&request).unwrap();
+    let mut buf = [0u8; 6];
+    stream.read_exact(&mut buf).unwrap();
+    let mut response = Vec::new();
+    response.extend_from_slice(&buf);
+    let len = guess_response_frame_len(&buf, ModbusProto::TcpUdp).unwrap();
+    if len > 6 {
+        let mut rest = vec![0u8; (len - 6) as usize];
+        stream.read_exact(&mut rest).unwrap();
+        response.extend(rest);
+    }
+    let mut data = Vec::new();
+    // check if frame has no Modbus error inside and parse response bools into data vec
+    mreq.parse_bool(&response, &mut data).unwrap();
+    for i in 0..data.len() {
+        println!("{} {}", i, data[i]);
+    }
 }
 ```
 

@@ -15,6 +15,15 @@ pub use error::ErrorKind;
 #[cfg(test)]
 mod tests;
 
+#[cfg(not(any(feature = "tcpudp", feature = "rtu", feature = "ascii",)))]
+compile_error!("At least one features [tcpudp, rtu, ascii] must be enabled");
+
+const ASCII_TERMINATION_LEN: usize = 5;
+// two bytes CRC16
+const RTU_TERMINATION_LEN: usize = 2;
+const ASCII_MULTIPLIER: usize = 2;
+const RTU_MULTIPLIER: usize = 1;
+
 /// Modbus protocol selection for frame processing
 ///
 /// * for **TcpUdp**, Modbus TCP headers are parsed / added to replies
@@ -22,8 +31,11 @@ mod tests;
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ModbusProto {
+    #[cfg(feature = "rtu")]
     Rtu,
+    #[cfg(feature = "ascii")]
     Ascii,
+    #[cfg(feature = "tcpudp")]
     TcpUdp,
 }
 
@@ -48,6 +60,7 @@ pub type ModbusFrameBuf = [u8; 256];
 ///
 /// * **OOB** input is larger than frame buffer (starting from frame_pos)
 /// * **FrameBroken** unable to decode input hex string
+#[cfg(feature = "ascii")]
 pub fn parse_ascii_frame(
     data: &[u8],
     data_len: usize,
@@ -81,6 +94,7 @@ pub fn parse_ascii_frame(
 ///
 /// Generates ASCII frame from binary response, made by "process_frame" function (response must be
 /// supplited as slice)
+#[cfg(feature = "ascii")]
 pub fn generate_ascii_frame<V: VectorTrait<u8>>(
     data: &[u8],
     result: &mut V,
@@ -95,6 +109,7 @@ pub fn generate_ascii_frame<V: VectorTrait<u8>>(
     result.push(0x0A)
 }
 
+#[cfg(feature = "rtu")]
 fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     let mut crc: u16 = 0xffff;
     for i in frame.iter().take(data_length as usize) {
@@ -111,6 +126,7 @@ fn calc_crc16(frame: &[u8], data_length: u8) -> u16 {
     crc
 }
 
+#[cfg(feature = "ascii")]
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_sign_loss)]
 fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
@@ -121,6 +137,7 @@ fn calc_lrc(frame: &[u8], data_length: u8) -> u8 {
     lrc as u8
 }
 
+#[cfg(feature = "ascii")]
 fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
     match c {
         48..=57 => Ok(c - 48),
@@ -129,6 +146,7 @@ fn chr_to_hex(c: u8) -> Result<u8, ErrorKind> {
     }
 }
 
+#[cfg(feature = "ascii")]
 #[inline]
 fn hex_to_chr(h: u8) -> u8 {
     if h < 10 {
@@ -158,43 +176,63 @@ fn hex_to_chr(h: u8) -> u8 {
 /// is returned instead of panicking. `ErrorKind::FrameBroken` is returned for malformed
 /// frames (unknown function code, ASCII decode failure, or computed length > 255).
 pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
-    let mut b: ModbusFrameBuf;
-    let (f, f_len, multiplier, extra) = match proto {
-        ModbusProto::TcpUdp => {
-            if buf.len() < 6 {
-                return Err(ErrorKind::OOB);
-            }
-            let proto = u16::from_be_bytes([buf[2], buf[3]]);
-            if proto == 0 {
-                let len = u32::from(u16::from_be_bytes([buf[4], buf[5]])) + 6;
-                if len > u32::from(u8::MAX) {
-                    return Err(ErrorKind::FrameBroken);
-                }
-                #[allow(clippy::cast_possible_truncation)]
-                return Ok(len as u8);
-            }
-            return Err(ErrorKind::FrameBroken);
+    match proto {
+        #[cfg(feature = "tcpudp")]
+        ModbusProto::TcpUdp => guess_tcp_response_frame_len(buf),
+        #[cfg(feature = "rtu")]
+        ModbusProto::Rtu => {
+            guess_serial_response_frame_len(buf, buf.len(), RTU_MULTIPLIER, RTU_TERMINATION_LEN)
         }
-        ModbusProto::Rtu => (buf, buf.len(), 1, 2), // two bytes CRC16
+        #[cfg(feature = "ascii")]
         ModbusProto::Ascii => {
             if buf.is_empty() {
                 return Err(ErrorKind::OOB);
             }
-            b = [0; 256];
+            let mut b: ModbusFrameBuf = [0; 256];
             let n = parse_ascii_frame(buf, buf.len(), &mut b, 0)?;
-            (&b[..], usize::from(n), 2, 5) // : + two chars LRC + \r\n
+            guess_serial_response_frame_len(
+                &b[..],
+                usize::from(n),
+                ASCII_MULTIPLIER,
+                ASCII_TERMINATION_LEN,
+            )
         }
-    };
-    if f_len < 2 {
+    }
+}
+#[cfg(feature = "tcpudp")]
+fn guess_tcp_response_frame_len(buf: &[u8]) -> Result<u8, ErrorKind> {
+    if buf.len() < 6 {
         return Err(ErrorKind::OOB);
     }
-    let func = f[1];
+    let proto = u16::from_be_bytes([buf[2], buf[3]]);
+    if proto == 0 {
+        let len = u32::from(u16::from_be_bytes([buf[4], buf[5]])) + 6;
+        if len > u32::from(u8::MAX) {
+            return Err(ErrorKind::FrameBroken);
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        return Ok(len as u8);
+    }
+    Err(ErrorKind::FrameBroken)
+}
+
+#[cfg(any(feature = "rtu", feature = "ascii"))]
+fn guess_serial_response_frame_len(
+    frame: &[u8],
+    frame_len: usize,
+    multiplier: usize,
+    extra: usize,
+) -> Result<u8, ErrorKind> {
+    if frame_len < 2 {
+        return Err(ErrorKind::OOB);
+    }
+    let func = frame[1];
     let len: usize = if func < 0x80 {
-        if f_len < 3 {
+        if frame_len < 3 {
             return Err(ErrorKind::OOB);
         }
         match func {
-            1..=4 => (f[2] as usize + 3) * multiplier + extra,
+            1..=4 => (frame[2] as usize + 3) * multiplier + extra,
             5 | 6 | 15 | 16 => 6 * multiplier + extra,
             _ => {
                 return Err(ErrorKind::FrameBroken);
@@ -229,42 +267,47 @@ pub fn guess_response_frame_len(buf: &[u8], proto: ModbusProto) -> Result<u8, Er
 /// is returned instead of panicking. `ErrorKind::FrameBroken` is returned for malformed
 /// frames (ASCII decode failure or computed length > 255).
 pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, ErrorKind> {
-    let mut buf: ModbusFrameBuf;
-    let (f, f_len, extra, multiplier) = match proto {
-        ModbusProto::Rtu => (frame, frame.len(), 2, 1),
+    match proto {
+        #[cfg(feature = "tcpudp")]
+        ModbusProto::TcpUdp => guess_tcp_request_frame_len(frame),
+        #[cfg(feature = "rtu")]
+        ModbusProto::Rtu => {
+            guess_serial_request_frame_len(frame, frame.len(), RTU_MULTIPLIER, RTU_TERMINATION_LEN)
+        }
+        #[cfg(feature = "ascii")]
         ModbusProto::Ascii => {
             if frame.is_empty() {
                 return Err(ErrorKind::OOB);
             }
-            buf = [0; 256];
+            let mut buf: ModbusFrameBuf = [0; 256];
             let n = parse_ascii_frame(frame, frame.len(), &mut buf, 0)?;
-            (&buf[..], usize::from(n), 5, 2)
+            guess_serial_request_frame_len(
+                &buf[..],
+                usize::from(n),
+                ASCII_MULTIPLIER,
+                ASCII_TERMINATION_LEN,
+            )
         }
-        ModbusProto::TcpUdp => {
-            if frame.len() < 6 {
-                return Err(ErrorKind::OOB);
-            }
-            let proto = u16::from_be_bytes([frame[2], frame[3]]);
-            if proto == 0 {
-                let len = u32::from(u16::from_be_bytes([frame[4], frame[5]])) + 6;
-                if len > u32::from(u8::MAX) {
-                    return Err(ErrorKind::FrameBroken);
-                }
-                #[allow(clippy::cast_possible_truncation)]
-                return Ok(len as u8);
-            }
-            return Err(ErrorKind::FrameBroken);
-        }
-    };
-    if f_len < 2 {
+    }
+}
+
+#[cfg(any(feature = "rtu", feature = "ascii"))]
+#[inline]
+fn guess_serial_request_frame_len(
+    frame: &[u8],
+    frame_len: usize,
+    multiplier: usize,
+    extra: usize,
+) -> Result<u8, ErrorKind> {
+    if frame_len < 2 {
         return Err(ErrorKind::OOB);
     }
-    let len: usize = match f[1] {
+    let len: usize = match frame[1] {
         15 | 16 => {
-            if f_len < 7 {
+            if frame_len < 7 {
                 return Err(ErrorKind::OOB);
             }
-            (f[6] as usize + 7) * multiplier + extra
+            (frame[6] as usize + 7) * multiplier + extra
         }
         _ => 6 * multiplier + extra,
     };
@@ -274,4 +317,22 @@ pub fn guess_request_frame_len(frame: &[u8], proto: ModbusProto) -> Result<u8, E
         #[allow(clippy::cast_possible_truncation)]
         Ok(len as u8)
     }
+}
+
+#[cfg(feature = "tcpudp")]
+#[inline]
+fn guess_tcp_request_frame_len(frame: &[u8]) -> Result<u8, ErrorKind> {
+    if frame.len() < 6 {
+        return Err(ErrorKind::OOB);
+    }
+    let proto = u16::from_be_bytes([frame[2], frame[3]]);
+    if proto == 0 {
+        let len = u32::from(u16::from_be_bytes([frame[4], frame[5]])) + 6;
+        if len > u32::from(u8::MAX) {
+            return Err(ErrorKind::FrameBroken);
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        return Ok(len as u8);
+    }
+    Err(ErrorKind::FrameBroken)
 }
