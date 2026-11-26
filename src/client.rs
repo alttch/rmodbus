@@ -353,9 +353,8 @@ impl ModbusRequest {
         }
 
         if self.func.is_read() {
-            // len is number of words
-            let len = buf[frame_start + 2] as usize;
-            if len * 2 < (frame_end - frame_start) - 3 {
+            let byte_count = usize::from(buf[frame_start + 2]);
+            if byte_count != (frame_end - frame_start) - 3 {
                 return Err(ErrorKind::FrameBroken);
             }
         }
@@ -624,6 +623,82 @@ impl ModbusRequest {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod response_tests {
+    use super::*;
+    use fixedvec::FixedVec;
+
+    fn check_read_responses(byte_count: u8, data: &[u8], expected: Result<(), ErrorKind>) {
+        for proto in [ModbusProto::Rtu, ModbusProto::Ascii, ModbusProto::TcpUdp] {
+            for func in [
+                ModbusFunction::GetCoils,
+                ModbusFunction::GetDiscretes,
+                ModbusFunction::GetHoldings,
+                ModbusFunction::GetInputs,
+            ] {
+                let mut request = ModbusRequest::new(1, proto);
+                request.func = func;
+                // Keep the request valid (4 data bytes = 32 coils or 2 registers);
+                // parse_response checks only the response's own byte count, not the requested quantity.
+                request.count = match func {
+                    ModbusFunction::GetCoils | ModbusFunction::GetDiscretes => 32,
+                    _ => 2,
+                };
+
+                let mut storage = [0u8; 32];
+                let mut response = FixedVec::new(&mut storage);
+                if proto == ModbusProto::TcpUdp {
+                    response.push_all(&request.tr_id.to_be_bytes()).unwrap();
+                    response.push_all(&[0, 0]).unwrap();
+                    let length = u16::try_from(data.len() + 3).unwrap();
+                    response.push_all(&length.to_be_bytes()).unwrap();
+                }
+                response.push_all(&[1, func.byte(), byte_count]).unwrap();
+                response.push_all(data).unwrap();
+                let length = u8::try_from(response.len()).unwrap();
+                match proto {
+                    ModbusProto::Rtu => {
+                        let crc = calc_crc16(response.as_slice(), length);
+                        response.push_all(&crc.to_le_bytes()).unwrap();
+                    }
+                    ModbusProto::Ascii => {
+                        let lrc = calc_lrc(response.as_slice(), length);
+                        response.push(lrc).unwrap();
+                    }
+                    ModbusProto::TcpUdp => {}
+                }
+
+                assert_eq!(
+                    request.parse_ok(response.as_slice()),
+                    expected,
+                    "protocol {proto:?}, function {func:?}, response {:02x?}",
+                    response.as_slice()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn read_response_accepts_matching_byte_count() {
+        check_read_responses(4, &[0, 6, 0, 5], Ok(()));
+    }
+
+    #[test]
+    fn read_response_rejects_byte_count_smaller_than_data() {
+        check_read_responses(2, &[0, 6, 0, 5], Err(ErrorKind::FrameBroken));
+    }
+
+    #[test]
+    fn read_response_rejects_byte_count_larger_than_data() {
+        check_read_responses(6, &[0, 6, 0, 5], Err(ErrorKind::FrameBroken));
+    }
+
+    #[test]
+    fn read_response_rejects_truncated_data() {
+        check_read_responses(4, &[0, 6], Err(ErrorKind::FrameBroken));
     }
 }
 
