@@ -23,7 +23,7 @@ macro_rules! parse_reg {
         // let (frame_start, frame_end) = $self.parse_response($buf)?;
         let data = $self.parse_slice($buf)?;
         let mut pos = 0;
-        while pos < data.len() - 1 {
+        while pos + 1 < data.len() {
             let value = <$t>::from_be_bytes([data[pos], data[pos + 1]]);
             if $result.len() >= usize::from($self.count) {
                 break;
@@ -39,7 +39,7 @@ macro_rules! parse_reg32_be {
         // let (frame_start, frame_end) = $self.parse_response($buf)?;
         let data = $self.parse_slice($buf)?;
         let mut pos = 0;
-        while pos < data.len() - 3 {
+        while pos + 3 < data.len() {
             let value =
                 <$t>::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
             if $result.len() >= usize::from($self.count) {
@@ -56,7 +56,7 @@ macro_rules! parse_reg32_le {
         // let (frame_start, frame_end) = $self.parse_response($buf)?;
         let data = $self.parse_slice($buf)?;
         let mut pos = 0;
-        while pos < data.len() - 3 {
+        while pos + 3 < data.len() {
             let value =
                 <$t>::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
             if $result.len() >= usize::from($self.count) {
@@ -1001,5 +1001,48 @@ mod tests {
                 parsed: None,
             },
         );
+    }
+
+    /// An RTU reply to `req` carrying `data` after the byte count, CRC added.
+    fn rtu_reply(req: &ModbusRequest, data: &[u8]) -> Vec<u8> {
+        let mut frame = vec![
+            req.unit_id,
+            req.func as u8,
+            u8::try_from(data.len()).unwrap(),
+        ];
+        frame.extend_from_slice(data);
+        let crc = crate::calc_crc16(&frame, u8::try_from(frame.len()).unwrap());
+        frame.extend_from_slice(&crc.to_le_bytes());
+        frame
+    }
+
+    #[test]
+    fn test_rtu_parse_reg_empty_data() {
+        let mut req = ModbusRequest::new(1, ModbusProto::Rtu);
+        req.generate_get_holdings(0, 1, &mut Vec::new()).unwrap();
+        let response = rtu_reply(&req, &[]);
+        let mut u16s: Vec<u16> = Vec::new();
+        req.parse_u16(&response, &mut u16s).unwrap();
+        assert!(u16s.is_empty());
+        let mut i16s: Vec<i16> = Vec::new();
+        req.parse_i16(&response, &mut i16s).unwrap();
+        assert!(i16s.is_empty());
+    }
+
+    #[test]
+    fn test_rtu_parse_reg32_short_data() {
+        let mut req = ModbusRequest::new(1, ModbusProto::Rtu);
+        req.generate_get_holdings(0, 2, &mut Vec::new()).unwrap();
+        for data in [&[][..], &[0x12, 0x34][..]] {
+            let response = rtu_reply(&req, data);
+            let mut values: Vec<u32> = Vec::new();
+            req.parse_u32_be(&response, &mut values).unwrap();
+            req.parse_u32_le(&response, &mut values).unwrap();
+            assert!(values.is_empty());
+            let mut floats: Vec<f32> = Vec::new();
+            req.parse_f32_be(&response, &mut floats).unwrap();
+            req.parse_f32_le(&response, &mut floats).unwrap();
+            assert!(floats.is_empty());
+        }
     }
 }
